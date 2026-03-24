@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const PIPEFY_API = "https://api.pipefy.com/graphql";
+const PIPEFY_TOKEN = process.env.PIPEFY_TOKEN || "";
 const TABLE_ID = "uPKa2zs_";
+const ORG_ID = "330500";
 
 interface EnxovalData {
   codigo_imovel: string;
@@ -26,7 +28,8 @@ interface EnxovalData {
   capa_edredom_king_size: number;
 }
 
-async function pipefyQuery(query: string, token: string) {
+async function pipefyQuery(query: string) {
+  const token = PIPEFY_TOKEN;
   const res = await fetch(PIPEFY_API, {
     method: "POST",
     headers: {
@@ -38,7 +41,8 @@ async function pipefyQuery(query: string, token: string) {
   return res.json();
 }
 
-async function uploadFileToPipefy(file: File, orgId: string, token: string): Promise<string> {
+async function uploadFileToPipefy(file: File): Promise<string> {
+  const orgId = ORG_ID;
   // Step 1: Get presigned URL
   const presignQuery = `
     mutation {
@@ -52,7 +56,7 @@ async function uploadFileToPipefy(file: File, orgId: string, token: string): Pro
     }
   `;
 
-  const presignResult = await pipefyQuery(presignQuery, token);
+  const presignResult = await pipefyQuery(presignQuery);
   const presignedUrl = presignResult.data?.createPresignedUrl?.url;
 
   if (!presignedUrl) {
@@ -88,15 +92,21 @@ function getTodayFormatted(): string {
 
 export async function POST(request: NextRequest) {
   try {
+    if (!PIPEFY_TOKEN) {
+      return NextResponse.json(
+        { error: "Token do Pipefy não configurado no servidor" },
+        { status: 500 }
+      );
+    }
+
     const formData = await request.formData();
     const dataStr = formData.get("data") as string;
     const pdfFile = formData.get("pdf") as File;
-    const token = formData.get("token") as string;
     const cardId = formData.get("cardId") as string;
 
-    if (!dataStr || !token) {
+    if (!dataStr) {
       return NextResponse.json(
-        { error: "Dados ou token não fornecidos" },
+        { error: "Dados não fornecidos" },
         { status: 400 }
       );
     }
@@ -107,7 +117,7 @@ export async function POST(request: NextRequest) {
     let fileUrl = "";
     if (pdfFile) {
       try {
-        fileUrl = await uploadFileToPipefy(pdfFile, "330500", token);
+        fileUrl = await uploadFileToPipefy(pdfFile);
       } catch {
         console.error("Falha no upload, continuando sem anexo");
       }
@@ -163,7 +173,7 @@ export async function POST(request: NextRequest) {
       }
     `;
 
-    const createResult = await pipefyQuery(createQuery, token);
+    const createResult = await pipefyQuery(createQuery);
 
     if (createResult.errors) {
       return NextResponse.json(
@@ -187,7 +197,7 @@ export async function POST(request: NextRequest) {
           }
         }
       `;
-      await pipefyQuery(connectQuery, token);
+      await pipefyQuery(connectQuery);
     }
 
     return NextResponse.json({
