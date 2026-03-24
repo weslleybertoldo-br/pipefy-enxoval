@@ -25,6 +25,11 @@ interface EnxovalData {
   capa_edredom_king_size: number;
 }
 
+interface CardResult {
+  id: string;
+  title: string;
+}
+
 const FIELD_LABELS: Record<keyof Omit<EnxovalData, "codigo_imovel">, string> = {
   fronha: "Fronha",
   toalha_de_banho: "Toalha de banho",
@@ -49,6 +54,10 @@ const FIELD_LABELS: Record<keyof Omit<EnxovalData, "codigo_imovel">, string> = {
 
 export default function Home() {
   const [cardId, setCardId] = useState("");
+  const [cardSearch, setCardSearch] = useState("");
+  const [cardResults, setCardResults] = useState<CardResult[]>([]);
+  const [selectedCard, setSelectedCard] = useState<CardResult | null>(null);
+  const [searching, setSearching] = useState(false);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [data, setData] = useState<EnxovalData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -56,6 +65,33 @@ export default function Home() {
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [rawText, setRawText] = useState("");
   const [showRaw, setShowRaw] = useState(false);
+
+  const searchCard = useCallback(async (query: string) => {
+    if (!query) return;
+    setSearching(true);
+    setCardResults([]);
+    setSelectedCard(null);
+    setCardId("");
+
+    try {
+      const res = await fetch(`/api/search-card?q=${encodeURIComponent(query)}`);
+      const result = await res.json();
+      if (result.success && result.cards.length > 0) {
+        setCardResults(result.cards);
+        // If exact match (1 result), auto-select
+        if (result.cards.length === 1) {
+          setSelectedCard(result.cards[0]);
+          setCardId(result.cards[0].id);
+        }
+      } else {
+        setCardResults([]);
+      }
+    } catch {
+      // ignore
+    } finally {
+      setSearching(false);
+    }
+  }, []);
 
   const handleParsePdf = useCallback(async () => {
     if (!pdfFile) return;
@@ -75,6 +111,12 @@ export default function Home() {
       if (result.success) {
         setData(result.data);
         setRawText(result.rawText || "");
+
+        // Auto-search card by código do imóvel
+        if (result.data.codigo_imovel) {
+          setCardSearch(result.data.codigo_imovel);
+          searchCard(result.data.codigo_imovel);
+        }
       } else {
         setMessage({ type: "error", text: result.error });
       }
@@ -83,7 +125,7 @@ export default function Home() {
     } finally {
       setLoading(false);
     }
-  }, [pdfFile]);
+  }, [pdfFile, searchCard]);
 
   const handleSubmit = useCallback(async () => {
     if (!data) return;
@@ -105,7 +147,7 @@ export default function Home() {
       if (result.success) {
         setMessage({
           type: "success",
-          text: `Registro #${result.recordId} criado com sucesso!`,
+          text: `Registro #${result.recordId} criado com sucesso!${selectedCard ? ` Conectado ao card ${selectedCard.title}` : ""}`,
         });
       } else {
         setMessage({
@@ -118,7 +160,7 @@ export default function Home() {
     } finally {
       setSubmitting(false);
     }
-  }, [data, cardId, pdfFile]);
+  }, [data, cardId, pdfFile, selectedCard]);
 
   const updateField = (key: keyof EnxovalData, value: string) => {
     if (!data) return;
@@ -139,23 +181,6 @@ export default function Home() {
         </p>
       </header>
 
-      {/* Config */}
-      <section className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-4">Configuração</h2>
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            ID do Card (opcional — para conectar ao card da Fase 5)
-          </label>
-          <input
-            type="text"
-            value={cardId}
-            onChange={(e) => setCardId(e.target.value)}
-            placeholder="Ex: 1273397183"
-            className="w-64 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
-        </div>
-      </section>
-
       {/* Upload PDF */}
       <section className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">1. Upload do PDF de Enxoval</h2>
@@ -169,6 +194,10 @@ export default function Home() {
                   setPdfFile(e.target.files?.[0] || null);
                   setData(null);
                   setMessage(null);
+                  setSelectedCard(null);
+                  setCardResults([]);
+                  setCardId("");
+                  setCardSearch("");
                 }}
                 className="hidden"
               />
@@ -249,10 +278,80 @@ export default function Home() {
         </section>
       )}
 
-      {/* Submit */}
+      {/* Card Search & Submit */}
       {data && (
         <section className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold mb-4">3. Enviar para o Pipefy</h2>
+          <h2 className="text-lg font-semibold mb-4">3. Conectar ao Card e Enviar</h2>
+
+          {/* Search */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Buscar Card (nome do imóvel ou ID)
+            </label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={cardSearch}
+                onChange={(e) => setCardSearch(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") searchCard(cardSearch); }}
+                placeholder="Ex: ALA0004 ou 1318344701"
+                className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                onClick={() => searchCard(cardSearch)}
+                disabled={!cardSearch || searching}
+                className="bg-gray-700 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {searching ? "Buscando..." : "Buscar"}
+              </button>
+            </div>
+          </div>
+
+          {/* Results */}
+          {cardResults.length > 1 && (
+            <div className="mb-4 border border-gray-200 rounded-md divide-y">
+              {cardResults.map((card) => (
+                <button
+                  key={card.id}
+                  onClick={() => {
+                    setSelectedCard(card);
+                    setCardId(card.id);
+                    setCardResults([]);
+                  }}
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-blue-50 transition-colors ${
+                    selectedCard?.id === card.id ? "bg-blue-50 font-medium" : ""
+                  }`}
+                >
+                  <span className="font-medium">{card.title}</span>
+                  <span className="text-gray-400 ml-2">ID: {card.id}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Selected card */}
+          {selectedCard && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center justify-between">
+              <span className="text-sm">
+                Card selecionado: <strong>{selectedCard.title}</strong>
+                <span className="text-gray-500 ml-2">(ID: {selectedCard.id})</span>
+              </span>
+              <button
+                onClick={() => { setSelectedCard(null); setCardId(""); }}
+                className="text-xs text-red-500 hover:text-red-700"
+              >
+                Remover
+              </button>
+            </div>
+          )}
+
+          {cardSearch && !searching && cardResults.length === 0 && !selectedCard && (
+            <p className="mb-4 text-sm text-yellow-600">
+              Nenhum card encontrado na Fase 5 com esse nome/ID.
+            </p>
+          )}
+
+          {/* Submit */}
           <button
             onClick={handleSubmit}
             disabled={submitting}
@@ -260,6 +359,12 @@ export default function Home() {
           >
             {submitting ? "Enviando..." : "Criar Registro no Pipefy"}
           </button>
+
+          {!selectedCard && (
+            <p className="text-gray-400 text-xs mt-2">
+              Sem card selecionado — o registro será criado na tabela sem conexão a um card.
+            </p>
+          )}
         </section>
       )}
 
