@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdf = require("pdf-parse");
+const pdf = require("@/lib/pdf-parse");
 
 interface ParsedEnxoval {
   codigo_imovel: string;
@@ -27,19 +27,40 @@ interface ParsedEnxoval {
 }
 
 function getItemQty(lines: string[], itemName: string): number {
+  const escaped = itemName.replace(/[()]/g, "\\$&");
+
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i] === itemName || lines[i].startsWith(itemName + " ")) {
-      // Check if quantity is on the same line after the name
-      const escaped = itemName.replace(/[()]/g, "\\$&");
-      const inlineMatch = lines[i].match(new RegExp(escaped + "\\s+(\\d+)"));
+    const line = lines[i];
+
+    // Exact match or starts with item name
+    if (line === itemName || line.startsWith(itemName + " ") || line.startsWith(itemName + "\t")) {
+      // Check if quantity is on the same line (e.g. "FRONHA 21 R$")
+      const inlineMatch = line.match(new RegExp(escaped + "[\\s\\t]+(\\d+)"));
       if (inlineMatch) return parseInt(inlineMatch[1], 10);
 
-      // Otherwise quantity is on the next line
+      // Quantity on the next line
       if (i + 1 < lines.length && /^\d+$/.test(lines[i + 1])) {
         return parseInt(lines[i + 1], 10);
       }
+
+      // Quantity on the next line but with extra text (e.g. "9 R$ 42,75")
+      if (i + 1 < lines.length) {
+        const nextMatch = lines[i + 1].match(/^(\d+)\s/);
+        if (nextMatch) return parseInt(nextMatch[1], 10);
+      }
     }
   }
+
+  // Fallback: search full text with regex for patterns like "ITEM_NAME\n5\n" or "ITEM_NAME 5 R$"
+  const fullText = lines.join("\n");
+  const regexNewline = new RegExp(escaped + "\\s*\\n(\\d+)\\s*\\n");
+  const nlMatch = fullText.match(regexNewline);
+  if (nlMatch) return parseInt(nlMatch[1], 10);
+
+  const regexInline = new RegExp(escaped + "[\\s\\t]+(\\d+)\\s+R\\$");
+  const ilMatch = fullText.match(regexInline);
+  if (ilMatch) return parseInt(ilMatch[1], 10);
+
   return 0;
 }
 
