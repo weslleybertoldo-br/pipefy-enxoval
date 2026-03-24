@@ -26,40 +26,73 @@ interface ParsedEnxoval {
   capa_edredom_king_size: number;
 }
 
-function getItemQty(lines: string[], itemName: string): number {
+function getItemQty(lines: string[], itemName: string, exactEnd = false): number {
   const escaped = itemName.replace(/[()]/g, "\\$&");
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    // Exact match or starts with item name
-    if (line === itemName || line.startsWith(itemName + " ") || line.startsWith(itemName + "\t")) {
-      // Check if quantity is on the same line (e.g. "FRONHA 21 R$")
-      const inlineMatch = line.match(new RegExp(escaped + "[\\s\\t]+(\\d+)"));
-      if (inlineMatch) return parseInt(inlineMatch[1], 10);
+    // Pattern 1: quantity glued to name — "FRONHA12" or "TOALHA BANHO6"
+    const gluedRegex = exactEnd
+      ? new RegExp("^" + escaped + "(\\d+)$")
+      : new RegExp("^" + escaped + "(\\d+)");
+    const gluedMatch = line.match(gluedRegex);
+    if (gluedMatch) {
+      // If exactEnd, make sure there's no extra text after number that would indicate a different item
+      return parseInt(gluedMatch[1], 10);
+    }
 
-      // Quantity on the next line
-      if (i + 1 < lines.length && /^\d+$/.test(lines[i + 1])) {
-        return parseInt(lines[i + 1], 10);
+    // Pattern 2: name with space/tab then quantity — "FRONHA 12 R$"
+    const spacedRegex = exactEnd
+      ? new RegExp("^" + escaped + "[\\s\\t]+(\\d+)")
+      : new RegExp("^" + escaped + "[\\s\\t]+(\\d+)");
+    const spacedMatch = line.match(spacedRegex);
+    if (spacedMatch) {
+      // For exactEnd, verify the match is exact (e.g. "MANTA QUEEN" should NOT match "MANTA QUEEN INVERNO")
+      if (exactEnd) {
+        const afterName = line.substring(itemName.length);
+        if (/^[A-Z]/.test(afterName.trim())) continue; // skip, it's a longer item name
+      }
+      return parseInt(spacedMatch[1], 10);
+    }
+
+    // Pattern 3: exact name on this line, quantity on next line
+    const isExactLine = line === itemName;
+    const startsWithName = line.startsWith(itemName);
+
+    if (isExactLine || startsWithName) {
+      // If exactEnd and line has more text after name, check it's not a different item
+      if (exactEnd && !isExactLine) {
+        const rest = line.substring(itemName.length).trim();
+        if (rest && /^[A-Z]/.test(rest)) continue; // "MANTA QUEEN INVERNO" — skip
       }
 
-      // Quantity on the next line but with extra text (e.g. "9 R$ 42,75")
+      // Check next line for quantity
       if (i + 1 < lines.length) {
-        const nextMatch = lines[i + 1].match(/^(\d+)\s/);
+        const nextLine = lines[i + 1].trim();
+        // Pure number
+        if (/^\d+$/.test(nextLine)) {
+          return parseInt(nextLine, 10);
+        }
+        // Number followed by space/text (e.g. "9 R$ 42,75")
+        const nextMatch = nextLine.match(/^(\d+)\s/);
         if (nextMatch) return parseInt(nextMatch[1], 10);
       }
     }
   }
 
-  // Fallback: search full text with regex for patterns like "ITEM_NAME\n5\n" or "ITEM_NAME 5 R$"
+  // Fallback: search full text
   const fullText = lines.join("\n");
-  const regexNewline = new RegExp(escaped + "\\s*\\n(\\d+)\\s*\\n");
-  const nlMatch = fullText.match(regexNewline);
+
+  // "ITEM\n3\n"
+  const nlRegex = new RegExp(escaped + "\\s*\\n(\\d+)(?:\\n|$)");
+  const nlMatch = fullText.match(nlRegex);
   if (nlMatch) return parseInt(nlMatch[1], 10);
 
-  const regexInline = new RegExp(escaped + "[\\s\\t]+(\\d+)\\s+R\\$");
-  const ilMatch = fullText.match(regexInline);
-  if (ilMatch) return parseInt(ilMatch[1], 10);
+  // "ITEM3\n" (glued in full text)
+  const gluedFull = new RegExp(escaped + "(\\d+)(?:\\n|$)");
+  const gfMatch = fullText.match(gluedFull);
+  if (gfMatch) return parseInt(gfMatch[1], 10);
 
   return 0;
 }
@@ -87,9 +120,9 @@ function parsePdfText(text: string): ParsedEnxoval {
   const toalha_de_maquiagem = getItemQty(lines, "MAQUIAGEM");
   const toalha_de_praia = getItemQty(lines, "TOALHA DE PRAIA") || getItemQty(lines, "TOALHA PRAIA");
 
-  // Manta queen: search INVERNO first (more specific), then generic
+  // Manta queen: INVERNO first (more specific), then generic with exactEnd to avoid matching INVERNO
   const manta_queen_inverno = getItemQty(lines, "MANTA QUEEN INVERNO");
-  const manta_queen = getItemQty(lines, "MANTA QUEEN");
+  const manta_queen = getItemQty(lines, "MANTA QUEEN", true); // exactEnd to NOT match "MANTA QUEEN INVERNO"
 
   // Lençol + Virol per size
   const lencol_solteiro = getItemQty(lines, "LENÇOL SOLTEIRO");
