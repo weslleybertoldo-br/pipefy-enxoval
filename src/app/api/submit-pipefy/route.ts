@@ -29,11 +29,10 @@ interface EnxovalData {
 }
 
 async function pipefyQuery(query: string) {
-  const token = PIPEFY_TOKEN;
   const res = await fetch(PIPEFY_API, {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${PIPEFY_TOKEN}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ query }),
@@ -42,13 +41,12 @@ async function pipefyQuery(query: string) {
 }
 
 async function uploadFileToPipefy(file: File): Promise<string> {
-  const orgId = ORG_ID;
   // Step 1: Get presigned URL
   const presignQuery = `
     mutation {
       createPresignedUrl(input: {
-        organizationId: "${orgId}"
-        fileName: "${file.name}"
+        organizationId: "${ORG_ID}"
+        fileName: "${file.name.replace(/"/g, '\\"')}"
       }) {
         clientMutationId
         url
@@ -60,24 +58,21 @@ async function uploadFileToPipefy(file: File): Promise<string> {
   const presignedUrl = presignResult.data?.createPresignedUrl?.url;
 
   if (!presignedUrl) {
-    throw new Error("Falha ao obter URL de upload do Pipefy");
+    throw new Error("Falha ao obter URL de upload: " + JSON.stringify(presignResult));
   }
 
-  // Step 2: Upload file to presigned URL
+  // Step 2: Upload file to S3 via presigned URL
   const buffer = Buffer.from(await file.arrayBuffer());
   const uploadRes = await fetch(presignedUrl, {
     method: "PUT",
-    headers: {
-      "Content-Type": file.type || "application/pdf",
-    },
     body: buffer,
   });
 
   if (!uploadRes.ok) {
-    throw new Error("Falha no upload do arquivo");
+    throw new Error(`Falha no upload: ${uploadRes.status} ${uploadRes.statusText}`);
   }
 
-  // The file URL is the presigned URL without query params
+  // Step 3: Return the S3 URL (without query params) - this is what Pipefy expects
   const fileUrl = presignedUrl.split("?")[0];
   return fileUrl;
 }
@@ -113,17 +108,19 @@ export async function POST(request: NextRequest) {
 
     const data: EnxovalData = JSON.parse(dataStr);
 
-    // Upload PDF if provided
+    // Step 1: Upload PDF first (if provided)
     let fileUrl = "";
-    if (pdfFile) {
+    let uploadError = "";
+    if (pdfFile && pdfFile.size > 0) {
       try {
         fileUrl = await uploadFileToPipefy(pdfFile);
-      } catch {
-        console.error("Falha no upload, continuando sem anexo");
+      } catch (err) {
+        uploadError = String(err);
+        console.error("Falha no upload do PDF:", err);
       }
     }
 
-    // Build fields array for createTableRecord
+    // Step 2: Create table record (without attachment first)
     const fields = [
       { field_id: "c_digo_do_im_vel", field_value: data.codigo_imovel },
       { field_id: "data_de_compra_do_enxoval", field_value: getTodayFormatted() },
@@ -149,19 +146,10 @@ export async function POST(request: NextRequest) {
       { field_id: "valida_o_da_marca_do_enxoval", field_value: "0" },
     ];
 
-    // Add file attachment if uploaded
-    if (fileUrl) {
-      fields.push({
-        field_id: "comprovante_de_compra_do_propriet_rio",
-        field_value: `["${fileUrl}"]`,
-      });
-    }
-
     const fieldsStr = fields
       .map((f) => `{ field_id: "${f.field_id}", field_value: ${JSON.stringify(f.field_value)} }`)
       .join(", ");
 
-    // Create table record
     const createQuery = `
       mutation {
         createTableRecord(input: {
@@ -184,7 +172,30 @@ export async function POST(request: NextRequest) {
 
     const recordId = createResult.data?.createTableRecord?.table_record?.id;
 
-    // If cardId provided, connect the record to the card
+    // Step 3: Update the attachment field separately (if file was uploaded)
+    let attachmentOk = false;
+    if (fileUrl && recordId) {
+      const updateQuery = `
+        mutation {
+          setTableRecordFieldValue(input: {
+            table_record_id: "${recordId}"
+            field_id: "comprovante_de_compra_do_propriet_rio"
+            value: "[${JSON.stringify(fileUrl)}]"
+          }) {
+            table_record_field { value }
+          }
+        }
+      `;
+
+      const updateResult = await pipefyQuery(updateQuery);
+      if (!updateResult.errors) {
+        attachmentOk = true;
+      } else {
+        console.error("Erro ao anexar arquivo:", updateResult.errors);
+      }
+    }
+
+    // Step 4: Connect record to card (if cardId provided)
     if (cardId && recordId) {
       const connectQuery = `
         mutation {
@@ -203,6 +214,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       recordId,
+      attachmentOk,
+      uploadError: uploadError || undefined,
       message: "Registro criado com sucesso!",
     });
   } catch (error) {
