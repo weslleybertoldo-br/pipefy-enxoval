@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
       { field_id: "capa_edredom_queen_size", field_value: String(data.capa_edredom_queen_size) },
       { field_id: "capa_edredom_king_size", field_value: String(data.capa_edredom_king_size) },
       { field_id: "valida_o_da_marca_do_enxoval", field_value: "0" },
-      { field_id: "comprovante_de_compra_do_propriet_rio", field_value: `[${JSON.stringify(fileUrl)}]` },
+      { field_id: "comprovante_de_compra_do_propriet_rio", field_value: fileUrl },
     ];
 
     const fieldsStr = fields
