@@ -72,9 +72,14 @@ async function uploadFileToPipefy(file: File): Promise<string> {
     throw new Error(`Falha no upload: ${uploadRes.status} ${uploadRes.statusText}`);
   }
 
-  // Step 3: Return the S3 URL (without query params) - this is what Pipefy expects
-  const fileUrl = presignedUrl.split("?")[0];
-  return fileUrl;
+  // Step 3: Extract the relative path (uploads/UUID/filename.pdf)
+  // Pipefy expects just the path, not the full S3 URL
+  const fullUrl = presignedUrl.split("?")[0];
+  const uploadsMatch = fullUrl.match(/(uploads\/[^?]+)/);
+  if (!uploadsMatch) {
+    throw new Error("URL de upload inválida: " + fullUrl);
+  }
+  return uploadsMatch[1];
 }
 
 function getTodayFormatted(): string {
