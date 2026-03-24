@@ -108,19 +108,27 @@ export async function POST(request: NextRequest) {
 
     const data: EnxovalData = JSON.parse(dataStr);
 
-    // Step 1: Upload PDF first (if provided)
+    // Step 1: Upload PDF first (required field)
     let fileUrl = "";
-    let uploadError = "";
     if (pdfFile && pdfFile.size > 0) {
       try {
         fileUrl = await uploadFileToPipefy(pdfFile);
       } catch (err) {
-        uploadError = String(err);
-        console.error("Falha no upload do PDF:", err);
+        return NextResponse.json(
+          { error: "Falha no upload do PDF: " + String(err) },
+          { status: 500 }
+        );
       }
     }
 
-    // Step 2: Create table record (without attachment first)
+    if (!fileUrl) {
+      return NextResponse.json(
+        { error: "PDF é obrigatório para criar o registro (campo Comprovante de compra)" },
+        { status: 400 }
+      );
+    }
+
+    // Step 2: Create table record with all fields including attachment
     const fields = [
       { field_id: "c_digo_do_im_vel", field_value: data.codigo_imovel },
       { field_id: "data_de_compra_do_enxoval", field_value: getTodayFormatted() },
@@ -144,6 +152,7 @@ export async function POST(request: NextRequest) {
       { field_id: "capa_edredom_queen_size", field_value: String(data.capa_edredom_queen_size) },
       { field_id: "capa_edredom_king_size", field_value: String(data.capa_edredom_king_size) },
       { field_id: "valida_o_da_marca_do_enxoval", field_value: "0" },
+      { field_id: "comprovante_de_compra_do_propriet_rio", field_value: `[${JSON.stringify(fileUrl)}]` },
     ];
 
     const fieldsStr = fields
@@ -172,30 +181,7 @@ export async function POST(request: NextRequest) {
 
     const recordId = createResult.data?.createTableRecord?.table_record?.id;
 
-    // Step 3: Update the attachment field separately (if file was uploaded)
-    let attachmentOk = false;
-    if (fileUrl && recordId) {
-      const updateQuery = `
-        mutation {
-          setTableRecordFieldValue(input: {
-            table_record_id: "${recordId}"
-            field_id: "comprovante_de_compra_do_propriet_rio"
-            value: "[${JSON.stringify(fileUrl)}]"
-          }) {
-            table_record_field { value }
-          }
-        }
-      `;
-
-      const updateResult = await pipefyQuery(updateQuery);
-      if (!updateResult.errors) {
-        attachmentOk = true;
-      } else {
-        console.error("Erro ao anexar arquivo:", updateResult.errors);
-      }
-    }
-
-    // Step 4: Connect record to card (if cardId provided)
+    // Step 3: Connect record to card (if cardId provided)
     if (cardId && recordId) {
       const connectQuery = `
         mutation {
@@ -214,8 +200,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       recordId,
-      attachmentOk,
-      uploadError: uploadError || undefined,
       message: "Registro criado com sucesso!",
     });
   } catch (error) {
