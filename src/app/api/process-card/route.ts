@@ -21,25 +21,35 @@ async function pipefyQuery(query: string) {
   return res.json();
 }
 
-// Step 1: Find card by code
+const PHASE_5_ID = "333848127";
+
+// Step 1: Find card by code directly in Phase 5
 async function findCard(code: string) {
   const query = `{
-    findCards(pipeId: ${PIPE_ID}, search: {fieldId: "c_digo_do_im_vel", fieldValue: "${code.replace(/"/g, '\\"')}"}) {
-      edges {
-        node {
-          id
-          title
-          current_phase { id name }
-          attachments { path url createdAt }
+    phase(id: ${PHASE_5_ID}) {
+      cards(first: 50, search: { title: "${code.replace(/"/g, '\\"')}" }) {
+        edges {
+          node {
+            id
+            title
+            current_phase { id name }
+            attachments { path url createdAt }
+          }
         }
       }
     }
   }`;
 
   const result = await pipefyQuery(query);
-  const edges = result.data?.findCards?.edges || [];
-  if (edges.length === 0) return null;
-  return edges[0].node;
+  const edges = result.data?.phase?.cards?.edges || [];
+
+  const codeUpper = code.toUpperCase();
+  const found = edges.find(
+    (e: { node: { title: string } }) =>
+      e.node.title.toUpperCase().includes(codeUpper)
+  );
+
+  return found ? found.node : null;
 }
 
 // Step 2: Find enxoval PDF in attachments
