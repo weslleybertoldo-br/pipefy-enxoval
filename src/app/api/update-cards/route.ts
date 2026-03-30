@@ -113,6 +113,14 @@ const SKIP_TAGS = [
   "REVISÃO DE PENDENCIAS FINALIZADAS",
 ];
 
+// Pegar data em horário de Brasília (UTC-3)
+function toBrazilDate(date: Date): { day: number; month: number; year: number } {
+  // Converter para string no fuso de Brasília
+  const br = date.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
+  const d = new Date(br);
+  return { day: d.getDate(), month: d.getMonth(), year: d.getFullYear() };
+}
+
 function shouldSkipCard(card: any): { skip: boolean; reason: string } {
   const labels = card.labels || [];
   const hasSkipTag = labels.some((label: any) =>
@@ -123,20 +131,20 @@ function shouldSkipCard(card: any): { skip: boolean; reason: string } {
     return { skip: true, reason: `Tag: ${tagNames}` };
   }
 
-  // Só atualizar cards com vencimento para hoje
+  // Só atualizar cards com vencimento para hoje (horário de Brasília)
   if (!card.due_date) {
     return { skip: true, reason: "Sem vencimento definido" };
   }
-  const dueDate = new Date(card.due_date);
-  const today = new Date();
+  const dueDate = toBrazilDate(new Date(card.due_date));
+  const today = toBrazilDate(new Date());
   const isDueToday =
-    dueDate.getFullYear() === today.getFullYear() &&
-    dueDate.getMonth() === today.getMonth() &&
-    dueDate.getDate() === today.getDate();
+    dueDate.year === today.year &&
+    dueDate.month === today.month &&
+    dueDate.day === today.day;
 
   if (!isDueToday) {
-    const dd = String(dueDate.getDate()).padStart(2, "0");
-    const mm = String(dueDate.getMonth() + 1).padStart(2, "0");
+    const dd = String(dueDate.day).padStart(2, "0");
+    const mm = String(dueDate.month + 1).padStart(2, "0");
     return { skip: true, reason: `Vencimento em ${dd}/${mm} (não é hoje)` };
   }
 
@@ -144,22 +152,26 @@ function shouldSkipCard(card: any): { skip: boolean; reason: string } {
 }
 
 function getNextBusinessDayAt22(): string {
-  const next = new Date();
-  next.setDate(next.getDate() + 1);
+  // Calcular "amanhã" em horário de Brasília
+  const nowBR = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+  nowBR.setDate(nowBR.getDate() + 1);
   // Se sábado (6), pula para segunda (+2). Se domingo (0), pula para segunda (+1).
-  const day = next.getDay();
-  if (day === 6) next.setDate(next.getDate() + 2); // sábado → segunda
-  if (day === 0) next.setDate(next.getDate() + 1); // domingo → segunda
-  next.setHours(22, 0, 0, 0);
-  return next.toISOString();
+  const day = nowBR.getDay();
+  if (day === 6) nowBR.setDate(nowBR.getDate() + 2);
+  if (day === 0) nowBR.setDate(nowBR.getDate() + 1);
+  // Retornar no formato ISO com fuso de Brasília
+  const yyyy = nowBR.getFullYear();
+  const mm = String(nowBR.getMonth() + 1).padStart(2, "0");
+  const dd = String(nowBR.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}T22:00:00-03:00`;
 }
 
 function formatDateBR(isoDate: string): string {
   const d = new Date(isoDate);
-  const day = String(d.getDate()).padStart(2, "0");
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const year = d.getFullYear();
-  return `${day}/${month}/${year}`;
+  const br = toBrazilDate(d);
+  const day = String(br.day).padStart(2, "0");
+  const month = String(br.month + 1).padStart(2, "0");
+  return `${day}/${month}/${br.year}`;
 }
 
 // Processar um único card
