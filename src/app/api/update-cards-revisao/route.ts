@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   pipefyQuery, fetchAllCardsFromPhase, updateDueDate, createComment,
-  validateCardId, toBrazilDate, formatDateBR, getNextBusinessDayAt22,
+  validateCardId, toBrazilDate, formatDateBR, isDueToday, getNextBusinessDayAt22,
   replaceCommentFupDate, requireAuth, PHASE_3_ID,
 } from "@/lib/pipefy";
 
@@ -30,12 +30,13 @@ export async function GET(req: NextRequest) {
   try {
     const cards = await fetchAllCardsFromPhase(PHASE_3_ID);
 
-    const result = cards.map((c) => {
+    // Filtrar só cards com vencimento para hoje
+    const todayCards = cards.filter((c) => c.due_date && isDueToday(c.due_date));
+
+    const result = todayCards.map((c) => {
       const lastComment = (c.comments || [])[0];
-      const br = c.due_date ? toBrazilDate(new Date(c.due_date)) : null;
-      const dueFormatted = br
-        ? `${String(br.day).padStart(2, "0")}/${String(br.month + 1).padStart(2, "0")}/${br.year}`
-        : "Sem vencimento";
+      const br = toBrazilDate(new Date(c.due_date));
+      const dueFormatted = `${String(br.day).padStart(2, "0")}/${String(br.month + 1).padStart(2, "0")}/${br.year}`;
       return {
         id: c.id,
         title: c.title,
