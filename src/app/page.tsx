@@ -98,123 +98,152 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
 }
 
 // =====================
-// TAB: PROCESSAMENTO (existente)
+// TAB: PROCESSAMENTO (cards da Fase 5 com registro de enxoval)
 // =====================
 
+interface EnxovalCard {
+  id: string;
+  title: string;
+  hasRecord: boolean;
+  recordId: string;
+}
+
 function TabProcessamento() {
-  const [codesInput, setCodesInput] = useState("");
-  const [results, setResults] = useState<CardResult[]>([]);
-  const [processing, setProcessing] = useState(false);
-  const abortRef = useRef(false);
+  const [cards, setCards] = useState<EnxovalCard[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [processingCard, setProcessingCard] = useState<string | null>(null);
+  const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "success" | "error"; message: string }>>({});
+  const [summary, setSummary] = useState<{ total: number; withRecord: number; withoutRecord: number } | null>(null);
 
-  const processCards = useCallback(async () => {
-    const codes = codesInput
-      .split(/[\n,;]+/)
-      .map((c) => c.trim())
-      .filter(Boolean);
-
-    if (codes.length === 0) return;
-
-    abortRef.current = false;
-    setProcessing(true);
-
-    const initial: CardResult[] = codes.map((code) => ({ code, status: "pending" }));
-    setResults(initial);
-
-    for (let i = 0; i < codes.length; i++) {
-      if (abortRef.current) break;
-
-      setResults((prev) => prev.map((r, idx) => (idx === i ? { ...r, status: "processing" } : r)));
-
-      try {
-        const res = await fetch("/api/process-card", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ code: codes[i] }),
-        });
-        const data = await res.json();
-
-        if (data.success) {
-          setResults((prev) =>
-            prev.map((r, idx) =>
-              idx === i ? { ...r, status: "success", message: `Registro #${data.recordId} criado`, recordId: data.recordId } : r
-            )
-          );
-        } else {
-          setResults((prev) => prev.map((r, idx) => (idx === i ? { ...r, status: "error", message: data.error } : r)));
-        }
-      } catch {
-        setResults((prev) => prev.map((r, idx) => (idx === i ? { ...r, status: "error", message: "Erro de conexão" } : r)));
+  const loadCards = async () => {
+    setLoading(true);
+    setError("");
+    setCardStatuses({});
+    try {
+      const res = await fetch("/api/list-phase5-enxoval");
+      const data = await res.json();
+      if (data.success) {
+        setCards(data.cards);
+        setSummary({ total: data.totalCards, withRecord: data.withRecord, withoutRecord: data.withoutRecord });
+      } else {
+        setError(data.error || "Erro ao carregar cards");
       }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setLoading(false);
     }
-    setProcessing(false);
-  }, [codesInput]);
+  };
 
-  const completed = results.filter((r) => r.status === "success").length;
-  const errors = results.filter((r) => r.status === "error").length;
-  const total = results.length;
-  const progress = total > 0 ? ((completed + errors) / total) * 100 : 0;
+  const processCard = async (code: string) => {
+    setProcessingCard(code);
+    try {
+      const res = await fetch("/api/process-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCardStatuses((prev) => ({ ...prev, [code]: { status: "success", message: `Registro #${data.recordId} criado` } }));
+        // Atualizar card na lista
+        setCards((prev) => prev.map((c) => c.title === code ? { ...c, hasRecord: true, recordId: data.recordId } : c));
+      } else {
+        setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: data.error || "Erro" } }));
+      }
+    } catch {
+      setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setProcessingCard(null);
+    }
+  };
 
   return (
     <>
       <section className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-2">Códigos dos Imóveis</h2>
+        <h2 className="text-lg font-semibold mb-2">Registro de Enxoval — Fase 5</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Cole os códigos (um por linha ou separados por vírgula). O sistema vai buscar o card, encontrar o PDF de enxoval nos anexos, ler, preencher e criar o registro automaticamente.
+          Lista os cards da Fase 5 mostrando quais já possuem registro de enxoval. Clique em &quot;Gerar Registro&quot; para processar individualmente.
         </p>
-        <textarea
-          value={codesInput}
-          onChange={(e) => setCodesInput(e.target.value)}
-          placeholder={"ALA0004\nALA0005\nRSO0022"}
-          rows={5}
-          disabled={processing}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-100"
-        />
-        <div className="flex gap-3 mt-4">
-          <button onClick={processCards} disabled={processing || !codesInput.trim()} className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
-            {processing ? "Processando..." : "Processar Todos"}
-          </button>
-          {processing && (
-            <button onClick={() => { abortRef.current = true; }} className="bg-red-500 text-white px-6 py-3 rounded-md font-medium hover:bg-red-600 transition-colors">
-              Parar
-            </button>
-          )}
-        </div>
+        <button
+          onClick={loadCards}
+          disabled={loading}
+          className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+        >
+          {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
+        </button>
+        {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </section>
 
-      {results.length > 0 && (
+      {/* Resumo */}
+      {summary && (
         <section className="bg-white rounded-lg shadow p-6 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-lg font-semibold">Progresso</h2>
-            <span className="text-sm text-gray-500">
-              {completed + errors}/{total}
-              {completed > 0 && <span className="text-green-600 ml-2">{completed} OK</span>}
-              {errors > 0 && <span className="text-red-600 ml-2">{errors} erro(s)</span>}
-            </span>
+          <div className="grid grid-cols-3 gap-4">
+            <div className="text-center p-3 bg-gray-50 rounded-lg">
+              <div className="text-2xl font-bold text-gray-900">{summary.total}</div>
+              <div className="text-xs text-gray-500">Total</div>
+            </div>
+            <div className="text-center p-3 bg-red-50 rounded-lg">
+              <div className="text-2xl font-bold text-red-600">{summary.withoutRecord}</div>
+              <div className="text-xs text-gray-500">Sem registro</div>
+            </div>
+            <div className="text-center p-3 bg-green-50 rounded-lg">
+              <div className="text-2xl font-bold text-green-600">{summary.withRecord}</div>
+              <div className="text-xs text-gray-500">Com registro</div>
+            </div>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-3 mb-6">
-            <div className="h-3 rounded-full transition-all duration-300" style={{ width: `${progress}%`, backgroundColor: errors > 0 && completed === 0 ? "#ef4444" : "#3b82f6" }} />
-          </div>
-          <div className="space-y-2">
-            {results.map((r, idx) => (
-              <div key={idx} className={`flex items-center justify-between px-4 py-3 rounded-md border ${r.status === "success" ? "bg-green-50 border-green-200" : r.status === "error" ? "bg-red-50 border-red-200" : r.status === "processing" ? "bg-blue-50 border-blue-200" : "bg-gray-50 border-gray-200"}`}>
+        </section>
+      )}
+
+      {/* Lista de cards */}
+      {cards.length > 0 && (
+        <section className="space-y-2">
+          {cards.map((c) => {
+            const cardStatus = cardStatuses[c.title];
+            const isProcessing = processingCard === c.title;
+            return (
+              <div key={c.id} className={`flex items-center justify-between px-4 py-3 rounded-md border ${
+                cardStatus?.status === "success" ? "bg-green-50 border-green-200" :
+                cardStatus?.status === "error" ? "bg-red-50 border-red-200" :
+                c.hasRecord ? "bg-green-50/50 border-green-100" : "bg-white border-gray-200"
+              }`}>
                 <div className="flex items-center gap-3">
                   <span className="text-lg">
-                    {r.status === "success" && "✅"}
-                    {r.status === "error" && "❌"}
-                    {r.status === "processing" && <span className="inline-block animate-spin">⏳</span>}
-                    {r.status === "pending" && "⏸️"}
+                    {cardStatus?.status === "success" ? "✅" :
+                     cardStatus?.status === "error" ? "❌" :
+                     isProcessing ? <span className="inline-block animate-spin">⏳</span> :
+                     c.hasRecord ? "📋" : "⚠️"}
                   </span>
-                  <span className="font-mono font-medium text-sm">{r.code}</span>
+                  <div>
+                    <span className="font-mono font-bold text-sm">{c.title}</span>
+                    {c.hasRecord && (
+                      <span className="text-xs text-green-600 ml-2">Registro #{c.recordId}</span>
+                    )}
+                    {!c.hasRecord && !cardStatus && (
+                      <span className="text-xs text-red-500 ml-2">Sem registro</span>
+                    )}
+                    {cardStatus && (
+                      <span className={`text-xs ml-2 ${cardStatus.status === "success" ? "text-green-600" : "text-red-600"}`}>
+                        {cardStatus.message}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-xs text-gray-600 max-w-md text-right">
-                  {r.status === "processing" && "Processando..."}
-                  {r.status === "pending" && "Aguardando"}
-                  {r.message}
-                </span>
+                <button
+                  onClick={() => processCard(c.title)}
+                  disabled={isProcessing || processingCard !== null || (c.hasRecord && !cardStatus)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                    c.hasRecord && !cardStatus
+                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                      : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  }`}
+                >
+                  {isProcessing ? "Processando..." : c.hasRecord && !cardStatus ? "Já registrado" : "Gerar Registro"}
+                </button>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </section>
       )}
     </>
