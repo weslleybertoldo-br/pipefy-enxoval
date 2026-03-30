@@ -113,6 +113,8 @@ function TabProcessamento() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [processingCard, setProcessingCard] = useState<string | null>(null);
+  const [processingAll, setProcessingAll] = useState(false);
+  const abortRef = useRef(false);
   const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "success" | "error"; message: string }>>({});
   const [summary, setSummary] = useState<{ total: number; withRecord: number; withoutRecord: number } | null>(null);
 
@@ -159,20 +161,53 @@ function TabProcessamento() {
     }
   };
 
+  const processAllCards = async () => {
+    const toProcess = cards.filter((c) => !c.hasRecord && !cardStatuses[c.title]);
+    if (toProcess.length === 0) return;
+    abortRef.current = false;
+    setProcessingAll(true);
+    for (const card of toProcess) {
+      if (abortRef.current) break;
+      await processCard(card.title);
+    }
+    setProcessingAll(false);
+  };
+
+  const withoutRecord = cards.filter((c) => !c.hasRecord && !cardStatuses[c.title]).length;
+
   return (
     <>
       <section className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-2">Registro de Enxoval — Fase 5</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Lista os cards da Fase 5 mostrando quais já possuem registro de enxoval. Clique em &quot;Gerar Registro&quot; para processar individualmente.
+          Lista os cards da Fase 5 mostrando quais já possuem registro de enxoval. Clique em &quot;Gerar Registro&quot; para processar individualmente ou &quot;Gerar Todos&quot; para processar todos sem registro.
         </p>
-        <button
-          onClick={loadCards}
-          disabled={loading}
-          className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={loadCards}
+            disabled={loading || processingAll}
+            className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
+          </button>
+          {cards.length > 0 && withoutRecord > 0 && (
+            <button
+              onClick={processAllCards}
+              disabled={processingAll || processingCard !== null || loading}
+              className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            >
+              {processingAll ? "Gerando..." : `Gerar Todos (${withoutRecord})`}
+            </button>
+          )}
+          {processingAll && (
+            <button
+              onClick={() => { abortRef.current = true; }}
+              className="bg-red-500 text-white px-6 py-3 rounded-md font-medium hover:bg-red-600 transition-colors"
+            >
+              Parar
+            </button>
+          )}
+        </div>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </section>
 

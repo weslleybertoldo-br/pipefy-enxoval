@@ -20,6 +20,10 @@ async function getCardsWithEnxovalInfo(): Promise<any[]> {
               fields {
                 name
                 value
+                connected_repo_items {
+                  ... on TableRecord { id title }
+                  ... on Card { id title }
+                }
               }
             }
           }
@@ -57,17 +61,9 @@ export async function GET(req: NextRequest) {
         (f: any) => f.name?.toLowerCase().includes("registro de enxoval")
       );
 
-      const hasRecord = !!(enxovalField?.value && enxovalField.value !== "[]" && enxovalField.value !== "");
-
-      let recordId = "";
-      if (hasRecord && enxovalField.value) {
-        try {
-          const parsed = JSON.parse(enxovalField.value);
-          recordId = Array.isArray(parsed) ? parsed[0] || "" : String(parsed);
-        } catch {
-          recordId = enxovalField.value;
-        }
-      }
+      const connectedItems = enxovalField?.connected_repo_items || [];
+      const hasRecord = connectedItems.length > 0 && !!connectedItems[0]?.id;
+      const recordId = hasRecord ? connectedItems[0].id : "";
 
       return {
         id: card.id,
