@@ -221,13 +221,14 @@ async function processCard(card: any, weslleyId: string | null): Promise<{
     const lastComment = comments.length > 0 ? comments[0] : null;
     if (lastComment?.text) {
       const newDueDateShort = newDueDateBR.slice(0, 5); // "DD/MM"
-      // Substituir a data no campo "Fup:" mantendo o formato original (barra ou ponto)
+      // Substituir a data no campo "Fup" ou "FUP" (com ou sem ":", com espaço)
+      // Formatos: "Fup: 30/03", "FUP 30.03.", "Fup: 30/03/2026", "FUP 30.03"
       const newCommentText = lastComment.text.replace(
-        /(Fup:\s*)(\d{2})[\/.](\d{2})(?:[\/.](\d{4}))?/gi,
-        (_match: string, prefix: string, _day: string, _month: string, year: string) => {
-          // Se tinha ano, colocar ano novo. Se não, só DD/MM
-          if (year) return `${prefix}${newDueDateBR}`;
-          return `${prefix}${newDueDateShort}`;
+        /(FUP:?\s*)(\d{2})[\/.](\d{2})(?:[\/.](\d{4}))?(\.)?/gi,
+        (_match: string, prefix: string, _day: string, _month: string, year: string, trailingDot: string) => {
+          const dot = trailingDot || "";
+          if (year) return `${prefix}${newDueDateBR}${dot}`;
+          return `${prefix}${newDueDateShort}${dot}`;
         }
       );
       await createComment(card.id, newCommentText);
