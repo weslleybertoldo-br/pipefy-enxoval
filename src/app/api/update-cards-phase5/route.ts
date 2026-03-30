@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   pipefyQuery, fetchAllCardsFromPhase, updateDueDate, createComment,
-  validateCardId, toBrazilDate, formatDateBR, getNextBusinessDayAt22,
+  validateCardId, toBrazilDate, formatDateBR, isDueToday, getNextBusinessDayAt22,
   replaceCommentFupDate, requireAuth, PHASE_5_ID,
 } from "@/lib/pipefy";
 
@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const cards = await fetchAllCardsFromPhase(PHASE_5_ID);
+    const allCards = await fetchAllCardsFromPhase(PHASE_5_ID);
+    const cards = allCards.filter((c) => c.due_date && isDueToday(c.due_date));
 
     return NextResponse.json({
       success: true,
