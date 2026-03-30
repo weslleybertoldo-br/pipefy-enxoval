@@ -110,7 +110,10 @@ async function createComment(cardId: string, text: string) {
 // Tags que devem ser ignoradas
 const SKIP_TAGS = [
   "ADEQUAÇÃO COMPLEXA",
+  "REVISÃO DE PENDÊNCIAS FINALIZADA",
+  "REVISÃO DE PENDENCIAS FINALIZADA",
   "REVISÃO DE PENDENCIAS FINALIZADAS",
+  "REVISÃO DE PENDÊNCIAS FINALIZADAS",
 ];
 
 // Pegar data em horário de Brasília (UTC-3)
@@ -123,9 +126,13 @@ function toBrazilDate(date: Date): { day: number; month: number; year: number } 
 
 function shouldSkipCard(card: any): { skip: boolean; reason: string } {
   const labels = card.labels || [];
-  const hasSkipTag = labels.some((label: any) =>
-    SKIP_TAGS.some((tag) => label.name?.toUpperCase().includes(tag.toUpperCase()))
-  );
+  const hasSkipTag = labels.some((label: any) => {
+    const name = label.name?.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || "";
+    return SKIP_TAGS.some((tag) => {
+      const normalizedTag = tag.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      return name.includes(normalizedTag);
+    });
+  });
   if (hasSkipTag) {
     const tagNames = labels.map((l: any) => l.name).join(", ");
     return { skip: true, reason: `Tag: ${tagNames}` };
