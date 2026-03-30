@@ -121,6 +121,16 @@ async function processCard(card: any): Promise<{
   cardId: string; title: string; action: "skipped" | "updated" | "error"; details: string;
 }> {
   try {
+    // Só atualiza cards do Weslley Bertoldo
+    const assignees = card.assignees || [];
+    const isWeslley = assignees.some((a: any) =>
+      a.name?.toLowerCase().includes("weslley") || a.id === "305932218"
+    );
+    if (!isWeslley) {
+      const responsavel = assignees.map((a: any) => a.name).join(", ") || "Sem responsável";
+      return { cardId: card.id, title: card.title, action: "skipped", details: `Responsável: ${responsavel} (não é Weslley)` };
+    }
+
     if (!card.due_date || !isDueToday(card.due_date)) {
       const br = card.due_date ? toBrazilDate(new Date(card.due_date)) : null;
       const reason = br
@@ -170,25 +180,43 @@ export async function GET() {
   }
   try {
     const cards = await fetchAllCards();
-    const dueToday = cards.filter((c) => c.due_date && isDueToday(c.due_date));
-    const notDueToday = cards.filter((c) => !c.due_date || !isDueToday(c.due_date));
+
+    function getSkipInfo(c: any): { skip: boolean; reason: string } {
+      const isWeslley = (c.assignees || []).some((a: any) =>
+        a.name?.toLowerCase().includes("weslley") || a.id === "305932218"
+      );
+      if (!isWeslley) {
+        const resp = (c.assignees || []).map((a: any) => a.name).join(", ") || "Sem responsável";
+        return { skip: true, reason: `Responsável: ${resp} (não é Weslley)` };
+      }
+      if (!c.due_date) return { skip: true, reason: "Sem vencimento" };
+      if (!isDueToday(c.due_date)) {
+        const br = toBrazilDate(new Date(c.due_date));
+        return { skip: true, reason: `Vencimento em ${String(br.day).padStart(2, "0")}/${String(br.month + 1).padStart(2, "0")}` };
+      }
+      return { skip: false, reason: "" };
+    }
+
+    const toUpdate = cards.filter((c) => !getSkipInfo(c).skip);
+    const toSkip = cards.filter((c) => getSkipInfo(c).skip);
 
     return NextResponse.json({
       success: true,
       totalCards: cards.length,
-      toUpdate: dueToday.length,
-      toSkip: notDueToday.length,
-      cards: cards.map((c) => ({
-        id: c.id,
-        title: c.title,
-        labels: (c.labels || []).map((l: any) => l.name),
-        assignees: (c.assignees || []).map((a: any) => a.name),
-        due_date: c.due_date,
-        skip: !c.due_date || !isDueToday(c.due_date),
-        skipReason: !c.due_date ? "Sem vencimento" : !isDueToday(c.due_date)
-          ? `Vencimento em ${String(toBrazilDate(new Date(c.due_date)).day).padStart(2, "0")}/${String(toBrazilDate(new Date(c.due_date)).month + 1).padStart(2, "0")}`
-          : "",
-      })),
+      toUpdate: toUpdate.length,
+      toSkip: toSkip.length,
+      cards: cards.map((c) => {
+        const info = getSkipInfo(c);
+        return {
+          id: c.id,
+          title: c.title,
+          labels: (c.labels || []).map((l: any) => l.name),
+          assignees: (c.assignees || []).map((a: any) => a.name),
+          due_date: c.due_date,
+          skip: info.skip,
+          skipReason: info.reason,
+        };
+      }),
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
