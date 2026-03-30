@@ -430,12 +430,161 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription }: { apiRoute: s
 }
 
 // =====================
+// TAB: FASE 5 (cards individuais com comentário)
+// =====================
+
+interface Phase5Card {
+  id: string;
+  title: string;
+  due_date: string | null;
+  dueFormatted: string;
+  assignees: string[];
+  labels: string[];
+  lastComment: string;
+  lastCommentAuthor: string;
+  lastCommentDate: string;
+}
+
+function TabPhase5() {
+  const [cards, setCards] = useState<Phase5Card[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [updatingCard, setUpdatingCard] = useState<string | null>(null);
+  const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
+
+  const loadCards = async () => {
+    setLoading(true);
+    setError("");
+    setCardStatuses({});
+    try {
+      const res = await fetch("/api/update-cards-phase5");
+      const data = await res.json();
+      if (data.success) {
+        setCards(data.cards);
+      } else {
+        setError(data.error || "Erro ao carregar cards");
+      }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateSingleCard = async (cardId: string) => {
+    setUpdatingCard(cardId);
+    try {
+      const res = await fetch("/api/update-cards-phase5", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId }),
+      });
+      const data = await res.json();
+      if (data.success && data.action === "updated") {
+        setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "updated", message: data.details } }));
+      } else {
+        setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: data.error || data.details || "Erro" } }));
+      }
+    } catch {
+      setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setUpdatingCard(null);
+    }
+  };
+
+  const formatCommentDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm} ${hh}:${min}`;
+  };
+
+  return (
+    <>
+      <section className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-2">Fase 5 — Imóvel Ativo</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Lista todos os cards da Fase 5 com o último comentário. Clique no botão para atualizar individualmente: vencimento +3 dias úteis às 22:00 e comentário com nova data.
+        </p>
+        <button
+          onClick={loadCards}
+          disabled={loading}
+          className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+        >
+          {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
+        </button>
+        {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
+      </section>
+
+      {cards.length > 0 && (
+        <section className="space-y-3">
+          {cards.map((c) => {
+            const cardStatus = cardStatuses[c.id];
+            const isUpdating = updatingCard === c.id;
+            return (
+              <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-blue-500"}`}>
+                {/* Header */}
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <span className="font-mono font-bold text-base">{c.title}</span>
+                    <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
+                    {c.assignees.length > 0 && (
+                      <span className="text-xs text-gray-400 ml-3">{c.assignees.join(", ")}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
+                    {cardStatus?.status === "error" && <span className="text-red-600 text-xs">{cardStatus.message}</span>}
+                    <button
+                      onClick={() => updateSingleCard(c.id)}
+                      disabled={isUpdating || updatingCard !== null}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                    >
+                      {isUpdating ? "Atualizando..." : "+3 dias"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Labels */}
+                {c.labels.length > 0 && (
+                  <div className="flex gap-1 mb-3">
+                    {c.labels.map((l) => (
+                      <span key={l} className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{l}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Último comentário */}
+                {c.lastComment ? (
+                  <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-medium text-gray-700">{c.lastCommentAuthor}</span>
+                      <span className="text-[10px] text-gray-400">{formatCommentDate(c.lastCommentDate)}</span>
+                    </div>
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">{c.lastComment}</pre>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400">Sem comentários</p>
+                )}
+              </div>
+            );
+          })}
+        </section>
+      )}
+    </>
+  );
+}
+
+// =====================
 // MAIN APP
 // =====================
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4">("processamento");
+  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4" | "fase5">("processamento");
 
   // Verificar auth ao carregar
   useEffect(() => {
@@ -503,12 +652,21 @@ export default function Home() {
         >
           Fase 4
         </button>
+        <button
+          onClick={() => setActiveTab("fase5")}
+          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "fase5" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Fase 5
+        </button>
       </div>
 
       {/* Tab content */}
       {activeTab === "processamento" && <TabProcessamento />}
       {activeTab === "fase3" && <TabUpdateCards apiRoute="/api/update-cards" phaseName="Fase 3" phaseDescription="Atualiza vencimento para o próximo dia útil às 22:00, responsável para Weslley Bertoldo, e replica o último comentário com a nova data. Cards com tags &quot;Adequação Complexa&quot; ou &quot;Revisão de Pendências Finalizada&quot; são ignorados." />}
-      {activeTab === "fase4" && <TabUpdateCards apiRoute="/api/update-cards-phase4" phaseName="Fase 4" phaseDescription="Atualiza vencimento para daqui a 2 dias úteis às 22:00 e replica o último comentário com a nova data. Só atualiza cards com vencimento para hoje." />}
+      {activeTab === "fase4" && <TabUpdateCards apiRoute="/api/update-cards-phase4" phaseName="Fase 4" phaseDescription="Atualiza vencimento para daqui a 2 dias úteis às 22:00 e replica o último comentário com a nova data. Só atualiza cards do Weslley com vencimento para hoje." />}
+      {activeTab === "fase5" && <TabPhase5 />}
     </div>
   );
 }
