@@ -1421,6 +1421,53 @@ const CATEGORIAS_OCORRENCIA = [
   "Ocorrência com a Seazone",
 ];
 
+function RegistrarOcorrenciaCard() {
+  const [code, setCode] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const handleRegistrar = async () => {
+    if (!code.trim()) return;
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/registrar-ocorrencia-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ success: true, message: data.details });
+        setCode("");
+      } else {
+        setResult({ success: false, message: data.error || "Erro" });
+      }
+    } catch {
+      setResult({ success: false, message: "Erro de conexão" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="mt-6 pt-6 border-t border-gray-200">
+      <h4 className="text-sm font-semibold text-gray-700 mb-2">Registrar ocorrência no card</h4>
+      <p className="text-xs text-gray-500 mb-3">Adiciona &quot;Ocorrência Registrada | DD/MM&quot; abaixo do FUP no último comentário e a tag &quot;OCORRÊNCIA REGISTRADA&quot;.</p>
+      <div className="flex gap-2 items-end">
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Código do imóvel</label>
+          <input type="text" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Ex: ALA0004" className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-40" />
+        </div>
+        <button onClick={handleRegistrar} disabled={sending || !code.trim()} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+          {sending ? "Registrando..." : "Registrar no card"}
+        </button>
+        {result && <span className={`text-xs ${result.success ? "text-green-600" : "text-red-600"}`}>{result.message}</span>}
+      </div>
+    </div>
+  );
+}
+
 function FormOcorrencia() {
   const [codigo, setCodigo] = useState("");
   const [franquia, setFranquia] = useState("");
@@ -1529,6 +1576,9 @@ function FormOcorrencia() {
           {sending ? "Enviando..." : "Enviar Ocorrência"}
         </button>
       </div>
+
+      {/* Registrar ocorrência no card */}
+      <RegistrarOcorrenciaCard />
     </section>
   );
 }

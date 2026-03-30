@@ -130,10 +130,10 @@ export async function POST(req: NextRequest) {
     const cardId = validateCardId(pipe2Card.id);
     const actions: string[] = [];
 
-    // 1. Atualizar comentário: trocar ❌ ENXOVAL por ❌ ENXOVAL: COMPRADO - PP CSO
+    // 1. Atualizar comentário: trocar qualquer "❌ ENXOVAL..." por "❌ ENXOVAL: COMPRADO - PP CSO"
     if (pipe2Card.lastComment) {
       const newComment = pipe2Card.lastComment.replace(
-        /❌\s*ENXOVAL(?!\s*:)/gi,
+        /❌\s*ENXOVAL[^\n]*/gi,
         "❌ ENXOVAL: COMPRADO - PP CSO"
       );
       await createComment(cardId, newComment);
