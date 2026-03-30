@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 const PIPEFY_API = "https://api.pipefy.com/graphql";
 const PIPEFY_TOKEN = process.env.PIPEFY_TOKEN || "";
 const PIPE_ID = "303828424";
+const PHASE_3_ID = "323529403";
+const WESLLEY_USER_ID = "305932218";
 
 async function pipefyQuery(query: string) {
   const res = await fetch(PIPEFY_API, {
@@ -16,17 +18,8 @@ async function pipefyQuery(query: string) {
   return res.json();
 }
 
-// Descobrir o ID da Fase 3 dinamicamente
-async function getPhase3Id(): Promise<string | null> {
-  const result = await pipefyQuery(`{
-    pipe(id: ${PIPE_ID}) {
-      phases { id name }
-    }
-  }`);
-  const phases = result?.data?.pipe?.phases;
-  if (!phases || phases.length < 3) return null;
-  // Fase 3 = terceira fase na lista
-  return phases[2]?.id || null;
+function getPhase3Id(): string {
+  return PHASE_3_ID;
 }
 
 // Buscar cards de uma fase com labels, assignees, comments, due_date
@@ -42,16 +35,7 @@ async function getPhaseCards(phaseId: string, cursor?: string): Promise<{ cards:
             due_date
             labels { id name }
             assignees { id name email }
-            comments(first: 1) {
-              edges {
-                node {
-                  id
-                  text
-                  created_at
-                  author_name
-                }
-              }
-            }
+            comments { id text created_at author_name }
           }
         }
         pageInfo {
@@ -88,19 +72,8 @@ async function getAllPhaseCards(phaseId: string): Promise<any[]> {
   return allCards;
 }
 
-// Buscar o ID do usuário "Weslley Bertoldo" no pipe
-async function getWeslleyId(): Promise<string | null> {
-  const result = await pipefyQuery(`{
-    pipe(id: ${PIPE_ID}) {
-      members { user { id name email } }
-    }
-  }`);
-  const members = result?.data?.pipe?.members || [];
-  const weslley = members.find((m: any) =>
-    m.user?.name?.toLowerCase().includes("weslley") ||
-    m.user?.email?.toLowerCase().includes("weslley")
-  );
-  return weslley?.user?.id || null;
+function getWeslleyId(): string {
+  return WESLLEY_USER_ID;
 }
 
 // Atualizar vencimento do card
@@ -224,18 +197,17 @@ async function processCard(card: any, weslleyId: string | null): Promise<{
       actions.push("Responsável mantido (Weslley)");
     }
 
-    // 3. Pegar último comentário e adicionar com nova data
-    const lastComment = card.comments?.edges?.[0]?.node;
+    // 3. Pegar último comentário (mais recente) e replicar com nova data de vencimento
+    const comments = card.comments || [];
+    const lastComment = comments.length > 0 ? comments[0] : null;
     if (lastComment?.text) {
-      // Substituir datas no formato DD/MM/YYYY no texto do comentário pela nova data
-      let newCommentText = lastComment.text.replace(
-        /\d{2}\/\d{2}\/\d{4}/g,
-        newDueDateBR
-      );
-      // Se não tinha data no comentário, adicionar no início
-      if (newCommentText === lastComment.text) {
-        newCommentText = `[Vencimento: ${newDueDateBR}] ${lastComment.text}`;
-      }
+      const newDueDateShort = newDueDateBR.slice(0, 5); // "DD/MM"
+      // Substituir datas nos formatos: DD/MM, DD.MM, DD/MM/YYYY, DD.MM.YYYY
+      let newCommentText = lastComment.text
+        .replace(/\d{2}\/\d{2}\/\d{4}/g, newDueDateBR)       // DD/MM/YYYY
+        .replace(/\d{2}\.\d{2}\.\d{4}/g, newDueDateBR)       // DD.MM.YYYY
+        .replace(/\d{2}\/\d{2}(?!\/\d)/g, newDueDateShort)   // DD/MM (sem ano)
+        .replace(/\d{2}\.\d{2}(?!\.\d)/g, newDueDateShort);  // DD.MM (sem ano)
       await createComment(card.id, newCommentText);
       actions.push("Comentário adicionado");
     } else {
@@ -256,10 +228,7 @@ export async function GET() {
   }
 
   try {
-    const phaseId = await getPhase3Id();
-    if (!phaseId) {
-      return NextResponse.json({ error: "Fase 3 não encontrada no pipe" }, { status: 404 });
-    }
+    const phaseId = getPhase3Id();
 
     const cards = await getAllPhaseCards(phaseId);
     const cardsWithoutSkipTags = cards.filter((c) => !shouldSkipCard(c).skip);
@@ -300,7 +269,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "cardId obrigatório" }, { status: 400 });
     }
 
-    const weslleyId = await getWeslleyId();
+    const weslleyId = getWeslleyId();
 
     // Buscar card individual
     const result = await pipefyQuery(`{
@@ -310,11 +279,7 @@ export async function POST(req: NextRequest) {
         due_date
         labels { id name }
         assignees { id name email }
-        comments(first: 1) {
-          edges {
-            node { id text created_at author_name }
-          }
-        }
+        comments { id text created_at author_name }
       }
     }`);
 
