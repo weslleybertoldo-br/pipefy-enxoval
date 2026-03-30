@@ -307,7 +307,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription }: { apiRoute: s
       {/* Controles */}
       <section className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-2">Atualização de Cards — {phaseName}</h2>
-        <p className="text-sm text-gray-500 mb-4" dangerouslySetInnerHTML={{ __html: phaseDescription }} />
+        <p className="text-sm text-gray-500 mb-4">{phaseDescription}</p>
 
         <div className="flex gap-3">
           <button
@@ -356,7 +356,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription }: { apiRoute: s
             </div>
             <div className="text-center p-3 bg-yellow-50 rounded-lg">
               <div className="text-2xl font-bold text-yellow-600">{phaseInfo.toSkip}</div>
-              <div className="text-xs text-gray-500">Ignorados (com tag)</div>
+              <div className="text-xs text-gray-500">Ignorados</div>
             </div>
           </div>
         </section>
@@ -664,7 +664,7 @@ export default function Home() {
 
       {/* Tab content */}
       {activeTab === "processamento" && <TabProcessamento />}
-      {activeTab === "fase3" && <TabUpdateCards apiRoute="/api/update-cards" phaseName="Fase 3" phaseDescription="Atualiza vencimento para o próximo dia útil às 22:00, responsável para Weslley Bertoldo, e replica o último comentário com a nova data. Cards com tags &quot;Adequação Complexa&quot; ou &quot;Revisão de Pendências Finalizada&quot; são ignorados." />}
+      {activeTab === "fase3" && <TabUpdateCards apiRoute="/api/update-cards" phaseName="Fase 3" phaseDescription={'Atualiza vencimento para o próximo dia útil às 22:00, responsável para Weslley Bertoldo, e replica o último comentário com a nova data. Cards com tags "Adequação Complexa" ou "Revisão de Pendências Finalizada" são ignorados.'} />}
       {activeTab === "fase4" && <TabUpdateCards apiRoute="/api/update-cards-phase4" phaseName="Fase 4" phaseDescription="Atualiza vencimento para daqui a 2 dias úteis às 22:00 e replica o último comentário com a nova data. Só atualiza cards do Weslley com vencimento para hoje." />}
       {activeTab === "fase5" && <TabPhase5 />}
     </div>
