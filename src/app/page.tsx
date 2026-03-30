@@ -1198,11 +1198,11 @@ const ORIGENS_OCORRENCIA = [
   "Cancelamento de vistorias",
 ];
 
-function CopyDiasTexto() {
-  const [dias, setDias] = useState("");
+function CopyTemplateButton({ label, placeholder, buildText }: { label: string; placeholder: string; buildText: (val: string) => string }) {
+  const [val, setVal] = useState("");
   const [copied, setCopied] = useState(false);
 
-  const texto = dias ? `Franquia está a ${dias} dias sem dar retorno, atrasando os processos da implantação.` : "";
+  const texto = val ? buildText(val) : "";
 
   const handleCopy = () => {
     if (!texto) return;
@@ -1215,24 +1215,41 @@ function CopyDiasTexto() {
   return (
     <div className="flex items-end gap-2">
       <div className="flex-shrink-0">
-        <label className="text-xs text-gray-500 block mb-1">Dias sem retorno</label>
+        <label className="text-xs text-gray-500 block mb-1">{label}</label>
         <input
-          type="number"
-          min="1"
-          value={dias}
-          onChange={(e) => setDias(e.target.value)}
-          placeholder="Ex: 5"
-          className="w-20 border border-gray-300 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+          type="text"
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+          placeholder={placeholder}
+          className="w-24 border border-gray-300 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
         />
       </div>
       <button
         onClick={handleCopy}
-        disabled={!dias}
+        disabled={!val}
         className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${copied ? "bg-green-600 text-white" : "bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50"}`}
       >
-        {copied ? "Copiado!" : "Copiar texto"}
+        {copied ? "Copiado!" : "Copiar"}
       </button>
-      {texto && <span className="text-xs text-gray-400 truncate max-w-xs">{texto}</span>}
+    </div>
+  );
+}
+
+function CopyDiasTexto() {
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-4">
+        <CopyTemplateButton
+          label="Dias sem retorno"
+          placeholder="Ex: 5"
+          buildText={(dias) => `Franquia está a ${dias} dias sem dar retorno, atrasando os processos da implantação.`}
+        />
+        <CopyTemplateButton
+          label="Data prometida"
+          placeholder="Ex: 28/03"
+          buildText={(data) => `Franquia sinalizou iria enviar os registros pendentes no dia ${data} e não enviou. A falta de retorno da franquia impacta diretamente o tempo de implantação que é um dos KPI importantes para mensurar a produtividade e agilidade da implantação.`}
+        />
+      </div>
     </div>
   );
 }
