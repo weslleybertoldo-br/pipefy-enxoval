@@ -18,6 +18,7 @@ interface UpdateCardInfo {
   title: string;
   labels: string[];
   skip: boolean;
+  skipReason: string;
   assignees: string[];
   due_date: string | null;
 }
@@ -422,7 +423,7 @@ function TabUpdateCards() {
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-gray-500">{c.assignees.join(", ") || "Sem responsável"}</div>
-                  {c.skip && <div className="text-xs text-yellow-600 mt-0.5">Ignorado</div>}
+                  {c.skip && <div className="text-xs text-yellow-600 mt-0.5">{c.skipReason || "Ignorado"}</div>}
                 </div>
               </div>
             ))}

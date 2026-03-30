@@ -140,11 +140,34 @@ const SKIP_TAGS = [
   "REVISÃO DE PENDENCIAS FINALIZADAS",
 ];
 
-function shouldSkipCard(card: any): boolean {
+function shouldSkipCard(card: any): { skip: boolean; reason: string } {
   const labels = card.labels || [];
-  return labels.some((label: any) =>
+  const hasSkipTag = labels.some((label: any) =>
     SKIP_TAGS.some((tag) => label.name?.toUpperCase().includes(tag.toUpperCase()))
   );
+  if (hasSkipTag) {
+    const tagNames = labels.map((l: any) => l.name).join(", ");
+    return { skip: true, reason: `Tag: ${tagNames}` };
+  }
+
+  // Só atualizar cards com vencimento para hoje
+  if (!card.due_date) {
+    return { skip: true, reason: "Sem vencimento definido" };
+  }
+  const dueDate = new Date(card.due_date);
+  const today = new Date();
+  const isDueToday =
+    dueDate.getFullYear() === today.getFullYear() &&
+    dueDate.getMonth() === today.getMonth() &&
+    dueDate.getDate() === today.getDate();
+
+  if (!isDueToday) {
+    const dd = String(dueDate.getDate()).padStart(2, "0");
+    const mm = String(dueDate.getMonth() + 1).padStart(2, "0");
+    return { skip: true, reason: `Vencimento em ${dd}/${mm} (não é hoje)` };
+  }
+
+  return { skip: false, reason: "" };
 }
 
 function getNextBusinessDayAt22(): string {
@@ -175,9 +198,9 @@ async function processCard(card: any, weslleyId: string | null): Promise<{
 }> {
   try {
     // Verificar tags
-    if (shouldSkipCard(card)) {
-      const tagNames = (card.labels || []).map((l: any) => l.name).join(", ");
-      return { cardId: card.id, title: card.title, action: "skipped", details: `Tag: ${tagNames}` };
+    const skipCheck = shouldSkipCard(card);
+    if (skipCheck.skip) {
+      return { cardId: card.id, title: card.title, action: "skipped", details: skipCheck.reason };
     }
 
     const newDueDate = getNextBusinessDayAt22();
@@ -239,8 +262,8 @@ export async function GET() {
     }
 
     const cards = await getAllPhaseCards(phaseId);
-    const cardsWithoutSkipTags = cards.filter((c) => !shouldSkipCard(c));
-    const cardsWithSkipTags = cards.filter((c) => shouldSkipCard(c));
+    const cardsWithoutSkipTags = cards.filter((c) => !shouldSkipCard(c).skip);
+    const cardsWithSkipTags = cards.filter((c) => shouldSkipCard(c).skip);
 
     return NextResponse.json({
       success: true,
@@ -252,7 +275,8 @@ export async function GET() {
         id: c.id,
         title: c.title,
         labels: (c.labels || []).map((l: any) => l.name),
-        skip: shouldSkipCard(c),
+        skip: shouldSkipCard(c).skip,
+        skipReason: shouldSkipCard(c).reason,
         assignees: (c.assignees || []).map((a: any) => a.name),
         due_date: c.due_date,
       })),
