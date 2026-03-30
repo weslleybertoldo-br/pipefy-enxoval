@@ -67,15 +67,23 @@ export async function GET(req: NextRequest) {
       totalCards: cards.length,
       toUpdate: skipMap.filter((s) => !s.skip).length,
       toSkip: skipMap.filter((s) => s.skip).length,
-      cards: skipMap.map((s) => ({
-        id: s.card.id,
-        title: s.card.title,
-        labels: (s.card.labels || []).map((l: any) => l.name),
-        assignees: (s.card.assignees || []).map((a: any) => a.name),
-        due_date: s.card.due_date,
-        skip: s.skip,
-        skipReason: s.reason,
-      })),
+      cards: skipMap
+        .map((s) => ({
+          id: s.card.id,
+          title: s.card.title,
+          labels: (s.card.labels || []).map((l: any) => l.name),
+          assignees: (s.card.assignees || []).map((a: any) => a.name),
+          due_date: s.card.due_date,
+          skip: s.skip,
+          skipReason: s.reason,
+        }))
+        .sort((a, b) => {
+          // Cards com outro responsável (não Weslley) primeiro
+          const aIsWeslley = a.assignees.some((n: string) => n.toLowerCase().includes("weslley"));
+          const bIsWeslley = b.assignees.some((n: string) => n.toLowerCase().includes("weslley"));
+          if (aIsWeslley !== bIsWeslley) return aIsWeslley ? 1 : -1;
+          return a.title.localeCompare(b.title);
+        }),
     });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
