@@ -289,7 +289,39 @@ function TabProcessamento() {
 // TAB: ATUALIZAÇÃO DE CARDS
 // =====================
 
-function TabUpdateCards({ apiRoute, phaseName, phaseDescription }: { apiRoute: string; phaseName: string; phaseDescription: string }) {
+function CopyFupButton({ days }: { days: number }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const now = new Date();
+    let added = 0;
+    const next = new Date(now);
+    while (added < days) {
+      next.setDate(next.getDate() + 1);
+      if (next.getDay() !== 0 && next.getDay() !== 6) added++;
+    }
+    const dd = String(next.getDate()).padStart(2, "0");
+    const mm = String(next.getMonth() + 1).padStart(2, "0");
+
+    const text = `🟡 Imóvel em ativação\n\n🚨 Aguardando ativação do imóvel\n\n⏭️ Fup: ${dd}/${mm}\n\n...................................................................................................`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`px-6 py-3 rounded-md font-medium transition-colors ${copied ? "bg-green-600 text-white" : "bg-yellow-500 text-white hover:bg-yellow-600"}`}
+    >
+      {copied ? "Copiado!" : "Copiar FUP"}
+    </button>
+  );
+}
+
+function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton }: { apiRoute: string; phaseName: string; phaseDescription: string; showCopyButton?: boolean }) {
   const [cards, setCards] = useState<UpdateCardInfo[]>([]);
   const [results, setResults] = useState<UpdateResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -400,6 +432,8 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription }: { apiRoute: s
               Parar
             </button>
           )}
+
+          {showCopyButton && <CopyFupButton days={2} />}
         </div>
 
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
@@ -1111,7 +1145,7 @@ export default function Home() {
       {/* Tab content */}
       {activeTab === "processamento" && <TabProcessamento />}
       {activeTab === "fase3" && <TabUpdateCards apiRoute="/api/update-cards" phaseName="Fase 3" phaseDescription={'Atualiza vencimento para o próximo dia útil às 22:00, responsável para Weslley Bertoldo, e replica o último comentário com a nova data. Cards com tags "Adequação Complexa" ou "Revisão de Pendências Finalizada" são ignorados.'} />}
-      {activeTab === "fase4" && <TabUpdateCards apiRoute="/api/update-cards-phase4" phaseName="Fase 4" phaseDescription="Atualiza vencimento para daqui a 2 dias úteis às 22:00 e replica o último comentário com a nova data. Só atualiza cards do Weslley com vencimento para hoje." />}
+      {activeTab === "fase4" && <TabUpdateCards apiRoute="/api/update-cards-phase4" phaseName="Fase 4" phaseDescription="Atualiza vencimento para daqui a 2 dias úteis às 22:00 e replica o último comentário com a nova data. Só atualiza cards do Weslley com vencimento para hoje." showCopyButton />}
       {activeTab === "fase5" && <TabPhase5 />}
       {activeTab === "revisao" && <TabRevisao />}
       {activeTab === "complexa" && <TabComplexa />}
