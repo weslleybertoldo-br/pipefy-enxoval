@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, requireAuth, PHASE_3_ID, PHASE_4_ID, PHASE_5_ID } from "@/lib/pipefy";
+import { pipefyQuery, requireAuth } from "@/lib/pipefy";
 
-// Buscar franqueado em todas as fases do Pipe 2
-const PHASES_TO_SEARCH = [PHASE_3_ID, PHASE_4_ID, PHASE_5_ID];
+// Pipe 1 - Implantação/Mãe - todas as fases relevantes
+const PIPE_1_PHASES = [
+  "323044780",  // Backlog
+  "333371452",  // Fase 0
+  "323044781",  // Fase 1
+  "323044783",  // Fase 2
+  "323044784",  // Fase 3
+  "323044785",  // Fase 4
+  "323044786",  // Fase 5
+  "323044787",  // Fase 6
+  "323044796",  // Fase 7
+  "323044844",  // Fase 8
+  "323044836",  // Fase 9
+  "326702699",  // Fase 10
+  "323044845",  // Fase 11
+];
 
 export async function GET(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {
@@ -15,7 +29,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    for (const phaseId of PHASES_TO_SEARCH) {
+    for (const phaseId of PIPE_1_PHASES) {
       const result = await pipefyQuery(`{
         phase(id: ${phaseId}) {
           cards(first: 3, search: { title: "${code.replace(/"/g, '\\"')}" }) {
@@ -34,12 +48,12 @@ export async function GET(req: NextRequest) {
 
       if (card) {
         const fields = card.node.fields || [];
-        const franquiaField = fields.find((f: any) =>
-          f.name?.toLowerCase().includes("franquia escolhida")
+        const field = fields.find((f: any) =>
+          f.name?.toLowerCase() === "anfitrião escolhido"
         );
 
-        if (franquiaField?.value) {
-          return NextResponse.json({ success: true, franqueado: franquiaField.value });
+        if (field?.value) {
+          return NextResponse.json({ success: true, franqueado: field.value });
         }
       }
     }
