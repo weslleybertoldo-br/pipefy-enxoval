@@ -202,12 +202,15 @@ async function processCard(card: any, weslleyId: string | null): Promise<{
     const lastComment = comments.length > 0 ? comments[0] : null;
     if (lastComment?.text) {
       const newDueDateShort = newDueDateBR.slice(0, 5); // "DD/MM"
-      // Substituir datas nos formatos: DD/MM, DD.MM, DD/MM/YYYY, DD.MM.YYYY
-      let newCommentText = lastComment.text
-        .replace(/\d{2}\/\d{2}\/\d{4}/g, newDueDateBR)       // DD/MM/YYYY
-        .replace(/\d{2}\.\d{2}\.\d{4}/g, newDueDateBR)       // DD.MM.YYYY
-        .replace(/\d{2}\/\d{2}(?!\/\d)/g, newDueDateShort)   // DD/MM (sem ano)
-        .replace(/\d{2}\.\d{2}(?!\.\d)/g, newDueDateShort);  // DD.MM (sem ano)
+      // Substituir a data no campo "Fup:" mantendo o formato original (barra ou ponto)
+      const newCommentText = lastComment.text.replace(
+        /(Fup:\s*)(\d{2})[\/.](\d{2})(?:[\/.](\d{4}))?/gi,
+        (_match: string, prefix: string, _day: string, _month: string, year: string) => {
+          // Se tinha ano, colocar ano novo. Se não, só DD/MM
+          if (year) return `${prefix}${newDueDateBR}`;
+          return `${prefix}${newDueDateShort}`;
+        }
+      );
       await createComment(card.id, newCommentText);
       actions.push("Comentário adicionado");
     } else {
