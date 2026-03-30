@@ -64,7 +64,6 @@ export async function POST(req: NextRequest) {
     ];
 
     if (codigo) fields.push(`{ field_id: "c_digo_do_im_vel_1", field_value: "${esc(codigo)}" }`);
-    if (categoria) fields.push(`{ field_id: "categoria_da_ocorr_ncia_1", field_value: "${esc(categoria)}" }`);
     if (franquia) fields.push(`{ field_id: "franquia", field_value: "${esc(franquia)}" }`);
     if (filePath) fields.push(`{ field_id: "evid_ncia", field_value: ["${esc(filePath)}"] }`);
 

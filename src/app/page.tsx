@@ -1423,7 +1423,6 @@ const CATEGORIAS_OCORRENCIA = [
 
 function FormOcorrencia() {
   const [codigo, setCodigo] = useState("");
-  const [categoria, setCategoria] = useState(CATEGORIAS_OCORRENCIA[0]);
   const [franquia, setFranquia] = useState("");
   const [origem, setOrigem] = useState("Implantação");
   const [descricao, setDescricao] = useState("");
@@ -1440,7 +1439,6 @@ function FormOcorrencia() {
       formData.append("email", "weslley.bertoldo@seazone.com.br");
       formData.append("envolveimovel", "Sim");
       formData.append("codigo", codigo.trim());
-      formData.append("categoria", categoria);
       formData.append("franquia", franquia);
       formData.append("origem", origem);
       formData.append("descricao", descricao.trim());
@@ -1488,12 +1486,6 @@ function FormOcorrencia() {
           <input type="text" value={codigo} onChange={(e) => setCodigo(e.target.value.toUpperCase())} placeholder="Ex: ALA0004" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Categoria da ocorrência</label>
-          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white">
-            {CATEGORIAS_OCORRENCIA.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-        </div>
 
         <SearchableSelect
           label="Franquia do imóvel"
