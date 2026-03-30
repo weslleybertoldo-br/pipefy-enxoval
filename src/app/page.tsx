@@ -289,7 +289,12 @@ function TabProcessamento() {
 // TAB: ATUALIZAÇÃO DE CARDS
 // =====================
 
-function CopyFupButton({ days }: { days: number }) {
+const COPY_TEMPLATES: Record<string, (fup: string) => string> = {
+  fase4: (fup) => `🟡 Imóvel em ativação\n\n🚨 Aguardando ativação do imóvel\n\n⏭️ Fup: ${fup}\n\n...................................................................................................`,
+  fase5: (fup) => `✅ Imóvel ativo\n\n🚨 Aguardando o envio dos registros pendentes\n\n⏭️ Fup: ${fup}\n\n....................................................................................................`,
+};
+
+function CopyFupButton({ days, template = "fase4" }: { days: number; template?: string }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -303,7 +308,8 @@ function CopyFupButton({ days }: { days: number }) {
     const dd = String(next.getDate()).padStart(2, "0");
     const mm = String(next.getMonth() + 1).padStart(2, "0");
 
-    const text = `🟡 Imóvel em ativação\n\n🚨 Aguardando ativação do imóvel\n\n⏭️ Fup: ${dd}/${mm}\n\n...................................................................................................`;
+    const textFn = COPY_TEMPLATES[template] || COPY_TEMPLATES.fase4;
+    const text = textFn(`${dd}/${mm}`);
 
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
@@ -607,13 +613,16 @@ function TabPhase5() {
         <p className="text-sm text-gray-500 mb-4">
           Lista todos os cards da Fase 5 com o último comentário. Clique no botão para atualizar individualmente: vencimento +3 dias úteis às 22:00 e comentário com nova data.
         </p>
-        <button
-          onClick={loadCards}
-          disabled={loading}
-          className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={loadCards}
+            disabled={loading}
+            className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
+          </button>
+          <CopyFupButton days={3} template="fase5" />
+        </div>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </section>
 
