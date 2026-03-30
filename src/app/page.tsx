@@ -225,7 +225,7 @@ function TabProcessamento() {
 // TAB: ATUALIZAÇÃO DE CARDS
 // =====================
 
-function TabUpdateCards() {
+function TabUpdateCards({ apiRoute, phaseName, phaseDescription }: { apiRoute: string; phaseName: string; phaseDescription: string }) {
   const [cards, setCards] = useState<UpdateCardInfo[]>([]);
   const [results, setResults] = useState<UpdateResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -234,13 +234,12 @@ function TabUpdateCards() {
   const [error, setError] = useState("");
   const abortRef = useRef(false);
 
-  // Carregar cards da Fase 3
   const loadCards = async () => {
     setLoading(true);
     setError("");
     setResults([]);
     try {
-      const res = await fetch("/api/update-cards");
+      const res = await fetch(apiRoute);
       const data = await res.json();
       if (data.success) {
         setCards(data.cards);
@@ -279,7 +278,7 @@ function TabUpdateCards() {
       setResults((prev) => prev.map((r, idx) => (idx === i ? { ...r, action: "processing", details: "Processando..." } : r)));
 
       try {
-        const res = await fetch("/api/update-cards", {
+        const res = await fetch(apiRoute, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cardId: toProcess[i].id }),
@@ -307,12 +306,8 @@ function TabUpdateCards() {
     <>
       {/* Controles */}
       <section className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold mb-2">Atualização de Cards — Fase 3</h2>
-        <p className="text-sm text-gray-500 mb-4">
-          Carrega os cards da Fase 3 e atualiza automaticamente: vencimento para o próximo dia útil às 22:00,
-          responsável para Weslley Bertoldo, e replica o último comentário com a nova data.
-          Cards com tags &quot;Adequação Complexa&quot; ou &quot;Revisão de Pendências Finalizadas&quot; são ignorados.
-        </p>
+        <h2 className="text-lg font-semibold mb-2">Atualização de Cards — {phaseName}</h2>
+        <p className="text-sm text-gray-500 mb-4" dangerouslySetInnerHTML={{ __html: phaseDescription }} />
 
         <div className="flex gap-3">
           <button
@@ -353,7 +348,7 @@ function TabUpdateCards() {
           <div className="grid grid-cols-3 gap-4">
             <div className="text-center p-3 bg-gray-50 rounded-lg">
               <div className="text-2xl font-bold text-gray-900">{phaseInfo.totalCards}</div>
-              <div className="text-xs text-gray-500">Total na Fase 3</div>
+              <div className="text-xs text-gray-500">Total na {phaseName}</div>
             </div>
             <div className="text-center p-3 bg-blue-50 rounded-lg">
               <div className="text-2xl font-bold text-blue-600">{phaseInfo.toUpdate}</div>
@@ -404,7 +399,7 @@ function TabUpdateCards() {
       {/* Lista de cards carregados */}
       {cards.length > 0 && results.length === 0 && (
         <section className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold mb-3">Cards na Fase 3</h2>
+          <h2 className="text-lg font-semibold mb-3">Cards na {phaseName}</h2>
           <div className="space-y-2">
             {cards.map((c) => (
               <div key={c.id} className={`flex items-center justify-between px-4 py-3 rounded-md border ${c.skip ? "bg-yellow-50 border-yellow-200 opacity-60" : "bg-gray-50 border-gray-200"}`}>
@@ -440,7 +435,7 @@ function TabUpdateCards() {
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"processamento" | "atualizacao">("processamento");
+  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4">("processamento");
 
   // Verificar auth ao carregar
   useEffect(() => {
@@ -493,18 +488,27 @@ export default function Home() {
           Processamento
         </button>
         <button
-          onClick={() => setActiveTab("atualizacao")}
+          onClick={() => setActiveTab("fase3")}
           className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === "atualizacao" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            activeTab === "fase3" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
           }`}
         >
-          Atualização de Cards
+          Fase 3
+        </button>
+        <button
+          onClick={() => setActiveTab("fase4")}
+          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "fase4" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Fase 4
         </button>
       </div>
 
       {/* Tab content */}
       {activeTab === "processamento" && <TabProcessamento />}
-      {activeTab === "atualizacao" && <TabUpdateCards />}
+      {activeTab === "fase3" && <TabUpdateCards apiRoute="/api/update-cards" phaseName="Fase 3" phaseDescription="Atualiza vencimento para o próximo dia útil às 22:00, responsável para Weslley Bertoldo, e replica o último comentário com a nova data. Cards com tags &quot;Adequação Complexa&quot; ou &quot;Revisão de Pendências Finalizada&quot; são ignorados." />}
+      {activeTab === "fase4" && <TabUpdateCards apiRoute="/api/update-cards-phase4" phaseName="Fase 4" phaseDescription="Atualiza vencimento para daqui a 2 dias úteis às 22:00 e replica o último comentário com a nova data. Só atualiza cards com vencimento para hoje." />}
     </div>
   );
 }
