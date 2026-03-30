@@ -1238,28 +1238,59 @@ function FormSuporte() {
   );
 }
 
+const FRANQUIAS_OCORRENCIA = ["Adriana Bozeti","Alan Mesquita Maciel","Ana Carla de Aguiar Lopes","Ana Carolina Assmus Barski","Ana Lúcia Gasparello Cruz","Ana Márcia Pereira Buzzacchino","Ana Paula Friedrich de Oliveira","André Demetrio","Andrea Mara dos Santos podlasinski","Andreia Real da Rosa","CAMILA BRESOLIN PEREIRA","Camila Moura Lacerda","Camila Silva Costa","Carlos Eduardo Inácio Diniz","Caroline Sorondo Vaghetti","Cassiana Outeiro Silva de Souza","Christian Cerqueira de Carvalho","Christina Elisabeth Carpes Antunes","Cingridi Cristina Mariano","Cleverson de O. Redivo","Daniela Lopes Nasario","Débora Renata Gomes Soares","Dhennyfer Rosa de Almeida","Diego Rafael Padilha dos Santos","Dineia Pedroso de Almeida","Dreicom Adolfo Neckel Wolter","DRIELY LOHANNE CONSTANTINO","Edilson Machado da Silva","Edite Alves","Eduardo José Pereira Santos","Erion Xhafaj","Evelyn Gabriela dos Santos","Fábio Moreira Campos Monteiro","Fernanda Kieling Kist","Flávio de Souza Porto","Francisco Diey Brito","Gabriela da Luz Nunes","Giselia Soares da Silva","Gladys Timmerman","Glauciene Sacramento Santos","Gustavo Henrique de Barros Silva","Gustavo Ribas","Isadora Corrêa de Oliveira","Itamar Franco Junior","Izana Serra Lima","Jaciane Melo Graciliano","Jane Terezinha de Souza de Jesus","Jayson Luckemeyer","Jeferson Luis Fernandes","Jênifer Niéli Ribas","Jéssica Schirley Sibilio Dutra Jordão Macedo","Jhenyffer Paola Ramos Da Silva","Jocelia de Lima Caron","John Erik Gasparello","José Fernando de Campos","José Ronaldo Cerqueira de Freitas","Juliana Lemos da Silva","Kathellyne Soares de Moraes","Katia Leite do Nascimento Emmel","Kemille Negromonte de Souza","Letícia Fagundes","Luan Navarro","Luanda Tavares Santana","Lucas Sena da Silva","Lucas Taniguti Bertarelli","Luciana Dellamora Pata Fernandes Lima","Lucilene Cora","Luila Chiste Lage","Luís Eduardo Oliveira Machado","Madego DF Ativos","Madego GO Ativos","Marcela S Gambelli","Marcio Nei Schubert Ribas","MARIA CAROLINA DE RODRIGUES DE SOUZA","Mariana Lopes Ribeiro De Carvalho","Mariana Paola Monteiro Ferrari","Matias Clementino Trindade dos Santos","Nabiha Kasmas Denis","Naihana Loyola Andriani","Patrícia Aparecida de Melo","Paulino José Clemente de Vasconcellos","Pedro Henrique Do Erre de Jesus","Rael Michaelsen","Reinaldo Jorge Fernandes","Renata Maria Cerqueira","Ricardo Portella Junior","Roberta de Almeida Turra Vieira","Roberta de Freitas Costa","Rodrigo Maruco Ruas de Oliveira","Sandra Maria Gervásio Sales","Seazone Brasília","Silvia Regina Costa Silva","Sônia Maria Gervásio sales","Stefanie Maria Castro","Thiago Reis","Thiago Rodrigues Pinto","Tiago dos Santos e Santos","Vinicius da Anunciação Santos","Vinicius Vieira dos Reis","Virginia De Paula Carvalho"];
+
+const CATEGORIAS_OCORRENCIA = [
+  "Ocorrência com os imóveis",
+  "Ocorrência com os hóspedes",
+  "Ocorrência com a Seazone",
+];
+
 function FormOcorrencia() {
   const [codigo, setCodigo] = useState("");
+  const [categoria, setCategoria] = useState(CATEGORIAS_OCORRENCIA[0]);
+  const [franquia, setFranquia] = useState("");
   const [origem, setOrigem] = useState("Implantação");
   const [descricao, setDescricao] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const handleAbrir = () => {
-    // Copiar descrição para clipboard
-    if (descricao.trim()) {
-      navigator.clipboard.writeText(descricao.trim()).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 3000);
+  const handleEnviar = async () => {
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/create-ocorrencia", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "weslley.bertoldo@seazone.com.br",
+          envolveimovel: "Sim",
+          codigo: codigo.trim(),
+          categoria,
+          franquia,
+          origem,
+          descricao: descricao.trim(),
+        }),
       });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ success: true, message: `Ocorrência criada! Card #${data.cardId}` });
+        setCodigo("");
+        setDescricao("");
+      } else {
+        setResult({ success: false, message: data.error || "Erro ao criar" });
+      }
+    } catch {
+      setResult({ success: false, message: "Erro de conexão" });
+    } finally {
+      setSending(false);
     }
-    // Abrir formulário em nova aba
-    window.open(OCORRENCIA_FORM_URL, "_blank");
   };
 
   return (
     <section className="bg-white rounded-lg shadow p-6 mb-6">
       <h3 className="text-lg font-semibold mb-1">Registro de Ocorrência</h3>
-      <p className="text-xs text-gray-500 mb-4">Preencha os campos. Ao clicar &quot;Abrir Ocorrência&quot;, a descrição será copiada e o formulário abrirá em nova aba.</p>
+      <p className="text-xs text-gray-500 mb-4">Preencha e clique &quot;Enviar&quot;. A ocorrência será criada diretamente no Pipefy.</p>
 
       <div className="space-y-4">
         <div>
@@ -1278,6 +1309,21 @@ function FormOcorrencia() {
         </div>
 
         <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Categoria da ocorrência</label>
+          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white">
+            {CATEGORIAS_OCORRENCIA.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Franquia do imóvel</label>
+          <select value={franquia} onChange={(e) => setFranquia(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white">
+            <option value="">Selecione a franquia</option>
+            {FRANQUIAS_OCORRENCIA.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </div>
+
+        <div>
           <label className="text-sm font-medium text-gray-700 block mb-1">Origem da ocorrência</label>
           <select value={origem} onChange={(e) => setOrigem(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white">
             {ORIGENS_OCORRENCIA.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -1289,17 +1335,16 @@ function FormOcorrencia() {
           <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descreva o ocorrido..." rows={5} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
 
-        <p className="text-xs text-gray-500">Evidências (arquivos) devem ser anexadas diretamente no formulário do Pipefy.</p>
+        <p className="text-xs text-gray-500">Evidências podem ser anexadas depois diretamente no card do Pipefy.</p>
 
-        {descricao.trim() && (
-          <div className="bg-orange-50 rounded-md p-4 border border-orange-200">
-            <p className="text-xs font-medium text-orange-700 mb-2">Texto que será copiado:</p>
-            <pre className="text-xs text-orange-900 whitespace-pre-wrap font-sans">{descricao.trim()}</pre>
+        {result && (
+          <div className={`p-3 rounded-md text-sm ${result.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+            {result.message}
           </div>
         )}
 
-        <button onClick={handleAbrir} disabled={!codigo.trim() || !descricao.trim()} className="w-full bg-orange-600 text-white py-3 rounded-md font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
-          {copied ? "Descrição copiada! Cole no formulário." : "Abrir Ocorrência (copia descrição + abre formulário)"}
+        <button onClick={handleEnviar} disabled={sending || !codigo.trim() || !descricao.trim() || !franquia} className="w-full bg-orange-600 text-white py-3 rounded-md font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
+          {sending ? "Enviando..." : "Enviar Ocorrência"}
         </button>
       </div>
     </section>
