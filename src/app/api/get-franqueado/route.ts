@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, fetchAllCardsFromPhase, requireAuth } from "@/lib/pipefy";
+import { pipefyQuery, requireAuth, PHASE_3_ID, PHASE_4_ID, PHASE_5_ID } from "@/lib/pipefy";
 
-// Fase 5 do Pipe 2 (Adequação) para buscar franqueado pelo código do imóvel
-const PIPE_1_ID = "303781436"; // Pipe 1 - Implantação/Mãe
+// Buscar franqueado em todas as fases do Pipe 2
+const PHASES_TO_SEARCH = [PHASE_3_ID, PHASE_4_ID, PHASE_5_ID];
 
 export async function GET(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {
@@ -15,41 +15,36 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Buscar no Pipe 1 pelo título (código do imóvel)
-    const result = await pipefyQuery(`{
-      pipe(id: ${PIPE_1_ID}) {
-        cards(first: 5, search: { title: "${code.replace(/"/g, '\\"')}" }) {
-          edges {
-            node {
-              id
-              title
-              fields { name value }
+    for (const phaseId of PHASES_TO_SEARCH) {
+      const result = await pipefyQuery(`{
+        phase(id: ${phaseId}) {
+          cards(first: 3, search: { title: "${code.replace(/"/g, '\\"')}" }) {
+            edges {
+              node {
+                title
+                fields { name value }
+              }
             }
           }
         }
+      }`);
+
+      const edges = result?.data?.phase?.cards?.edges || [];
+      const card = edges.find((e: any) => e.node.title.toUpperCase() === code.toUpperCase());
+
+      if (card) {
+        const fields = card.node.fields || [];
+        const franquiaField = fields.find((f: any) =>
+          f.name?.toLowerCase().includes("franquia escolhida")
+        );
+
+        if (franquiaField?.value) {
+          return NextResponse.json({ success: true, franqueado: franquiaField.value });
+        }
       }
-    }`);
-
-    const edges = result?.data?.pipe?.cards?.edges || [];
-    const card = edges.find((e: any) => e.node.title.toUpperCase() === code.toUpperCase());
-
-    if (!card) {
-      return NextResponse.json({ success: true, franqueado: "" });
     }
 
-    // Procurar campo de franquia/franqueado
-    const fields = card.node.fields || [];
-    const franquiaField = fields.find((f: any) =>
-      f.name?.toLowerCase().includes("franquia") ||
-      f.name?.toLowerCase().includes("franqueado") ||
-      f.name?.toLowerCase().includes("anfitrião")
-    );
-
-    return NextResponse.json({
-      success: true,
-      franqueado: franquiaField?.value || "",
-      cardTitle: card.node.title,
-    });
+    return NextResponse.json({ success: true, franqueado: "" });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
   }
