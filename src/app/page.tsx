@@ -3,6 +3,67 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
 // =====================
+// COMPONENTE: Select com pesquisa
+// =====================
+
+function SearchableSelect({ label, value, onChange, options, placeholder }: {
+  label: string; value: string; onChange: (v: string) => void; options: string[]; placeholder?: string;
+}) {
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = search
+    ? options.filter((o) => o.toLowerCase().includes(search.toLowerCase()))
+    : options;
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <label className="text-sm font-medium text-gray-700 block mb-1">{label}</label>
+      <input
+        type="text"
+        value={open ? search : value || search}
+        onChange={(e) => { setSearch(e.target.value); setOpen(true); if (!e.target.value) onChange(""); }}
+        onFocus={() => setOpen(true)}
+        placeholder={placeholder || "Selecione..."}
+        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      {value && !open && (
+        <button onClick={() => { onChange(""); setSearch(""); setOpen(true); }} className="absolute right-2 top-8 text-gray-400 hover:text-gray-600 text-xs">
+          limpar
+        </button>
+      )}
+      {open && filtered.length > 0 && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+          {filtered.map((o) => (
+            <button
+              key={o}
+              onClick={() => { onChange(o); setSearch(""); setOpen(false); }}
+              className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${value === o ? "bg-blue-100 font-medium" : ""}`}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+      )}
+      {open && filtered.length === 0 && search && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3 text-sm text-gray-500">
+          Nenhum resultado
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =====================
 // COMPONENTE: Código copiável
 // =====================
 
@@ -1372,13 +1433,13 @@ function FormOcorrencia() {
           </select>
         </div>
 
-        <div>
-          <label className="text-sm font-medium text-gray-700 block mb-1">Franquia do imóvel</label>
-          <select value={franquia} onChange={(e) => setFranquia(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white">
-            <option value="">Selecione a franquia</option>
-            {FRANQUIAS_OCORRENCIA.map((f) => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
+        <SearchableSelect
+          label="Franquia do imóvel"
+          value={franquia}
+          onChange={setFranquia}
+          options={FRANQUIAS_OCORRENCIA}
+          placeholder="Digite para pesquisar..."
+        />
 
         <div>
           <label className="text-sm font-medium text-gray-700 block mb-1">Origem da ocorrência</label>
