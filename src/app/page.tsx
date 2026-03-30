@@ -1527,12 +1527,140 @@ function FormOcorrencia() {
 }
 
 // =====================
+// TAB: ENXOVAL/CSO
+// =====================
+
+interface EnxovalCsoCard {
+  id: string;
+  title: string;
+  lastComment: string;
+  tags: string[];
+  hasEnxovalComprado: boolean;
+}
+
+function TabEnxovalCso() {
+  const [cards, setCards] = useState<EnxovalCsoCard[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [updatingCard, setUpdatingCard] = useState<string | null>(null);
+  const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
+
+  const loadCards = async () => {
+    setLoading(true);
+    setError("");
+    setCardStatuses({});
+    try {
+      const res = await fetch("/api/enxoval-cso");
+      const data = await res.json();
+      if (data.success) {
+        setCards(data.cards);
+      } else {
+        setError(data.error || "Erro ao carregar");
+      }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateCard = async (code: string) => {
+    setUpdatingCard(code);
+    try {
+      const res = await fetch("/api/enxoval-cso", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCardStatuses((prev) => ({ ...prev, [code]: { status: "updated", message: data.details } }));
+      } else {
+        setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: data.error || "Erro" } }));
+      }
+    } catch {
+      setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setUpdatingCard(null);
+    }
+  };
+
+  return (
+    <>
+      <section className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-2">ENXOVAL / CSO</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Cards da Fase 5 com enxoval pendente (❌ ENXOVAL). Mostra as tags do Pipe 0 (Onboarding). O botão atualiza o comentário e campo &quot;Validação Enxoval&quot; para &quot;COMPRADO - PP CSO&quot;.
+        </p>
+        <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
+          {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
+        </button>
+        {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
+      </section>
+
+      {cards.length > 0 && (
+        <section className="space-y-3">
+          {cards.map((c) => {
+            const cardStatus = cardStatuses[c.title];
+            const isUpdating = updatingCard === c.title;
+            return (
+              <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-red-400"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <CopyableCode code={c.title} className="text-base" />
+                    <span className="text-xs text-red-500 font-medium">❌ ENXOVAL pendente</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {/* Tags do Pipe 0 */}
+                    {c.hasEnxovalComprado && (
+                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">ENXOVAL COMPRADO</span>
+                    )}
+                    {cardStatus && (
+                      <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>
+                    )}
+                    {!cardStatus && (
+                      <button
+                        onClick={() => updateCard(c.title)}
+                        disabled={isUpdating || updatingCard !== null}
+                        className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                      >
+                        {isUpdating ? "Atualizando..." : "Marcar COMPRADO CSO"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Tags */}
+                {c.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-3">
+                    {c.tags.map((t) => (
+                      <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded ${t.toUpperCase().includes("ENXOVAL") ? "bg-green-200 text-green-800" : "bg-gray-200"}`}>{t}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Último comentário */}
+                {c.lastComment && (
+                  <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">{c.lastComment}</pre>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </section>
+      )}
+    </>
+  );
+}
+
+// =====================
 // MAIN APP
 // =====================
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4" | "fase5" | "revisao" | "complexa" | "ocorrencia">("processamento");
+  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4" | "fase5" | "revisao" | "complexa" | "ocorrencia" | "enxovalcso">("processamento");
 
   // Verificar auth ao carregar
   useEffect(() => {
@@ -1632,6 +1760,14 @@ export default function Home() {
         >
           Ocorrência/Suportes
         </button>
+        <button
+          onClick={() => setActiveTab("enxovalcso")}
+          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "enxovalcso" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          ENXOVAL/CSO
+        </button>
       </div>
 
       {/* Tab content */}
@@ -1642,6 +1778,7 @@ export default function Home() {
       {activeTab === "revisao" && <TabRevisao />}
       {activeTab === "complexa" && <TabComplexa />}
       {activeTab === "ocorrencia" && <TabOcorrenciaSuporte />}
+      {activeTab === "enxovalcso" && <TabEnxovalCso />}
     </div>
   );
 }
