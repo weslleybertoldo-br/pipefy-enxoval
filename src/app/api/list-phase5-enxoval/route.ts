@@ -18,10 +18,8 @@ async function getCardsWithEnxovalInfo(): Promise<any[]> {
               id
               title
               fields {
-                field_id
                 name
                 value
-                array_value
               }
             }
           }
@@ -54,30 +52,20 @@ export async function GET(req: NextRequest) {
     const cards = await getCardsWithEnxovalInfo();
 
     const result = cards.map((card) => {
-      // Procurar o campo de registro de enxoval
+      // Procurar o campo de registro de enxoval pelo nome
       const enxovalField = (card.fields || []).find(
-        (f: any) => f.field_id === "fase_liberado_vistoria_registro_de_enxoval"
+        (f: any) => f.name?.toLowerCase().includes("registro de enxoval")
       );
 
-      // O campo pode ter value (string) ou array_value (array de IDs)
-      const hasRecord = !!(
-        enxovalField &&
-        ((enxovalField.value && enxovalField.value !== "[]" && enxovalField.value !== "") ||
-          (enxovalField.array_value && enxovalField.array_value.length > 0))
-      );
+      const hasRecord = !!(enxovalField?.value && enxovalField.value !== "[]" && enxovalField.value !== "");
 
       let recordId = "";
-      if (hasRecord) {
-        if (enxovalField.array_value?.length > 0) {
-          recordId = enxovalField.array_value[0];
-        } else if (enxovalField.value) {
-          // Pode ser JSON array ou string simples
-          try {
-            const parsed = JSON.parse(enxovalField.value);
-            recordId = Array.isArray(parsed) ? parsed[0] || "" : String(parsed);
-          } catch {
-            recordId = enxovalField.value;
-          }
+      if (hasRecord && enxovalField.value) {
+        try {
+          const parsed = JSON.parse(enxovalField.value);
+          recordId = Array.isArray(parsed) ? parsed[0] || "" : String(parsed);
+        } catch {
+          recordId = enxovalField.value;
         }
       }
 
