@@ -3,6 +3,30 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
 // =====================
+// COMPONENTE: Código copiável
+// =====================
+
+function CopyableCode({ code, className = "text-sm" }: { code: string; className?: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span
+      className={`font-mono font-bold ${className} cursor-pointer relative group`}
+      onClick={() => {
+        navigator.clipboard.writeText(code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      title="Clique para copiar"
+    >
+      {code}
+      <span className={`ml-1.5 text-[10px] font-normal transition-opacity ${copied ? "text-green-600 opacity-100" : "text-gray-400 opacity-0 group-hover:opacity-100"}`}>
+        {copied ? "copiado!" : "copiar"}
+      </span>
+    </span>
+  );
+}
+
+// =====================
 // TYPES
 // =====================
 
@@ -251,7 +275,7 @@ function TabProcessamento() {
                      c.hasRecord ? "📋" : "⚠️"}
                   </span>
                   <div>
-                    <span className="font-mono font-bold text-sm">{c.title}</span>
+                    <CopyableCode code={c.title} className="text-sm" />
                     {c.hasRecord && (
                       <span className="text-xs text-green-600 ml-2">Registro #{c.recordId}</span>
                     )}
@@ -491,7 +515,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                     {r.action === "processing" && <span className="inline-block animate-spin">⏳</span>}
                     {r.action === "pending" && "⏸️"}
                   </span>
-                  <span className="font-mono font-medium text-sm">{r.title}</span>
+                  <CopyableCode code={r.title} className="text-sm" />
                 </div>
                 <span className="text-xs text-gray-600 max-w-md text-right">{r.details}</span>
               </div>
@@ -510,7 +534,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                 <div className="flex items-center gap-3">
                   <span className="text-lg">{c.skip ? "⏭️" : "📋"}</span>
                   <div>
-                    <span className="font-mono font-medium text-sm">{c.title}</span>
+                    <CopyableCode code={c.title} className="text-sm" />
                     {c.labels.length > 0 && (
                       <div className="flex gap-1 mt-1">
                         {c.labels.map((l) => (
@@ -636,7 +660,7 @@ function TabPhase5() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <span className="font-mono font-bold text-base">{c.title}</span>
+                    <CopyableCode code={c.title} className="text-base" />
                     <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
                     {c.assignees.length > 0 && (
                       <span className="text-xs text-gray-400 ml-3">{c.assignees.join(", ")}</span>
@@ -863,7 +887,7 @@ function TabRevisao() {
                 <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-orange-500"}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <span className="font-mono font-bold text-base">{c.title}</span>
+                      <CopyableCode code={c.title} className="text-base" />
                       <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -902,7 +926,7 @@ function TabRevisao() {
                 <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-purple-500"}`}>
                   <div className="flex items-center justify-between mb-3">
                     <div>
-                      <span className="font-mono font-bold text-base">{c.title}</span>
+                      <CopyableCode code={c.title} className="text-base" />
                       <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1020,7 +1044,7 @@ function TabComplexa() {
             <div key={c.id} className="bg-white rounded-lg shadow p-5 border-l-4 border-l-orange-500">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <span className="font-mono font-bold text-base">{c.title}</span>
+                  <CopyableCode code={c.title} className="text-base" />
                   <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
                   {c.assignees.length > 0 && <span className="text-xs text-gray-400 ml-3">{c.assignees.join(", ")}</span>}
                 </div>
