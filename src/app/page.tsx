@@ -1427,6 +1427,8 @@ function FormOcorrencia() {
   const [franquia, setFranquia] = useState("");
   const [origem, setOrigem] = useState("Implantação");
   const [descricao, setDescricao] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
@@ -1434,24 +1436,27 @@ function FormOcorrencia() {
     setSending(true);
     setResult(null);
     try {
+      const formData = new FormData();
+      formData.append("email", "weslley.bertoldo@seazone.com.br");
+      formData.append("envolveimovel", "Sim");
+      formData.append("codigo", codigo.trim());
+      formData.append("categoria", categoria);
+      formData.append("franquia", franquia);
+      formData.append("origem", origem);
+      formData.append("descricao", descricao.trim());
+      if (file) formData.append("evidencia", file);
+
       const res = await fetch("/api/create-ocorrencia", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: "weslley.bertoldo@seazone.com.br",
-          envolveimovel: "Sim",
-          codigo: codigo.trim(),
-          categoria,
-          franquia,
-          origem,
-          descricao: descricao.trim(),
-        }),
+        body: formData,
       });
       const data = await res.json();
       if (data.success) {
         setResult({ success: true, message: `Ocorrência criada! Card #${data.cardId}` });
         setCodigo("");
         setDescricao("");
+        setFile(null);
+        if (fileRef.current) fileRef.current.value = "";
       } else {
         setResult({ success: false, message: data.error || "Erro ao criar" });
       }
@@ -1510,7 +1515,17 @@ function FormOcorrencia() {
           <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descreva o ocorrido..." rows={5} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         </div>
 
-        <p className="text-xs text-gray-500">Evidências podem ser anexadas depois diretamente no card do Pipefy.</p>
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Evidência (print/arquivo)</label>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*,.pdf,.doc,.docx"
+            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm file:mr-3 file:py-1 file:px-3 file:rounded-md file:border-0 file:text-sm file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100"
+          />
+          {file && <p className="text-xs text-gray-500 mt-1">{file.name} ({(file.size / 1024).toFixed(0)} KB)</p>}
+        </div>
 
         {result && (
           <div className={`p-3 rounded-md text-sm ${result.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
