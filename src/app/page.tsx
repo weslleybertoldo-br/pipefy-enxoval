@@ -643,12 +643,283 @@ function TabPhase5() {
 }
 
 // =====================
+// TAB: REVISÃO (Complexa + Revisão de Pendências)
+// =====================
+
+interface RevisaoCard {
+  id: string;
+  title: string;
+  type: "complexa" | "revisao" | "none";
+  due_date: string | null;
+  dueFormatted: string;
+  assignees: string[];
+  labels: string[];
+  lastComment: string;
+  lastCommentAuthor: string;
+  lastCommentDate: string;
+}
+
+function getDefaultRevisaoComment(fupDate: string): string {
+  return `🟡 Imóvel em ativação
+
+🚨 Aguardando ativação do imóvel
+
+⏭️ Fup: ${fupDate}
+
+...................................................................................................
+
+❌ ENXOVAL
+
+✔️ ITENS MÍNIMOS
+
+✔️ MANUTENÇÃO
+
+✔️ INTERNET
+
+✔️PIN`;
+}
+
+function TabRevisao() {
+  const [cards, setCards] = useState<RevisaoCard[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [updatingCard, setUpdatingCard] = useState<string | null>(null);
+  const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
+  const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [commentText, setCommentText] = useState("");
+  const [summary, setSummary] = useState<{ complexaCount: number; revisaoCount: number } | null>(null);
+
+  const loadCards = async () => {
+    setLoading(true);
+    setError("");
+    setCardStatuses({});
+    setEditingComment(null);
+    try {
+      const res = await fetch("/api/update-cards-revisao");
+      const data = await res.json();
+      if (data.success) {
+        setCards(data.cards.filter((c: RevisaoCard) => c.type !== "none"));
+        setSummary({ complexaCount: data.complexaCount, revisaoCount: data.revisaoCount });
+      } else {
+        setError(data.error || "Erro ao carregar");
+      }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateComplexa = async (cardId: string) => {
+    setUpdatingCard(cardId);
+    try {
+      const res = await fetch("/api/update-cards-revisao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId, type: "complexa" }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "updated", message: data.details } }));
+      } else {
+        setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: data.error || "Erro" } }));
+      }
+    } catch {
+      setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setUpdatingCard(null);
+    }
+  };
+
+  const openRevisaoEditor = (cardId: string) => {
+    // Calcular FUP +2 dias úteis
+    const now = new Date();
+    let added = 0;
+    const next = new Date(now);
+    while (added < 2) {
+      next.setDate(next.getDate() + 1);
+      if (next.getDay() !== 0 && next.getDay() !== 6) added++;
+    }
+    const dd = String(next.getDate()).padStart(2, "0");
+    const mm = String(next.getMonth() + 1).padStart(2, "0");
+    const fupDate = `${dd}/${mm}`;
+
+    setEditingComment(cardId);
+    setCommentText(getDefaultRevisaoComment(fupDate));
+  };
+
+  const sendRevisaoComment = async () => {
+    if (!editingComment || !commentText.trim()) return;
+    setUpdatingCard(editingComment);
+    try {
+      const res = await fetch("/api/update-cards-revisao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId: editingComment, type: "revisao", customComment: commentText }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCardStatuses((prev) => ({ ...prev, [editingComment!]: { status: "updated", message: data.details } }));
+      } else {
+        setCardStatuses((prev) => ({ ...prev, [editingComment!]: { status: "error", message: data.error || "Erro" } }));
+      }
+    } catch {
+      setCardStatuses((prev) => ({ ...prev, [editingComment!]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setUpdatingCard(null);
+      setEditingComment(null);
+    }
+  };
+
+  const formatCommentDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  };
+
+  const complexaCards = cards.filter((c) => c.type === "complexa");
+  const revisaoCards = cards.filter((c) => c.type === "revisao");
+
+  return (
+    <>
+      <section className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-2">Revisão — Fase 3</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Cards com tag &quot;Adequação Complexa&quot; e cards com tag &quot;Revisão de Pendências Finalizada&quot; (sem complexa).
+        </p>
+        <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
+          {loading ? "Carregando..." : "Carregar Cards"}
+        </button>
+        {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
+      </section>
+
+      {summary && (
+        <section className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center p-3 bg-orange-50 rounded-lg">
+              <div className="text-2xl font-bold text-orange-600">{summary.complexaCount}</div>
+              <div className="text-xs text-gray-500">Adequação Complexa</div>
+            </div>
+            <div className="text-center p-3 bg-purple-50 rounded-lg">
+              <div className="text-2xl font-bold text-purple-600">{summary.revisaoCount}</div>
+              <div className="text-xs text-gray-500">Revisão Finalizada</div>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* COMPLEXA */}
+      {complexaCards.length > 0 && (
+        <section className="mb-8">
+          <h3 className="text-lg font-bold text-orange-700 mb-3 px-1">COMPLEXA</h3>
+          <div className="space-y-3">
+            {complexaCards.map((c) => {
+              const cardStatus = cardStatuses[c.id];
+              const isUpdating = updatingCard === c.id;
+              return (
+                <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-orange-500"}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className="font-mono font-bold text-base">{c.title}</span>
+                      <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
+                      <button onClick={() => updateComplexa(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                        {isUpdating ? "Atualizando..." : "+1 dia"}
+                      </button>
+                    </div>
+                  </div>
+                  {c.lastComment && (
+                    <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-medium text-gray-700">{c.lastCommentAuthor}</span>
+                        <span className="text-[10px] text-gray-400">{formatCommentDate(c.lastCommentDate)}</span>
+                      </div>
+                      <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">{c.lastComment}</pre>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+
+      {/* REVISÃO DE PENDÊNCIAS FINALIZADA */}
+      {revisaoCards.length > 0 && (
+        <section className="mb-8">
+          <h3 className="text-lg font-bold text-purple-700 mb-3 px-1">REVISÃO DE PENDÊNCIAS FINALIZADA</h3>
+          <div className="space-y-3">
+            {revisaoCards.map((c) => {
+              const cardStatus = cardStatuses[c.id];
+              const isUpdating = updatingCard === c.id;
+              const isEditing = editingComment === c.id;
+              return (
+                <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-purple-500"}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <span className="font-mono font-bold text-base">{c.title}</span>
+                      <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
+                      {!isEditing && !cardStatus && (
+                        <button onClick={() => openRevisaoEditor(c.id)} disabled={updatingCard !== null} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                          Atualizar comentário
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Editor de comentário */}
+                  {isEditing && (
+                    <div className="bg-purple-50 rounded-md p-4 border border-purple-200 mb-3">
+                      <p className="text-xs font-medium text-purple-700 mb-2">Edite o comentário antes de enviar:</p>
+                      <textarea
+                        value={commentText}
+                        onChange={(e) => setCommentText(e.target.value)}
+                        rows={15}
+                        className="w-full border border-purple-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
+                      />
+                      <div className="flex gap-2 mt-3">
+                        <button onClick={sendRevisaoComment} disabled={isUpdating} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors">
+                          {isUpdating ? "Enviando..." : "Enviar comentário"}
+                        </button>
+                        <button onClick={() => setEditingComment(null)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Último comentário */}
+                  {c.lastComment && !isEditing && (
+                    <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs font-medium text-gray-700">{c.lastCommentAuthor}</span>
+                        <span className="text-[10px] text-gray-400">{formatCommentDate(c.lastCommentDate)}</span>
+                      </div>
+                      <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">{c.lastComment}</pre>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
+// =====================
 // MAIN APP
 // =====================
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4" | "fase5">("processamento");
+  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4" | "fase5" | "revisao">("processamento");
 
   // Verificar auth ao carregar
   useEffect(() => {
@@ -724,6 +995,14 @@ export default function Home() {
         >
           Fase 5
         </button>
+        <button
+          onClick={() => setActiveTab("revisao")}
+          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "revisao" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Revisão
+        </button>
       </div>
 
       {/* Tab content */}
@@ -731,6 +1010,7 @@ export default function Home() {
       {activeTab === "fase3" && <TabUpdateCards apiRoute="/api/update-cards" phaseName="Fase 3" phaseDescription={'Atualiza vencimento para o próximo dia útil às 22:00, responsável para Weslley Bertoldo, e replica o último comentário com a nova data. Cards com tags "Adequação Complexa" ou "Revisão de Pendências Finalizada" são ignorados.'} />}
       {activeTab === "fase4" && <TabUpdateCards apiRoute="/api/update-cards-phase4" phaseName="Fase 4" phaseDescription="Atualiza vencimento para daqui a 2 dias úteis às 22:00 e replica o último comentário com a nova data. Só atualiza cards do Weslley com vencimento para hoje." />}
       {activeTab === "fase5" && <TabPhase5 />}
+      {activeTab === "revisao" && <TabRevisao />}
     </div>
   );
 }
