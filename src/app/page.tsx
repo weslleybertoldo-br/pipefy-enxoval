@@ -1198,6 +1198,45 @@ const ORIGENS_OCORRENCIA = [
   "Cancelamento de vistorias",
 ];
 
+function CopyDiasTexto() {
+  const [dias, setDias] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const texto = dias ? `Franquia está a ${dias} dias sem dar retorno, atrasando os processos da implantação.` : "";
+
+  const handleCopy = () => {
+    if (!texto) return;
+    navigator.clipboard.writeText(texto).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <div className="flex items-end gap-2">
+      <div className="flex-shrink-0">
+        <label className="text-xs text-gray-500 block mb-1">Dias sem retorno</label>
+        <input
+          type="number"
+          min="1"
+          value={dias}
+          onChange={(e) => setDias(e.target.value)}
+          placeholder="Ex: 5"
+          className="w-20 border border-gray-300 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
+        />
+      </div>
+      <button
+        onClick={handleCopy}
+        disabled={!dias}
+        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${copied ? "bg-green-600 text-white" : "bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50"}`}
+      >
+        {copied ? "Copiado!" : "Copiar texto"}
+      </button>
+      {texto && <span className="text-xs text-gray-400 truncate max-w-xs">{texto}</span>}
+    </div>
+  );
+}
+
 function TabOcorrenciaSuporte() {
   const [activeForm, setActiveForm] = useState<"suporte" | "ocorrencia">("suporte");
 
@@ -1219,6 +1258,7 @@ function TabOcorrenciaSuporte() {
             Ocorrência
           </button>
         </div>
+        <CopyDiasTexto />
       </section>
 
       {activeForm === "suporte" && <FormSuporte />}
