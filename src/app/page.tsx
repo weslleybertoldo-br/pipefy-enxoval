@@ -1079,15 +1079,47 @@ function TabComplexa() {
 // TAB: OCORRÊNCIA / SUPORTES
 // =====================
 
-const SUPORTE_FORM_URL = "https://app.pipefy.com/organizations/330500/interfaces/741579fb-df99-4642-9b5a-d8e290b6f6ce/pages/00e630fb-4c13-45b0-b114-98271b58d36f?form=2ed5e5bd-a37a-4fe6-8701-8cd6dbb36214&origin=public%20form";
-const OCORRENCIA_FORM_URL = "https://app.pipefy.com/organizations/330500/interfaces/741579fb-df99-4642-9b5a-d8e290b6f6ce/pages/00e630fb-4c13-45b0-b114-98271b58d36f?form=394c9e37-90c3-4a61-8891-d87e023f68c4&origin=public%20form";
-
 const CATEGORIAS_SUPORTE = [
   "Falta de retorno do franqueado (hóspede, time interno)",
+  "Alinhamento com a franquia de uma despesa lançada",
+  "Análise de comentários - Dúvidas/Alinhamento com a franquia",
+  "Análise de taxa de limpeza",
+  "Apoio jurídico/Chargebacks",
+  "Busca de fornecedores",
+  "Dados franqueado - Solicitar/Alterar dados",
+  "Definição de franquia",
+  "Dúvidas sobre anúncios",
+  "Franquia recusando a executar processos (vistoria, checkin)",
+  "Informações referentes a danos",
+  "Lançamento de dano Easycover",
+  "Questões financeiras da franquia",
+  "Reclamação do proprietário sobre o trabalho da franquia",
+  "Solicitação de compra de itens/manutenção",
+  "Solicitar migração de imóvel",
+  "Validação/aprovação/cancelamento de despesas",
+  "Validar se uma manutenção já foi feita",
+  "Vistoria de migração",
+  "Acompanhamento de uma manutenção",
+  "Devolução de enxoval (churn/migração)",
+  "Problemas operacionais com enxoval",
+  "Acessos ao imóvel",
+  "Bloqueios de calendário",
 ];
 
 const SETORES_SUPORTE = [
   "Implantação",
+  "Anúncios",
+  "Atendimento",
+  "B2B",
+  "Comercial",
+  "CS e Suporte Proprietários",
+  "Financeiro e Fechamento",
+  "Fornecedores",
+  "Franquias",
+  "Grandes Operações",
+  "Jurídico",
+  "Melhoria Contínua",
+  "Precificação",
 ];
 
 const ORIGENS_OCORRENCIA = [
@@ -1141,7 +1173,8 @@ function FormSuporte() {
   const [categoria, setCategoria] = useState(CATEGORIAS_SUPORTE[0]);
   const [setor, setSetor] = useState(SETORES_SUPORTE[0]);
   const [descComplemento, setDescComplemento] = useState("");
-  const [copied, setCopied] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const descBase = "Pessoal, boa tarde. Tudo bem?\nConseguem nos ajudar com o retorno da franquia?";
 
@@ -1156,7 +1189,6 @@ function FormSuporte() {
     finally { setLoadingFranqueado(false); }
   };
 
-  // Buscar franqueado ao digitar código
   useEffect(() => {
     if (codigo.trim().length >= 3) {
       const timer = setTimeout(buscarFranqueado, 500);
@@ -1168,20 +1200,41 @@ function FormSuporte() {
     ? `${descBase}\n${descComplemento.trim()}`
     : descBase;
 
-  const handleAbrir = () => {
-    // Copiar descrição para clipboard
-    navigator.clipboard.writeText(descricaoCompleta).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 3000);
-    });
-    // Abrir formulário em nova aba
-    window.open(SUPORTE_FORM_URL, "_blank");
+  const handleEnviar = async () => {
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/create-suporte", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "weslley.bertoldo@seazone.com.br",
+          codigo: codigo.trim(),
+          categoria,
+          setor,
+          descricao: descricaoCompleta,
+          franqueado,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ success: true, message: `Suporte criado! Card #${data.cardId}` });
+        setCodigo("");
+        setDescComplemento("");
+      } else {
+        setResult({ success: false, message: data.error || "Erro ao criar" });
+      }
+    } catch {
+      setResult({ success: false, message: "Erro de conexão" });
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
     <section className="bg-white rounded-lg shadow p-6 mb-6">
       <h3 className="text-lg font-semibold mb-1">Suporte Franquias</h3>
-      <p className="text-xs text-gray-500 mb-4">Preencha os campos. Ao clicar &quot;Abrir Suporte&quot;, a descrição será copiada e o formulário abrirá em nova aba.</p>
+      <p className="text-xs text-gray-500 mb-4">Preencha e clique &quot;Enviar&quot;. O suporte será criado diretamente no Pipefy.</p>
 
       <div className="space-y-4">
         <div>
@@ -1219,19 +1272,23 @@ function FormSuporte() {
 
         <div>
           <label className="text-sm font-medium text-gray-700 block mb-1">Franqueado</label>
-          <div className="flex gap-2">
-            <input type="text" value={franqueado} onChange={(e) => setFranqueado(e.target.value)} placeholder={loadingFranqueado ? "Buscando..." : "Preenchido automaticamente pelo código"} className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-          </div>
+          <input type="text" value={franqueado} onChange={(e) => setFranqueado(e.target.value)} placeholder={loadingFranqueado ? "Buscando..." : "Preenchido automaticamente pelo código"} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           <p className="text-[10px] text-gray-400 mt-1">Buscado automaticamente do Pipe 1. Edite se necessário.</p>
         </div>
 
         <div className="bg-blue-50 rounded-md p-4 border border-blue-200">
-          <p className="text-xs font-medium text-blue-700 mb-2">Texto que será copiado:</p>
+          <p className="text-xs font-medium text-blue-700 mb-2">Descrição que será enviada:</p>
           <pre className="text-xs text-blue-900 whitespace-pre-wrap font-sans">{descricaoCompleta}</pre>
         </div>
 
-        <button onClick={handleAbrir} disabled={!codigo.trim()} className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
-          {copied ? "Descrição copiada! Cole no formulário." : "Abrir Suporte (copia descrição + abre formulário)"}
+        {result && (
+          <div className={`p-3 rounded-md text-sm ${result.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+            {result.message}
+          </div>
+        )}
+
+        <button onClick={handleEnviar} disabled={sending || !codigo.trim()} className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+          {sending ? "Enviando..." : "Enviar Suporte"}
         </button>
       </div>
     </section>
