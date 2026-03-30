@@ -1052,12 +1052,243 @@ function TabComplexa() {
 }
 
 // =====================
+// TAB: OCORRÊNCIA / SUPORTES
+// =====================
+
+const SUPORTE_FORM_URL = "https://app.pipefy.com/organizations/330500/interfaces/741579fb-df99-4642-9b5a-d8e290b6f6ce/pages/00e630fb-4c13-45b0-b114-98271b58d36f?form=2ed5e5bd-a37a-4fe6-8701-8cd6dbb36214&origin=public%20form";
+const OCORRENCIA_FORM_URL = "https://app.pipefy.com/organizations/330500/interfaces/741579fb-df99-4642-9b5a-d8e290b6f6ce/pages/00e630fb-4c13-45b0-b114-98271b58d36f?form=394c9e37-90c3-4a61-8891-d87e023f68c4&origin=public%20form";
+
+const CATEGORIAS_SUPORTE = [
+  "Falta de retorno do franqueado (hóspede, time interno)",
+];
+
+const SETORES_SUPORTE = [
+  "Implantação",
+];
+
+const ORIGENS_OCORRENCIA = [
+  "Atendimento ao Hóspede",
+  "Implantação",
+  "Caça Ocorrências",
+  "Comentários",
+  "Suporte Franquias",
+  "Gestor Regional",
+  "Danos",
+  "Despesas",
+  "Manutenções",
+  "Outros",
+  "Treinamento",
+  "Cancelamento de vistorias",
+];
+
+function TabOcorrenciaSuporte() {
+  const [activeForm, setActiveForm] = useState<"suporte" | "ocorrencia">("suporte");
+
+  return (
+    <>
+      <section className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold mb-4">Ocorrência / Suportes</h2>
+        <div className="flex gap-2 mb-4">
+          <button
+            onClick={() => setActiveForm("suporte")}
+            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "suporte" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+          >
+            Suporte Franquias
+          </button>
+          <button
+            onClick={() => setActiveForm("ocorrencia")}
+            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "ocorrencia" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+          >
+            Ocorrência
+          </button>
+        </div>
+      </section>
+
+      {activeForm === "suporte" && <FormSuporte />}
+      {activeForm === "ocorrencia" && <FormOcorrencia />}
+    </>
+  );
+}
+
+function FormSuporte() {
+  const [codigo, setCodigo] = useState("");
+  const [franqueado, setFranqueado] = useState("");
+  const [loadingFranqueado, setLoadingFranqueado] = useState(false);
+  const [categoria, setCategoria] = useState(CATEGORIAS_SUPORTE[0]);
+  const [setor, setSetor] = useState(SETORES_SUPORTE[0]);
+  const [descComplemento, setDescComplemento] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const descBase = "Pessoal, boa tarde. Tudo bem?\nConseguem nos ajudar com o retorno da franquia?";
+
+  const buscarFranqueado = async () => {
+    if (!codigo.trim()) return;
+    setLoadingFranqueado(true);
+    try {
+      const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(codigo.trim())}`);
+      const data = await res.json();
+      if (data.franqueado) setFranqueado(data.franqueado);
+    } catch { /* silencioso */ }
+    finally { setLoadingFranqueado(false); }
+  };
+
+  // Buscar franqueado ao digitar código
+  useEffect(() => {
+    if (codigo.trim().length >= 3) {
+      const timer = setTimeout(buscarFranqueado, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [codigo]);
+
+  const descricaoCompleta = descComplemento.trim()
+    ? `${descBase}\n${descComplemento.trim()}`
+    : descBase;
+
+  const handleAbrir = () => {
+    // Copiar descrição para clipboard
+    navigator.clipboard.writeText(descricaoCompleta).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    });
+    // Abrir formulário em nova aba
+    window.open(SUPORTE_FORM_URL, "_blank");
+  };
+
+  return (
+    <section className="bg-white rounded-lg shadow p-6 mb-6">
+      <h3 className="text-lg font-semibold mb-1">Suporte Franquias</h3>
+      <p className="text-xs text-gray-500 mb-4">Preencha os campos. Ao clicar &quot;Abrir Suporte&quot;, a descrição será copiada e o formulário abrirá em nova aba.</p>
+
+      <div className="space-y-4">
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">E-mail solicitante</label>
+          <input type="email" value="weslley.bertoldo@seazone.com.br" readOnly className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50" />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Código do Imóvel</label>
+          <input type="text" value={codigo} onChange={(e) => setCodigo(e.target.value.toUpperCase())} placeholder="Ex: ALA0004" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Categoria da solicitação</label>
+          <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white">
+            {CATEGORIAS_SUPORTE.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Setor Solicitante</label>
+          <select value={setor} onChange={(e) => setSetor(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white">
+            {SETORES_SUPORTE.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Descrição do Problema</label>
+          <div className="bg-gray-50 border border-gray-200 rounded-md p-3 mb-2">
+            <pre className="text-sm text-gray-700 whitespace-pre-wrap font-sans">{descBase}</pre>
+          </div>
+          <label className="text-xs text-gray-500 block mb-1">Complemento (link, detalhes, etc.)</label>
+          <textarea value={descComplemento} onChange={(e) => setDescComplemento(e.target.value)} placeholder="https://seazone.sults.com.br/chamados/interacoes/..." rows={3} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Franqueado</label>
+          <div className="flex gap-2">
+            <input type="text" value={franqueado} onChange={(e) => setFranqueado(e.target.value)} placeholder={loadingFranqueado ? "Buscando..." : "Preenchido automaticamente pelo código"} className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+          <p className="text-[10px] text-gray-400 mt-1">Buscado automaticamente do Pipe 1. Edite se necessário.</p>
+        </div>
+
+        <div className="bg-blue-50 rounded-md p-4 border border-blue-200">
+          <p className="text-xs font-medium text-blue-700 mb-2">Texto que será copiado:</p>
+          <pre className="text-xs text-blue-900 whitespace-pre-wrap font-sans">{descricaoCompleta}</pre>
+        </div>
+
+        <button onClick={handleAbrir} disabled={!codigo.trim()} className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+          {copied ? "Descrição copiada! Cole no formulário." : "Abrir Suporte (copia descrição + abre formulário)"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function FormOcorrencia() {
+  const [codigo, setCodigo] = useState("");
+  const [origem, setOrigem] = useState("Implantação");
+  const [descricao, setDescricao] = useState("");
+  const [copied, setCopied] = useState(false);
+
+  const handleAbrir = () => {
+    // Copiar descrição para clipboard
+    if (descricao.trim()) {
+      navigator.clipboard.writeText(descricao.trim()).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+      });
+    }
+    // Abrir formulário em nova aba
+    window.open(OCORRENCIA_FORM_URL, "_blank");
+  };
+
+  return (
+    <section className="bg-white rounded-lg shadow p-6 mb-6">
+      <h3 className="text-lg font-semibold mb-1">Registro de Ocorrência</h3>
+      <p className="text-xs text-gray-500 mb-4">Preencha os campos. Ao clicar &quot;Abrir Ocorrência&quot;, a descrição será copiada e o formulário abrirá em nova aba.</p>
+
+      <div className="space-y-4">
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">E-mail Seazone do solicitante</label>
+          <input type="email" value="weslley.bertoldo@seazone.com.br" readOnly className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50" />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">A reclamação envolve algum imóvel da Seazone?</label>
+          <input type="text" value="Sim" readOnly className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-gray-50" />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Código do Imóvel</label>
+          <input type="text" value={codigo} onChange={(e) => setCodigo(e.target.value.toUpperCase())} placeholder="Ex: ALA0004" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Origem da ocorrência</label>
+          <select value={origem} onChange={(e) => setOrigem(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm bg-white">
+            {ORIGENS_OCORRENCIA.map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Descreva o ocorrido</label>
+          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Descreva o ocorrido..." rows={5} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <p className="text-xs text-gray-500">Evidências (arquivos) devem ser anexadas diretamente no formulário do Pipefy.</p>
+
+        {descricao.trim() && (
+          <div className="bg-orange-50 rounded-md p-4 border border-orange-200">
+            <p className="text-xs font-medium text-orange-700 mb-2">Texto que será copiado:</p>
+            <pre className="text-xs text-orange-900 whitespace-pre-wrap font-sans">{descricao.trim()}</pre>
+          </div>
+        )}
+
+        <button onClick={handleAbrir} disabled={!codigo.trim() || !descricao.trim()} className="w-full bg-orange-600 text-white py-3 rounded-md font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
+          {copied ? "Descrição copiada! Cole no formulário." : "Abrir Ocorrência (copia descrição + abre formulário)"}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+// =====================
 // MAIN APP
 // =====================
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4" | "fase5" | "revisao" | "complexa">("processamento");
+  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4" | "fase5" | "revisao" | "complexa" | "ocorrencia">("processamento");
 
   // Verificar auth ao carregar
   useEffect(() => {
@@ -1149,6 +1380,14 @@ export default function Home() {
         >
           Complexa
         </button>
+        <button
+          onClick={() => setActiveTab("ocorrencia")}
+          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "ocorrencia" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          Ocorrência/Suportes
+        </button>
       </div>
 
       {/* Tab content */}
@@ -1158,6 +1397,7 @@ export default function Home() {
       {activeTab === "fase5" && <TabPhase5 />}
       {activeTab === "revisao" && <TabRevisao />}
       {activeTab === "complexa" && <TabComplexa />}
+      {activeTab === "ocorrencia" && <TabOcorrenciaSuporte />}
     </div>
   );
 }
