@@ -27,6 +27,10 @@ async function buscarFranquiaPipe1(code: string): Promise<string | null> {
 }
 
 const CONCLUDED_PHASE_ID = "323315793";
+const SLACK_TOKEN = process.env.SLACK_BOT_TOKEN || "";
+const SLACK_CHANNEL_ID = "C09CQRNEVLZ";
+const BRUNO_SLACK_ID = "U05AKADK9EY";
+const WESLLEY_SLACK_ID = "U08DF2E4RLP";
 
 // Extrair status do enxoval do comentário
 function getEnxovalFromComment(text: string): string {
@@ -169,26 +173,45 @@ export async function POST(req: NextRequest) {
         pipefyQuery(`mutation { moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${CONCLUDED_PHASE_ID} }) { card { id } } }`)
       );
 
-      // 15. Aviso de lançamento de despesa no Slack
+      // 15. Aviso de lançamento de despesa no Slack (chamada direta, sem HTTP)
       await step("Aviso despesa Slack", async () => {
+        if (!SLACK_TOKEN) throw new Error("SLACK_BOT_TOKEN não configurado");
         const franquia = await buscarFranquiaPipe1(card.title);
         if (!franquia) {
           throw new Error("Franquia não encontrada nas fases 1-10 do Pipe 1 — aviso não enviado");
         }
         const hojeBR = toBrazilDate(new Date());
-        const dd = String(hojeBR.day).padStart(2, "0");
-        const mm = String(hojeBR.month + 1).padStart(2, "0");
-        const yyyy = hojeBR.year;
-        const dataHoje = `${yyyy}-${mm}-${dd}`;
+        const dataFormatada = `${String(hojeBR.day).padStart(2, "0")}/${String(hojeBR.month + 1).padStart(2, "0")}/${hojeBR.year}`;
 
-        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://pipefy-enxoval-git-master-weslleybertoldo-brs-projects.vercel.app";
-        const slackRes = await fetch(`${baseUrl}/api/slack-despesa`, {
+        const blocks = [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `<@${BRUNO_SLACK_ID}>, o imóvel *${card.title}* está liberado para lançamento de despesa.\n\n*Franquia responsável:* ${franquia}\n*Data que deve ser lançado:* ${dataFormatada}\n\nApós o lançamento, o card pode ser finalizado no pipe 1 :a-parrot:`,
+            },
+          },
+          {
+            type: "actions",
+            elements: [
+              {
+                type: "button",
+                text: { type: "plain_text", text: "Despesa lançada", emoji: true },
+                style: "primary",
+                action_id: "despesa_lancada",
+                value: WESLLEY_SLACK_ID,
+              },
+            ],
+          },
+        ];
+
+        const res = await fetch("https://slack.com/api/chat.postMessage", {
           method: "POST",
-          headers: { "Content-Type": "application/json", Cookie: `auth_token=${req.cookies.get("auth_token")?.value}` },
-          body: JSON.stringify({ codigo: card.title, franquia, data: dataHoje }),
+          headers: { Authorization: `Bearer ${SLACK_TOKEN}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ channel: SLACK_CHANNEL_ID, text: `Lançamento de despesa - ${card.title}`, blocks }),
         });
-        const slackData = await slackRes.json();
-        if (!slackData.success) throw new Error(slackData.error || "Erro ao enviar Slack");
+        const slackResult = await res.json();
+        if (!slackResult.ok) throw new Error(`Slack: ${slackResult.error}`);
       });
 
       const allDetails = [...actions, ...errors.map((e) => `❌ ${e}`)].join(" | ");
