@@ -1,6 +1,39 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
+
+// =====================
+// COMPONENTE: Tooltip expandível ao passar o mouse
+// =====================
+
+function WithHelp({ help, children }: { help: string; children: ReactNode }) {
+  const [showBtn, setShowBtn] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div
+      className="relative inline-flex"
+      onMouseEnter={() => { setShowBtn(true); setExpanded(false); }}
+      onMouseLeave={() => { setShowBtn(false); setExpanded(false); }}
+    >
+      {children}
+      {showBtn && !expanded && (
+        <button
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(true); }}
+          className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded shadow-lg z-[60] whitespace-nowrap cursor-pointer hover:bg-gray-700 transition-colors"
+        >
+          expandir
+        </button>
+      )}
+      {expanded && (
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-gray-900 text-white text-[11px] px-3 py-2 rounded-lg shadow-lg z-[60] w-64 leading-relaxed">
+          {help}
+          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 // =====================
 // COMPONENTE: Select com pesquisa
@@ -170,13 +203,15 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-        <button
-          onClick={handleLogin}
-          disabled={loading || !email || !password}
-          className="w-full bg-blue-600 text-white py-2.5 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Entrando..." : "Entrar"}
-        </button>
+        <WithHelp help="Faz login no sistema com email e senha para acessar o dashboard">
+          <button
+            onClick={handleLogin}
+            disabled={loading || !email || !password}
+            className="w-full bg-blue-600 text-white py-2.5 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? "Entrando..." : "Entrar"}
+          </button>
+        </WithHelp>
       </div>
     </div>
   );
@@ -268,29 +303,35 @@ function TabProcessamento() {
           Lista os cards da Fase 5 mostrando quais já possuem registro de enxoval. Clique em &quot;Gerar Registro&quot; para processar individualmente ou &quot;Gerar Todos&quot; para processar todos sem registro.
         </p>
         <div className="flex gap-3">
-          <button
-            onClick={loadCards}
-            disabled={loading || processingAll}
-            className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
-          </button>
-          {cards.length > 0 && withoutRecord > 0 && (
+          <WithHelp help="Busca todos os cards da Fase 5 e mostra quais já possuem registro de enxoval">
             <button
-              onClick={processAllCards}
-              disabled={processingAll || processingCard !== null || loading}
-              className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              onClick={loadCards}
+              disabled={loading || processingAll}
+              className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
             >
-              {processingAll ? "Gerando..." : `Gerar Todos (${withoutRecord})`}
+              {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
             </button>
+          </WithHelp>
+          {cards.length > 0 && withoutRecord > 0 && (
+            <WithHelp help="Cria registro de enxoval para todos os cards sem registro, processando um por um">
+              <button
+                onClick={processAllCards}
+                disabled={processingAll || processingCard !== null || loading}
+                className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {processingAll ? "Gerando..." : `Gerar Todos (${withoutRecord})`}
+              </button>
+            </WithHelp>
           )}
           {processingAll && (
-            <button
-              onClick={() => { abortRef.current = true; }}
-              className="bg-red-500 text-white px-6 py-3 rounded-md font-medium hover:bg-red-600 transition-colors"
-            >
-              Parar
-            </button>
+            <WithHelp help="Interrompe o processamento em lote dos registros de enxoval">
+              <button
+                onClick={() => { abortRef.current = true; }}
+                className="bg-red-500 text-white px-6 py-3 rounded-md font-medium hover:bg-red-600 transition-colors"
+              >
+                Parar
+              </button>
+            </WithHelp>
           )}
         </div>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
@@ -350,17 +391,19 @@ function TabProcessamento() {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => processCard(c.title)}
-                  disabled={isProcessing || processingCard !== null || (c.hasRecord && !cardStatus)}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                    c.hasRecord && !cardStatus
-                      ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                      : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                  }`}
-                >
-                  {isProcessing ? "Processando..." : c.hasRecord && !cardStatus ? "Já registrado" : "Gerar Registro"}
-                </button>
+                <WithHelp help="Cria o registro de enxoval para este card individual no Pipefy">
+                  <button
+                    onClick={() => processCard(c.title)}
+                    disabled={isProcessing || processingCard !== null || (c.hasRecord && !cardStatus)}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                      c.hasRecord && !cardStatus
+                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                        : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                    }`}
+                  >
+                    {isProcessing ? "Processando..." : c.hasRecord && !cardStatus ? "Já registrado" : "Gerar Registro"}
+                  </button>
+                </WithHelp>
               </div>
             );
           })}
@@ -403,12 +446,14 @@ function CopyFupButton({ days, template = "fase4" }: { days: number; template?: 
   };
 
   return (
-    <button
-      onClick={handleCopy}
-      className={`px-6 py-3 rounded-md font-medium transition-colors ${copied ? "bg-green-600 text-white" : "bg-yellow-500 text-white hover:bg-yellow-600"}`}
-    >
-      {copied ? "Copiado!" : "Copiar FUP"}
-    </button>
+    <WithHelp help="Copia texto padrão com FUP calculado para a área de transferência">
+      <button
+        onClick={handleCopy}
+        className={`px-6 py-3 rounded-md font-medium transition-colors ${copied ? "bg-green-600 text-white" : "bg-yellow-500 text-white hover:bg-yellow-600"}`}
+      >
+        {copied ? "Copiado!" : "Copiar FUP"}
+      </button>
+    </WithHelp>
   );
 }
 
@@ -497,31 +542,37 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
         <p className="text-sm text-gray-500 mb-4">{phaseDescription}</p>
 
         <div className="flex gap-3">
-          <button
-            onClick={loadCards}
-            disabled={loading || processing}
-            className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "Carregando..." : "Carregar Cards"}
-          </button>
+          <WithHelp help="Busca os cards da fase com vencimento para hoje e mostra quais serão atualizados">
+            <button
+              onClick={loadCards}
+              disabled={loading || processing}
+              className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? "Carregando..." : "Carregar Cards"}
+            </button>
+          </WithHelp>
 
           {cards.length > 0 && (
-            <button
-              onClick={processAll}
-              disabled={processing || loading}
-              className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
-            >
-              {processing ? "Processando..." : `Atualizar ${phaseInfo?.toUpdate || 0} Cards`}
-            </button>
+            <WithHelp help="Atualiza vencimento e comentário de todos os cards, processando um por um">
+              <button
+                onClick={processAll}
+                disabled={processing || loading}
+                className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              >
+                {processing ? "Processando..." : `Atualizar ${phaseInfo?.toUpdate || 0} Cards`}
+              </button>
+            </WithHelp>
           )}
 
           {processing && (
-            <button
-              onClick={() => { abortRef.current = true; }}
-              className="bg-red-500 text-white px-6 py-3 rounded-md font-medium hover:bg-red-600 transition-colors"
-            >
-              Parar
-            </button>
+            <WithHelp help="Interrompe a atualização em lote dos cards">
+              <button
+                onClick={() => { abortRef.current = true; }}
+                className="bg-red-500 text-white px-6 py-3 rounded-md font-medium hover:bg-red-600 transition-colors"
+              >
+                Parar
+              </button>
+            </WithHelp>
           )}
 
           {showCopyButton && <CopyFupButton days={2} />}
@@ -694,12 +745,16 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
 
   return (
     <>
-      <button onClick={() => { setShowEditor(!showEditor); setShowFinalizar(false); }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
-        Atualizar
-      </button>
-      <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
-        Finalizar
-      </button>
+      <WithHelp help="Abre editor lateral para editar o último comentário do card">
+        <button onClick={() => { setShowEditor(!showEditor); setShowFinalizar(false); }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
+          Atualizar
+        </button>
+      </WithHelp>
+      <WithHelp help="Abre painel com as 12 etapas de finalização: validação, campos, enxoval, vistoria, amenites e move para Concluídos">
+        <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
+          Finalizar
+        </button>
+      </WithHelp>
       <label className="flex items-center gap-1 cursor-pointer" title="Verificado + avisado anúncios">
         <input type="checkbox" checked={amenitesChecked} onChange={(e) => setAmenitesChecked(e.target.checked)} className="w-3 h-3 accent-green-600" />
         <span className="text-[10px] text-gray-500">Amenites</span>
@@ -721,12 +776,16 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
             </div>
             <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={25} className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500" />
             <div className="flex gap-2 mt-4">
-              <button onClick={handleUpdateComment} disabled={sending} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
-                {sending ? "Enviando..." : "Enviar comentário"}
-              </button>
-              <button onClick={() => setShowEditor(false)} className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
-                Cancelar
-              </button>
+              <WithHelp help="Envia o comentário editado como novo comentário no card do Pipefy">
+                <button onClick={handleUpdateComment} disabled={sending} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
+                  {sending ? "Enviando..." : "Enviar comentário"}
+                </button>
+              </WithHelp>
+              <WithHelp help="Fecha o editor sem enviar o comentário">
+                <button onClick={() => setShowEditor(false)} className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+                  Cancelar
+                </button>
+              </WithHelp>
             </div>
           </div>
         </div>
@@ -751,12 +810,16 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
           </ul>
           <p className="text-xs text-green-700 mb-3">Amenites: <strong>{amenitesChecked ? "Verificado + avisado anúncios" : "Nenhum dos itens foi comprado"}</strong></p>
           <div className="flex gap-2">
-            <button onClick={handleFinalizar} disabled={finalizing} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
-              {finalizing ? "Finalizando..." : "Confirmar Finalização"}
-            </button>
-            <button onClick={() => setShowFinalizar(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
-              Cancelar
-            </button>
+            <WithHelp help="Executa todas as 12 etapas de finalização e move o card para Concluídos">
+              <button onClick={handleFinalizar} disabled={finalizing} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+                {finalizing ? "Finalizando..." : "Confirmar Finalização"}
+              </button>
+            </WithHelp>
+            <WithHelp help="Fecha o painel de finalização sem executar nenhuma ação">
+              <button onClick={() => setShowFinalizar(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+                Cancelar
+              </button>
+            </WithHelp>
           </div>
         </div>
       )}
@@ -831,13 +894,15 @@ function TabPhase5() {
           Lista todos os cards da Fase 5 com o último comentário. Clique no botão para atualizar individualmente: vencimento +3 dias úteis às 22:00 e comentário com nova data.
         </p>
         <div className="flex gap-3">
-          <button
-            onClick={loadCards}
-            disabled={loading}
-            className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
-          >
-            {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
-          </button>
+          <WithHelp help="Busca todos os cards da Fase 5 com último comentário e informações de registro">
+            <button
+              onClick={loadCards}
+              disabled={loading}
+              className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+            >
+              {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
+            </button>
+          </WithHelp>
           <CopyFupButton days={3} template="fase5" />
         </div>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
@@ -867,13 +932,15 @@ function TabPhase5() {
                   <div className="flex items-center gap-2">
                     {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
                     {cardStatus?.status === "error" && <span className="text-red-600 text-xs">{cardStatus.message}</span>}
-                    <button
-                      onClick={() => updateSingleCard(c.id)}
-                      disabled={isUpdating || updatingCard !== null}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-                    >
-                      {isUpdating ? "Atualizando..." : "+3 dias"}
-                    </button>
+                    <WithHelp help="Atualiza vencimento +3 dias úteis às 22:00 e replica comentário com nova data">
+                      <button
+                        onClick={() => updateSingleCard(c.id)}
+                        disabled={isUpdating || updatingCard !== null}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                      >
+                        {isUpdating ? "Atualizando..." : "+3 dias"}
+                      </button>
+                    </WithHelp>
                     <Phase5EditButton cardId={c.id} cardTitle={c.title} lastComment={c.lastComment} />
                   </div>
                 </div>
@@ -983,9 +1050,11 @@ function SlackDespesa() {
       </div>
 
       <div className="flex items-center gap-3 mt-4">
-        <button onClick={handleEnviar} disabled={sending || !code.trim() || !franquia || !data} className="bg-green-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
-          {sending ? "Enviando..." : "Enviar no Slack"}
-        </button>
+        <WithHelp help="Envia mensagem de aviso de lançamento de despesa no canal #despesas-implantação do Slack">
+          <button onClick={handleEnviar} disabled={sending || !code.trim() || !franquia || !data} className="bg-green-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+            {sending ? "Enviando..." : "Enviar no Slack"}
+          </button>
+        </WithHelp>
         {result && <span className={`text-xs ${result.success ? "text-green-600" : "text-red-600"}`}>{result.message}</span>}
       </div>
     </section>
@@ -1190,9 +1259,11 @@ function TabRevisao() {
         <p className="text-sm text-gray-500 mb-4">
           Cards com tag &quot;Adequação Complexa&quot; e cards com tag &quot;Revisão de Pendências Finalizada&quot; (sem complexa).
         </p>
-        <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
-          {loading ? "Carregando..." : "Carregar Cards"}
-        </button>
+        <WithHelp help="Busca cards da Fase 3 com vencimento para hoje que possuem tag Adequação Complexa ou Revisão Finalizada">
+          <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
+            {loading ? "Carregando..." : "Carregar Cards"}
+          </button>
+        </WithHelp>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </section>
 
@@ -1231,34 +1302,38 @@ function TabRevisao() {
                     </div>
                     <div className="flex items-center gap-2">
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
-                      <button onClick={() => updateComplexa(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors whitespace-nowrap">
-                        {isUpdating && editingComplexaComment !== c.id ? "Atualizando..." : "+1 dia"}
-                      </button>
+                      <WithHelp help="Atualiza vencimento +1 dia útil às 22:00 e adiciona comentário com nova data FUP">
+                        <button onClick={() => updateComplexa(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                          {isUpdating && editingComplexaComment !== c.id ? "Atualizando..." : "+1 dia"}
+                        </button>
+                      </WithHelp>
                       {!cardStatus && (
                         <>
-                          <button onClick={() => {
-                            if (editingComplexaComment === c.id) {
-                              setEditingComplexaComment(null);
-                            } else {
-                              const opts = getCardOpts(c.id);
-                              const days = opts.complexa ? 1 : 2;
-                              const now = new Date();
-                              let added = 0;
-                              const next = new Date(now);
-                              while (added < days) {
-                                next.setDate(next.getDate() + 1);
-                                if (next.getDay() !== 0 && next.getDay() !== 6) added++;
+                          <WithHelp help="Abre editor lateral com o último comentário e FUP recalculado conforme checkbox Complexa (+1 ou +2 dias úteis)">
+                            <button onClick={() => {
+                              if (editingComplexaComment === c.id) {
+                                setEditingComplexaComment(null);
+                              } else {
+                                const opts = getCardOpts(c.id);
+                                const days = opts.complexa ? 1 : 2;
+                                const now = new Date();
+                                let added = 0;
+                                const next = new Date(now);
+                                while (added < days) {
+                                  next.setDate(next.getDate() + 1);
+                                  if (next.getDay() !== 0 && next.getDay() !== 6) added++;
+                                }
+                                const dd = String(next.getDate()).padStart(2, "0");
+                                const mm = String(next.getMonth() + 1).padStart(2, "0");
+                                const fupDate = `${dd}/${mm}`;
+                                const updatedComment = (c.lastComment || "").replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`);
+                                setEditingComplexaComment(c.id);
+                                setComplexaCommentText(updatedComment);
                               }
-                              const dd = String(next.getDate()).padStart(2, "0");
-                              const mm = String(next.getMonth() + 1).padStart(2, "0");
-                              const fupDate = `${dd}/${mm}`;
-                              const updatedComment = (c.lastComment || "").replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`);
-                              setEditingComplexaComment(c.id);
-                              setComplexaCommentText(updatedComment);
-                            }
-                          }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
-                            Atualizar Comentário
-                          </button>
+                            }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
+                              Atualizar Comentário
+                            </button>
+                          </WithHelp>
                           <div className="flex flex-col gap-0.5">
                             <label className="flex items-center gap-1 cursor-pointer">
                               <input type="checkbox" checked={getCardOpts(c.id).complexa} onChange={(e) => setCardOpt(c.id, "complexa", e.target.checked)} className="w-3 h-3 accent-orange-600" />
@@ -1292,12 +1367,16 @@ function TabRevisao() {
                         </div>
                         <textarea value={complexaCommentText} onChange={(e) => setComplexaCommentText(e.target.value)} rows={25} className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500" />
                         <div className="flex gap-2 mt-4">
-                          <button onClick={sendComplexaComment} disabled={isUpdating} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
-                            {isUpdating ? "Enviando..." : "Enviar comentário"}
-                          </button>
-                          <button onClick={() => setEditingComplexaComment(null)} className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
-                            Cancelar
-                          </button>
+                          <WithHelp help="Envia comentário editado, ajusta tags e vencimento conforme checkboxes (Complexa/Itens/Manut)">
+                            <button onClick={sendComplexaComment} disabled={isUpdating} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
+                              {isUpdating ? "Enviando..." : "Enviar comentário"}
+                            </button>
+                          </WithHelp>
+                          <WithHelp help="Fecha o editor sem enviar alterações">
+                            <button onClick={() => setEditingComplexaComment(null)} className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+                              Cancelar
+                            </button>
+                          </WithHelp>
                         </div>
                       </div>
                     </div>
@@ -1342,9 +1421,11 @@ function TabRevisao() {
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
                       {!isEditing && !cardStatus && (
                         <>
-                          <button onClick={() => openRevisaoEditor(c.id)} disabled={updatingCard !== null} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
-                            Atualizar comentário
-                          </button>
+                          <WithHelp help="Abre editor com comentário padrão e FUP calculado (+1 ou +2 dias conforme checkbox Complexa). Muda responsável e ajusta tags">
+                            <button onClick={() => openRevisaoEditor(c.id)} disabled={updatingCard !== null} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                              Atualizar comentário
+                            </button>
+                          </WithHelp>
                           <div className="flex flex-col gap-0.5">
                             <label className="flex items-center gap-1 cursor-pointer">
                               <input type="checkbox" checked={getCardOpts(c.id).complexa} onChange={(e) => setCardOpt(c.id, "complexa", e.target.checked)} className="w-3 h-3 accent-orange-600" />
@@ -1375,12 +1456,16 @@ function TabRevisao() {
                         className="w-full border border-purple-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
                       />
                       <div className="flex gap-2 mt-3">
-                        <button onClick={sendRevisaoComment} disabled={isUpdating} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors">
-                          {isUpdating ? "Enviando..." : "Enviar comentário"}
-                        </button>
-                        <button onClick={() => setEditingComment(null)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
-                          Cancelar
-                        </button>
+                        <WithHelp help="Envia comentário, muda responsável para Weslley, ajusta tags e vencimento. Se não for complexa, move para Fase 4">
+                          <button onClick={sendRevisaoComment} disabled={isUpdating} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors">
+                            {isUpdating ? "Enviando..." : "Enviar comentário"}
+                          </button>
+                        </WithHelp>
+                        <WithHelp help="Fecha o editor sem enviar alterações">
+                          <button onClick={() => setEditingComment(null)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+                            Cancelar
+                          </button>
+                        </WithHelp>
                       </div>
                     </div>
                   )}
@@ -1457,9 +1542,11 @@ function TabComplexa() {
         <p className="text-sm text-gray-500 mb-4">
           Todos os cards da Fase 3 com tag &quot;Adequação Complexa&quot; e o último comentário.
         </p>
-        <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
-          {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
-        </button>
+        <WithHelp help="Busca todos os cards da Fase 3 com tag Adequação Complexa, independente do vencimento">
+          <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
+            {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
+          </button>
+        </WithHelp>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </section>
 
@@ -1588,13 +1675,15 @@ function CopyTemplateButton({ label, placeholder, buildText }: { label: string; 
           className="w-24 border border-gray-300 rounded-md px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
         />
       </div>
-      <button
-        onClick={handleCopy}
-        disabled={!val}
-        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${copied ? "bg-green-600 text-white" : "bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50"}`}
-      >
-        {copied ? "Copiado!" : "Copiar"}
-      </button>
+      <WithHelp help="Copia o texto gerado para a área de transferência">
+        <button
+          onClick={handleCopy}
+          disabled={!val}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${copied ? "bg-green-600 text-white" : "bg-yellow-500 text-white hover:bg-yellow-600 disabled:opacity-50"}`}
+        >
+          {copied ? "Copiado!" : "Copiar"}
+        </button>
+      </WithHelp>
     </div>
   );
 }
@@ -1626,24 +1715,30 @@ function TabOcorrenciaSuporte() {
       <section className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-4">Ocorrência / Suportes</h2>
         <div className="flex gap-2 mb-4">
-          <button
-            onClick={() => setActiveForm("suporte")}
-            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "suporte" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-          >
-            Suporte Franquias
-          </button>
-          <button
-            onClick={() => setActiveForm("ocorrencia")}
-            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "ocorrencia" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-          >
-            Ocorrência
-          </button>
-          <button
-            onClick={() => setActiveForm("anuncio")}
-            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "anuncio" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
-          >
-            Atualizar Anúncio
-          </button>
+          <WithHelp help="Mostra formulário para criar Suporte Franquias no Pipefy">
+            <button
+              onClick={() => setActiveForm("suporte")}
+              className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "suporte" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              Suporte Franquias
+            </button>
+          </WithHelp>
+          <WithHelp help="Mostra formulário para criar Ocorrência no Pipefy e textos para copiar">
+            <button
+              onClick={() => setActiveForm("ocorrencia")}
+              className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "ocorrencia" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              Ocorrência
+            </button>
+          </WithHelp>
+          <WithHelp help="Mostra formulário para criar card de atualização de anúncio no Pipefy">
+            <button
+              onClick={() => setActiveForm("anuncio")}
+              className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "anuncio" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              Atualizar Anúncio
+            </button>
+          </WithHelp>
         </div>
         {activeForm === "ocorrencia" && <CopyDiasTexto />}
       </section>
@@ -1776,9 +1871,11 @@ function FormSuporte() {
           </div>
         )}
 
-        <button onClick={handleEnviar} disabled={sending || !codigo.trim()} className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
-          {sending ? "Enviando..." : "Enviar Suporte"}
-        </button>
+        <WithHelp help="Cria card de Suporte Franquias diretamente no Pipefy com os dados preenchidos">
+          <button onClick={handleEnviar} disabled={sending || !codigo.trim()} className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
+            {sending ? "Enviando..." : "Enviar Suporte"}
+          </button>
+        </WithHelp>
       </div>
     </section>
   );
@@ -1830,9 +1927,11 @@ function RegistrarOcorrenciaCard() {
           <label className="text-xs text-gray-500 block mb-1">Código do imóvel</label>
           <input type="text" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Ex: ALA0004" className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-40" />
         </div>
-        <button onClick={handleRegistrar} disabled={sending || !code.trim()} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
-          {sending ? "Registrando..." : "Registrar no card"}
-        </button>
+        <WithHelp help="Adiciona 'Ocorrência Registrada | DD/MM' no comentário e a tag 'OCORRÊNCIA REGISTRADA' no card">
+          <button onClick={handleRegistrar} disabled={sending || !code.trim()} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+            {sending ? "Registrando..." : "Registrar no card"}
+          </button>
+        </WithHelp>
         {result && <span className={`text-xs ${result.success ? "text-green-600" : "text-red-600"}`}>{result.message}</span>}
       </div>
     </div>
@@ -1926,9 +2025,11 @@ function FormAtualizarAnuncio() {
           </div>
         )}
 
-        <button onClick={handleEnviar} disabled={sending || !codigo.trim() || !itens.trim()} className="w-full bg-green-600 text-white py-3 rounded-md font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
-          {sending ? "Enviando..." : "Enviar Atualização de Anúncio"}
-        </button>
+        <WithHelp help="Cria card de atualização de anúncio no Pipefy com os itens para incluir">
+          <button onClick={handleEnviar} disabled={sending || !codigo.trim() || !itens.trim()} className="w-full bg-green-600 text-white py-3 rounded-md font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+            {sending ? "Enviando..." : "Enviar Atualização de Anúncio"}
+          </button>
+        </WithHelp>
       </div>
     </section>
   );
@@ -2038,9 +2139,11 @@ function FormOcorrencia() {
           </div>
         )}
 
-        <button onClick={handleEnviar} disabled={sending || !codigo.trim() || !descricao.trim() || !franquia} className="w-full bg-orange-600 text-white py-3 rounded-md font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
-          {sending ? "Enviando..." : "Enviar Ocorrência"}
-        </button>
+        <WithHelp help="Cria card de Ocorrência diretamente no Pipefy com os dados e evidência anexada">
+          <button onClick={handleEnviar} disabled={sending || !codigo.trim() || !descricao.trim() || !franquia} className="w-full bg-orange-600 text-white py-3 rounded-md font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
+            {sending ? "Enviando..." : "Enviar Ocorrência"}
+          </button>
+        </WithHelp>
       </div>
 
       {/* Registrar ocorrência no card */}
@@ -2117,9 +2220,11 @@ function TabEnxovalCso() {
         <p className="text-sm text-gray-500 mb-4">
           Cards da Fase 5 com enxoval pendente (❌ ENXOVAL). Mostra as tags do Pipe 0 (Onboarding). O botão atualiza o comentário e campo &quot;Validação Enxoval&quot; para &quot;COMPRADO - PP CSO&quot;.
         </p>
-        <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
-          {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
-        </button>
+        <WithHelp help="Busca cards da Fase 5 com enxoval pendente (❌ ENXOVAL) e mostra tags do Pipe 0 (Onboarding)">
+          <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
+            {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
+          </button>
+        </WithHelp>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </section>
 
@@ -2143,13 +2248,15 @@ function TabEnxovalCso() {
                       <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>
                     )}
                     {!cardStatus && (
-                      <button
-                        onClick={() => updateCard(c.title, c.enxovalType)}
-                        disabled={isUpdating || updatingCard !== null}
-                        className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-                      >
-                        {isUpdating ? "Atualizando..." : "Atualizar Info Enxoval"}
-                      </button>
+                      <WithHelp help="Atualiza comentário substituindo ❌ ENXOVAL e define campo Validação Enxoval como 'COMPRADO - PP CSO'">
+                        <button
+                          onClick={() => updateCard(c.title, c.enxovalType)}
+                          disabled={isUpdating || updatingCard !== null}
+                          className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                        >
+                          {isUpdating ? "Atualizando..." : "Atualizar Info Enxoval"}
+                        </button>
+                      </WithHelp>
                     )}
                   </div>
                 </div>
@@ -2212,48 +2319,52 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-gray-900">Pipefy Enxoval</h1>
           <p className="text-gray-500 mt-1">Automação de registro de enxoval — Seazone</p>
         </div>
-        <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-          Sair
-        </button>
+        <WithHelp help="Faz logout e volta para a tela de login">
+          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+            Sair
+          </button>
+        </WithHelp>
       </header>
 
       {/* Tabs */}
       <div className="mb-6 bg-gray-100 p-1 rounded-lg space-y-px">
         <div className="flex gap-1">
           {([
-            { id: "fase3", label: "Fase 3" },
-            { id: "fase4", label: "Fase 4" },
-            { id: "revisao", label: "Complexa/Revisão finalizada" },
-            { id: "fase5", label: "Fase 5" },
-          ] as const).map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-                activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {tab.label}
-            </button>
+            { id: "fase3", label: "Fase 3", help: "Atualiza vencimento e comentário dos cards da Fase 3 com vencimento para hoje" },
+            { id: "fase4", label: "Fase 4", help: "Atualiza vencimento +2 dias úteis e comentário dos cards da Fase 4" },
+            { id: "revisao", label: "Complexa/Revisão finalizada", help: "Cards com tag Adequação Complexa ou Revisão de Pendências Finalizada na Fase 3" },
+            { id: "fase5", label: "Fase 5", help: "Cards da Fase 5 com comentários, atualização individual e finalização" },
+          ] as { id: typeof activeTab; label: string; help: string }[]).map((tab) => (
+            <WithHelp key={tab.id} help={tab.help}>
+              <button
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {tab.label}
+              </button>
+            </WithHelp>
           ))}
         </div>
         <hr className="border-gray-200" />
         <div className="flex gap-1">
           {([
-            { id: "processamento", label: "Processamento" },
-            { id: "ocorrencia", label: "Ocorrência/Suportes" },
-            { id: "enxovalcso", label: "ENXOVAL/CSO" },
-            { id: "complexa", label: "Complexa" },
-          ] as const).map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-                activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {tab.label}
-            </button>
+            { id: "processamento", label: "Processamento", help: "Registro de enxoval para cards da Fase 5 sem registro" },
+            { id: "ocorrencia", label: "Ocorrência/Suportes", help: "Formulários para criar ocorrências, suportes e atualizações de anúncio no Pipefy" },
+            { id: "enxovalcso", label: "ENXOVAL/CSO", help: "Cards da Fase 5 com enxoval pendente — atualiza para COMPRADO PP CSO" },
+            { id: "complexa", label: "Complexa", help: "Lista todos os cards com tag Adequação Complexa na Fase 3, independente do vencimento" },
+          ] as { id: typeof activeTab; label: string; help: string }[]).map((tab) => (
+            <WithHelp key={tab.id} help={tab.help}>
+              <button
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+                  activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                {tab.label}
+              </button>
+            </WithHelp>
           ))}
         </div>
       </div>
