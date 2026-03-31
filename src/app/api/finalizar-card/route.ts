@@ -32,6 +32,27 @@ const SLACK_CHANNEL_ID = "C09CQRNEVLZ";
 const BRUNO_SLACK_ID = "U05AKADK9EY";
 const WESLLEY_SLACK_ID = "U08DF2E4RLP";
 
+// Tags de enxoval/itens/manutenção
+const TAG_COMPRAR_ENXOVAL = "310425316";
+const TAG_ENTREGAR_ENXOVAL = "310938829";
+const TAG_VALIDAR_ENXOVAL = "310959732";
+const TAG_ITENS_PEQUENOS = "310938809";
+const TAG_ITENS_GRANDES = "310425321";
+const TAG_MANUT_PEQUENAS = "310938821";
+const TAG_MANUT_GRANDES = "310425328";
+
+// Detecta status de uma seção no comentário (❌ ou ✔️)
+function getSectionStatus(text: string, keyword: string): "❌" | "✔️" | "" {
+  const lines = text.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.match(new RegExp(`^[❌✔✅]`, "i")) && trimmed.toUpperCase().includes(keyword.toUpperCase())) {
+      return trimmed.startsWith("❌") ? "❌" : "✔️";
+    }
+  }
+  return "";
+}
+
 // Extrair status do enxoval do comentário
 function getEnxovalFromComment(text: string): string {
   const lines = text.split("\n");
@@ -153,16 +174,35 @@ export async function POST(req: NextRequest) {
         pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "aviso_no_canal_para_lan_amento_de_despesa", new_value: "Sim, fluxo aberto" }) { success } }`)
       );
 
-      // 12. Remover tags antigas + adicionar tags de finalização
-      const TAGS_TO_REMOVE = ["310938809", "310938821", "310425321", "310425328"];
+      // 12. Atualizar tags baseado no comentário + adicionar tags de finalização
       const TAGS_TO_ADD = ["315963981", "316723774"]; // Atualizar laudo vistoria + Solicitado lançamento de despesa
-      const currentLabels = (card.labels || []).map((l: any) => l.id);
-      const updatedLabels = [
-        ...currentLabels.filter((id: string) => !TAGS_TO_REMOVE.includes(id)),
-        ...TAGS_TO_ADD.filter((id) => !currentLabels.includes(id)),
-      ];
-      const uniqueLabels = [...new Set(updatedLabels)];
-      await step("Tags atualizadas (removidas + adicionadas)", () => {
+      let tagLabels = (card.labels || []).map((l: any) => l.id) as string[];
+
+      // Sempre remover Itens/Manut grandes
+      tagLabels = tagLabels.filter((id: string) => id !== TAG_ITENS_GRANDES && id !== TAG_MANUT_GRANDES);
+
+      // Baseado no comentário: ✔️ remove tags, ❌ mantém
+      const enxovalStatus = getSectionStatus(lastComment, "ENXOVAL");
+      const itensStatus = getSectionStatus(lastComment, "ITENS");
+      const manutStatus = getSectionStatus(lastComment, "MANUTEN");
+
+      if (enxovalStatus && enxovalStatus !== "❌") {
+        tagLabels = tagLabels.filter((id) => id !== TAG_COMPRAR_ENXOVAL && id !== TAG_ENTREGAR_ENXOVAL && id !== TAG_VALIDAR_ENXOVAL);
+      }
+      if (itensStatus && itensStatus !== "❌") {
+        tagLabels = tagLabels.filter((id) => id !== TAG_ITENS_PEQUENOS);
+      }
+      if (manutStatus && manutStatus !== "❌") {
+        tagLabels = tagLabels.filter((id) => id !== TAG_MANUT_PEQUENAS);
+      }
+
+      // Adicionar tags de finalização
+      for (const tagId of TAGS_TO_ADD) {
+        if (!tagLabels.includes(tagId)) tagLabels.push(tagId);
+      }
+
+      const uniqueLabels = [...new Set(tagLabels)];
+      await step("Tags atualizadas", () => {
         const labelArray = uniqueLabels.map((id: string) => `"${id}"`).join(", ");
         return pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
       });
