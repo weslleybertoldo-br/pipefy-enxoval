@@ -66,7 +66,20 @@ export async function GET(request: NextRequest) {
 
   const pipeResult = await pipefyQuery(pipeQuery);
 
+  // Buscar fields de um card da Fase 4 para descobrir field_ids
+  const cardCode = request.nextUrl.searchParams.get("card") || "";
+  let cardFields = null;
+  if (cardCode) {
+    for (const phaseId of [PHASE_5_ID, "333848207", "323529403"]) {
+      const r = await pipefyQuery(`{ phase(id: ${phaseId}) { cards(first: 3, search: { title: "${cardCode}" }) { edges { node { id title fields { name field_id value } } } } } }`);
+      const edges = r?.data?.phase?.cards?.edges || [];
+      const found = edges.find((e: any) => e.node.title.toUpperCase() === cardCode.toUpperCase());
+      if (found) { cardFields = found.node; break; }
+    }
+  }
+
   return NextResponse.json({
+    card_fields: cardFields,
     phase_5_id: PHASE_5_ID,
     phase_info: phaseResult.data?.phase ? {
       id: phaseResult.data.phase.id,
