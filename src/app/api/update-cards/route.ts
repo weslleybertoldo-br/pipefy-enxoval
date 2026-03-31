@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  pipefyQuery, fetchAllCardsFromPhase, updateDueDate, updateAssignee, createComment,
+  pipefyQuery, fetchAllCardsFromPhase, searchCardInPhase, updateDueDate, updateAssignee, createComment,
   validateCardId, toBrazilDate, formatDateBR, isDueToday, getNextBusinessDayAt22,
   replaceCommentFupDate, hasSkipTag, requireAuth,
   PHASE_3_ID, WESLLEY_USER_ID,
@@ -68,6 +68,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
+    const search = req.nextUrl.searchParams.get("search");
+
+    if (search) {
+      const card = await searchCardInPhase(PHASE_3_ID, search);
+      if (!card) return NextResponse.json({ success: true, totalCards: 0, toUpdate: 0, toSkip: 0, cards: [] });
+      const skipCheck = shouldSkipCard(card);
+      return NextResponse.json({
+        success: true, totalCards: 1, toUpdate: skipCheck.skip ? 0 : 1, toSkip: skipCheck.skip ? 1 : 0,
+        cards: [{
+          id: card.id, title: card.title,
+          labels: (card.labels || []).map((l: any) => l.name),
+          assignees: (card.assignees || []).map((a: any) => a.name),
+          due_date: card.due_date, skip: skipCheck.skip, skipReason: skipCheck.reason,
+        }],
+      });
+    }
+
     const cards = await fetchAllCardsFromPhase(PHASE_3_ID);
     const skipMap = cards.map((c) => ({ card: c, ...shouldSkipCard(c) }));
 

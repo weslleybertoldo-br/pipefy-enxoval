@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  pipefyQuery, fetchAllCardsFromPhase, updateDueDate, updateAssignee, createComment,
+  pipefyQuery, fetchAllCardsFromPhase, searchCardInPhase, updateDueDate, updateAssignee, createComment,
   validateCardId, toBrazilDate, formatDateBR, isDueToday, getNextBusinessDayAt22,
   replaceCommentFupDate, requireAuth, PHASE_3_ID, PHASE_4_ID, WESLLEY_USER_ID,
 } from "@/lib/pipefy";
@@ -55,29 +55,36 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const cards = await fetchAllCardsFromPhase(PHASE_3_ID);
+    const search = req.nextUrl.searchParams.get("search");
 
-    // Filtrar só cards com vencimento para hoje
-    const todayCards = cards.filter((c) => c.due_date && isDueToday(c.due_date));
-
-    const result = todayCards.map((c) => {
+    const formatCard = (c: any) => {
       const lastComment = (c.comments || [])[0];
-      const br = toBrazilDate(new Date(c.due_date));
-      const dueFormatted = `${String(br.day).padStart(2, "0")}/${String(br.month + 1).padStart(2, "0")}/${br.year}`;
+      const br = c.due_date ? toBrazilDate(new Date(c.due_date)) : null;
+      const dueFormatted = br ? `${String(br.day).padStart(2, "0")}/${String(br.month + 1).padStart(2, "0")}/${br.year}` : "Sem vencimento";
       return {
-        id: c.id,
-        title: c.title,
-        type: classifyCard(c),
-        due_date: c.due_date,
-        dueFormatted,
+        id: c.id, title: c.title, type: classifyCard(c), due_date: c.due_date, dueFormatted,
         assignees: (c.assignees || []).map((a: any) => a.name),
         labels: (c.labels || []).map((l: any) => l.name),
         labelIds: (c.labels || []).map((l: any) => l.id),
-        lastComment: lastComment?.text || "",
-        lastCommentAuthor: lastComment?.author_name || "",
-        lastCommentDate: lastComment?.created_at || "",
+        lastComment: lastComment?.text || "", lastCommentAuthor: lastComment?.author_name || "", lastCommentDate: lastComment?.created_at || "",
       };
-    });
+    };
+
+    if (search) {
+      const card = await searchCardInPhase(PHASE_3_ID, search);
+      if (!card) return NextResponse.json({ success: true, totalCards: 0, complexaCount: 0, revisaoCount: 0, cards: [] });
+      const formatted = formatCard(card);
+      return NextResponse.json({
+        success: true, totalCards: 1,
+        complexaCount: formatted.type === "complexa" ? 1 : 0,
+        revisaoCount: formatted.type === "revisao" ? 1 : 0,
+        cards: formatted.type !== "none" ? [formatted] : [],
+      });
+    }
+
+    const cards = await fetchAllCardsFromPhase(PHASE_3_ID);
+    const todayCards = cards.filter((c) => c.due_date && isDueToday(c.due_date));
+    const result = todayCards.map(formatCard);
 
     const complexa = result.filter((r) => r.type === "complexa");
     const revisao = result.filter((r) => r.type === "revisao");

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  pipefyQuery, updateDueDate, createComment,
+  pipefyQuery, searchCardInPhase, updateDueDate, createComment,
   validateCardId, toBrazilDate, formatDateBR, isDueToday, getNextBusinessDayAt22,
   replaceCommentFupDate, requireAuth, PHASE_5_ID,
 } from "@/lib/pipefy";
@@ -48,41 +48,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
+    const search = req.nextUrl.searchParams.get("search");
+
+    const formatPhase5Card = (c: any) => {
+      const lastComment = (c.comments || [])[0];
+      const br = c.due_date ? toBrazilDate(new Date(c.due_date)) : null;
+      const dueFormatted = br ? `${String(br.day).padStart(2, "0")}/${String(br.month + 1).padStart(2, "0")}/${br.year}` : "Sem vencimento";
+      const enxovalField = (c.fields || []).find((f: any) => f.name?.toLowerCase().includes("registro de enxoval"));
+      const connectedItems = enxovalField?.connected_repo_items || [];
+      const hasRecord = connectedItems.length > 0 && !!connectedItems[0]?.id;
+      const recordId = hasRecord ? connectedItems[0].id : "";
+      return {
+        id: c.id, title: c.title, due_date: c.due_date, dueFormatted,
+        assignees: (c.assignees || []).map((a: any) => a.name),
+        labels: (c.labels || []).map((l: any) => l.name),
+        lastComment: lastComment?.text || "", lastCommentAuthor: lastComment?.author_name || "", lastCommentDate: lastComment?.created_at || "",
+        hasRecord, recordId,
+      };
+    };
+
+    if (search) {
+      const card = await searchCardInPhase(PHASE_5_ID, search);
+      if (!card) return NextResponse.json({ success: true, totalCards: 0, cards: [] });
+      return NextResponse.json({ success: true, totalCards: 1, cards: [formatPhase5Card(card)] });
+    }
+
     const allCards = await fetchPhase5Cards();
     const cards = allCards.filter((c) => c.due_date && isDueToday(c.due_date));
 
     return NextResponse.json({
       success: true,
       totalCards: cards.length,
-      cards: cards.map((c) => {
-        const lastComment = (c.comments || [])[0];
-        const br = c.due_date ? toBrazilDate(new Date(c.due_date)) : null;
-        const dueFormatted = br
-          ? `${String(br.day).padStart(2, "0")}/${String(br.month + 1).padStart(2, "0")}/${br.year}`
-          : "Sem vencimento";
-
-        // Buscar registro de enxoval
-        const enxovalField = (c.fields || []).find((f: any) =>
-          f.name?.toLowerCase().includes("registro de enxoval")
-        );
-        const connectedItems = enxovalField?.connected_repo_items || [];
-        const hasRecord = connectedItems.length > 0 && !!connectedItems[0]?.id;
-        const recordId = hasRecord ? connectedItems[0].id : "";
-
-        return {
-          id: c.id,
-          title: c.title,
-          due_date: c.due_date,
-          dueFormatted,
-          assignees: (c.assignees || []).map((a: any) => a.name),
-          labels: (c.labels || []).map((l: any) => l.name),
-          lastComment: lastComment?.text || "",
-          lastCommentAuthor: lastComment?.author_name || "",
-          lastCommentDate: lastComment?.created_at || "",
-          hasRecord,
-          recordId,
-        };
-      }),
+      cards: cards.map(formatPhase5Card),
     });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });

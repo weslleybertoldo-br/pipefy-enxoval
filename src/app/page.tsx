@@ -498,6 +498,29 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
   const [phaseInfo, setPhaseInfo] = useState<{ totalCards: number; toUpdate: number; toSkip: number } | null>(null);
   const [error, setError] = useState("");
   const abortRef = useRef(false);
+  const [searchCode, setSearchCode] = useState("");
+  const [searching, setSearching] = useState(false);
+
+  const searchCard = async () => {
+    if (!searchCode.trim()) return;
+    setSearching(true);
+    setError("");
+    setResults([]);
+    try {
+      const res = await fetch(`${apiRoute}?search=${encodeURIComponent(searchCode.trim())}`);
+      const data = await res.json();
+      if (data.success) {
+        setCards(data.cards);
+        setPhaseInfo({ totalCards: data.totalCards, toUpdate: data.toUpdate, toSkip: data.toSkip });
+      } else {
+        setError(data.error || "Erro ao pesquisar");
+      }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const loadCards = async () => {
     setLoading(true);
@@ -573,6 +596,28 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
       <section className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-2">Atualização de Cards — {phaseName}</h2>
         <p className="text-sm text-gray-500 mb-4">{phaseDescription}</p>
+
+        <div className="flex gap-3 mb-3">
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={searchCode}
+              onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
+              onKeyDown={(e) => e.key === "Enter" && searchCard()}
+              placeholder="Pesquisar card..."
+              className="border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+            />
+            <WithHelp help="Pesquisa um card específico pelo código na fase, independente do vencimento">
+              <button
+                onClick={searchCard}
+                disabled={searching || !searchCode.trim()}
+                className="bg-blue-500 text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+              >
+                {searching ? "Buscando..." : "Pesquisar"}
+              </button>
+            </WithHelp>
+          </div>
+        </div>
 
         <div className="flex gap-3">
           <WithHelp help="Busca os cards da fase com vencimento para hoje.~Cards com tags 'Adequação Complexa' ou 'Revisão de Pendências Finalizada' são ignorados">
@@ -866,6 +911,28 @@ function TabPhase5() {
   const [error, setError] = useState("");
   const [updatingCard, setUpdatingCard] = useState<string | null>(null);
   const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
+  const [searchCode, setSearchCode] = useState("");
+  const [searching, setSearching] = useState(false);
+
+  const searchCard = async () => {
+    if (!searchCode.trim()) return;
+    setSearching(true);
+    setError("");
+    setCardStatuses({});
+    try {
+      const res = await fetch(`/api/update-cards-phase5?search=${encodeURIComponent(searchCode.trim())}`);
+      const data = await res.json();
+      if (data.success) {
+        setCards(data.cards);
+      } else {
+        setError(data.error || "Erro ao pesquisar");
+      }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setSearching(false);
+    }
+  };
 
   const loadCards = async () => {
     setLoading(true);
@@ -926,6 +993,27 @@ function TabPhase5() {
         <p className="text-sm text-gray-500 mb-4">
           Lista todos os cards da Fase 5 com o último comentário. Clique no botão para atualizar individualmente: vencimento +3 dias úteis às 22:00 e comentário com nova data.
         </p>
+
+        <div className="flex gap-2 items-center mb-3">
+          <input
+            type="text"
+            value={searchCode}
+            onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && searchCard()}
+            placeholder="Pesquisar card..."
+            className="border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+          />
+          <WithHelp help="Pesquisa um card específico pelo código na Fase 5, independente do vencimento. Mostra com todas as opções (+3 dias, Atualizar, Finalizar)">
+            <button
+              onClick={searchCard}
+              disabled={searching || !searchCode.trim()}
+              className="bg-blue-500 text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              {searching ? "Buscando..." : "Pesquisar"}
+            </button>
+          </WithHelp>
+        </div>
+
         <div className="flex gap-3">
           <WithHelp help="Busca todos os cards da Fase 5 com último comentário e informações de registro">
             <button
@@ -1144,10 +1232,48 @@ function TabRevisao() {
   const [complexaCommentText, setComplexaCommentText] = useState("");
   const [cardOptions, setCardOptions] = useState<Record<string, { complexa: boolean; itens: boolean; manut: boolean }>>({});
   const [summary, setSummary] = useState<{ complexaCount: number; revisaoCount: number } | null>(null);
+  const [searchCode, setSearchCode] = useState("");
+  const [searching, setSearching] = useState(false);
 
   const getCardOpts = (id: string) => cardOptions[id] || { complexa: false, itens: false, manut: false };
   const setCardOpt = (id: string, key: "complexa" | "itens" | "manut", val: boolean) => {
     setCardOptions((prev) => ({ ...prev, [id]: { ...getCardOpts(id), [key]: val } }));
+  };
+
+  const applyCardData = (data: any) => {
+    const filtered = data.cards.filter((c: RevisaoCard) => c.type !== "none");
+    setCards(filtered);
+    setSummary({ complexaCount: data.complexaCount, revisaoCount: data.revisaoCount });
+    const opts: Record<string, { complexa: boolean; itens: boolean; manut: boolean }> = {};
+    for (const c of filtered) {
+      opts[c.id] = {
+        complexa: (c.labelIds || []).includes("314328534"),
+        itens: (c.labelIds || []).includes("310938809"),
+        manut: (c.labelIds || []).includes("310938821"),
+      };
+    }
+    setCardOptions(opts);
+  };
+
+  const searchCard = async () => {
+    if (!searchCode.trim()) return;
+    setSearching(true);
+    setError("");
+    setCardStatuses({});
+    setEditingComment(null);
+    try {
+      const res = await fetch(`/api/update-cards-revisao?search=${encodeURIComponent(searchCode.trim())}`);
+      const data = await res.json();
+      if (data.success) {
+        applyCardData(data);
+      } else {
+        setError(data.error || "Erro ao pesquisar");
+      }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setSearching(false);
+    }
   };
 
   const loadCards = async () => {
@@ -1159,19 +1285,7 @@ function TabRevisao() {
       const res = await fetch("/api/update-cards-revisao");
       const data = await res.json();
       if (data.success) {
-        const filtered = data.cards.filter((c: RevisaoCard) => c.type !== "none");
-        setCards(filtered);
-        setSummary({ complexaCount: data.complexaCount, revisaoCount: data.revisaoCount });
-        // Pré-selecionar checkboxes baseado nas tags do card
-        const opts: Record<string, { complexa: boolean; itens: boolean; manut: boolean }> = {};
-        for (const c of filtered) {
-          opts[c.id] = {
-            complexa: (c.labelIds || []).includes("314328534"),
-            itens: (c.labelIds || []).includes("310938809"),
-            manut: (c.labelIds || []).includes("310938821"),
-          };
-        }
-        setCardOptions(opts);
+        applyCardData(data);
       } else {
         setError(data.error || "Erro ao carregar");
       }
@@ -1292,6 +1406,27 @@ function TabRevisao() {
         <p className="text-sm text-gray-500 mb-4">
           Cards com tag &quot;Adequação Complexa&quot; e cards com tag &quot;Revisão de Pendências Finalizada&quot; (sem complexa).
         </p>
+
+        <div className="flex gap-2 items-center mb-3">
+          <input
+            type="text"
+            value={searchCode}
+            onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && searchCard()}
+            placeholder="Pesquisar card..."
+            className="border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+          />
+          <WithHelp help="Pesquisa um card específico pelo código na Fase 3, independente do vencimento. Mostra com as mesmas opções (checkboxes, editor)">
+            <button
+              onClick={searchCard}
+              disabled={searching || !searchCode.trim()}
+              className="bg-blue-500 text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+            >
+              {searching ? "Buscando..." : "Pesquisar"}
+            </button>
+          </WithHelp>
+        </div>
+
         <WithHelp help="Busca cards da Fase 3 com vencimento para hoje que possuem tag Adequação Complexa ou Revisão Finalizada">
           <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
             {loading ? "Carregando..." : "Carregar Cards"}

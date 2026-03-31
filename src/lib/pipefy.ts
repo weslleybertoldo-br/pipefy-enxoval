@@ -267,3 +267,32 @@ export function requireAuth(cookieValue: string | undefined): boolean {
 export function sanitizeGraphQL(str: string): string {
   return JSON.stringify(str).slice(1, -1);
 }
+
+// ========================
+// Buscar card individual por título numa fase
+// ========================
+
+export async function searchCardInPhase(phaseId: string, title: string): Promise<any | null> {
+  const escaped = sanitizeGraphQL(title);
+  const result = await pipefyQuery(`{
+    phase(id: ${phaseId}) {
+      cards(first: 5, search: { title: "${escaped}" }) {
+        edges {
+          node {
+            id title due_date
+            labels { id name }
+            assignees { id name email }
+            comments { id text created_at author_name }
+            fields {
+              name value
+              connected_repo_items { ... on TableRecord { id title } ... on Card { id title } }
+            }
+          }
+        }
+      }
+    }
+  }`);
+  const edges = result?.data?.phase?.cards?.edges || [];
+  const match = edges.find((e: any) => e.node.title.toUpperCase() === title.toUpperCase());
+  return match?.node || null;
+}
