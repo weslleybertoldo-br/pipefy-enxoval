@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
       let enxovalValue = "ok";
       if (enxovalLine.startsWith("❌")) enxovalValue = enxovalLine;
       await step(`Validação Enxoval → ${enxovalValue}`, () =>
-        pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "${enxovalValue.replace(/"/g, '\\"')}" }) { success } }`)
+        pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "${JSON.stringify(enxovalValue).slice(1, -1)}" }) { success } }`)
       );
 
       // 2-3. Itens faltantes e Manutenções → ok
@@ -167,7 +167,7 @@ export async function POST(req: NextRequest) {
       // 10. Amenites
       const amenitesValue = amenitesOption || "Verificado + avisado anúncios";
       await step(`Amenites → ${amenitesValue}`, () =>
-        pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "verificar_o_an_ncio_se_as_amenites_est_o_conformes", new_value: "${amenitesValue}" }) { success } }`)
+        pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "verificar_o_an_ncio_se_as_amenites_est_o_conformes", new_value: "${JSON.stringify(amenitesValue).slice(1, -1)}" }) { success } }`)
       );
 
       // 11. Aviso despesa

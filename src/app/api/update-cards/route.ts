@@ -38,7 +38,7 @@ async function processCard(card: any): Promise<{
 
     const assignees = card.assignees || [];
     const isWeslley = assignees.some((a: any) =>
-      a.name?.toLowerCase().includes("weslley") || a.email?.toLowerCase().includes("weslley")
+      a.id === WESLLEY_USER_ID || a.name?.toLowerCase().includes("weslley")
     );
     if (!isWeslley) {
       await updateAssignee(card.id, WESLLEY_USER_ID);
