@@ -966,6 +966,10 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                           Cancelar
                         </button>
                       </div>
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200">
+                        <CopyScriptUnicoItem />
+                        <CopyScriptPendencias />
+                      </div>
                     </div>
                   </div>
                 )}
