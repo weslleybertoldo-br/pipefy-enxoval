@@ -2,8 +2,38 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   pipefyQuery, searchCardInPhase, updateDueDate, createComment,
   validateCardId, toBrazilDate, formatDateBR, isDueToday, getNextBusinessDayAt22,
-  replaceCommentFupDate, requireAuth, PHASE_5_ID,
+  replaceCommentFupDate, requireAuth, PHASE_5_ID, PIPE_1_PHASES,
 } from "@/lib/pipefy";
+
+async function getOwnerInfo(code: string): Promise<{ nome: string; telefone: string; email: string }> {
+  const empty = { nome: "", telefone: "", email: "" };
+  try {
+    for (const phaseId of PIPE_1_PHASES) {
+      const result = await pipefyQuery(`{
+        phase(id: ${phaseId}) {
+          cards(first: 3, search: { title: "${JSON.stringify(code).slice(1, -1)}" }) {
+            edges {
+              node {
+                title
+                fields { name value }
+              }
+            }
+          }
+        }
+      }`);
+      const edges = result?.data?.phase?.cards?.edges || [];
+      const card = edges.find((e: any) => e.node.title.toUpperCase() === code.toUpperCase());
+      if (card) {
+        const fields = card.node.fields || [];
+        const nome = fields.find((f: any) => f.name?.toLowerCase().includes("nome do proprietário"))?.value || "";
+        const telefone = fields.find((f: any) => f.name?.toLowerCase().includes("telefone do proprietário"))?.value || "";
+        const email = fields.find((f: any) => f.name?.toLowerCase().includes("e-mail do proprietário") || f.name?.toLowerCase().includes("email do proprietário"))?.value || "";
+        if (nome || telefone || email) return { nome, telefone, email };
+      }
+    }
+  } catch { /* silencioso */ }
+  return empty;
+}
 
 // Buscar cards da Fase 5 com fields (para registro de enxoval)
 async function fetchPhase5Cards(): Promise<any[]> {
@@ -70,16 +100,27 @@ export async function GET(req: NextRequest) {
     if (search) {
       const card = await searchCardInPhase(PHASE_5_ID, search);
       if (!card) return NextResponse.json({ success: true, totalCards: 0, cards: [] });
-      return NextResponse.json({ success: true, totalCards: 1, cards: [formatPhase5Card(card)] });
+      const formatted = formatPhase5Card(card);
+      const owner = await getOwnerInfo(card.title);
+      return NextResponse.json({ success: true, totalCards: 1, cards: [{ ...formatted, owner }] });
     }
 
     const allCards = await fetchPhase5Cards();
     const cards = allCards.filter((c) => c.due_date && isDueToday(c.due_date));
+    const formatted = cards.map(formatPhase5Card);
+
+    // Buscar dados do proprietário em paralelo (batch de 5)
+    const owners: Record<string, { nome: string; telefone: string; email: string }> = {};
+    for (let i = 0; i < formatted.length; i += 5) {
+      const batch = formatted.slice(i, i + 5);
+      const results = await Promise.all(batch.map((c) => getOwnerInfo(c.title)));
+      batch.forEach((c, idx) => { owners[c.id] = results[idx]; });
+    }
 
     return NextResponse.json({
       success: true,
-      totalCards: cards.length,
-      cards: cards.map(formatPhase5Card),
+      totalCards: formatted.length,
+      cards: formatted.map((c) => ({ ...c, owner: owners[c.id] || { nome: "", telefone: "", email: "" } })),
     });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });

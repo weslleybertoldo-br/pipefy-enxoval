@@ -1017,6 +1017,7 @@ interface Phase5Card {
   lastCommentDate: string;
   hasRecord: boolean;
   recordId: string;
+  owner?: { nome: string; telefone: string; email: string };
 }
 
 function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; cardTitle: string; lastComment: string }) {
@@ -1189,6 +1190,24 @@ Muito obrigado por toda colaboração e boas reservas!`;
   );
 }
 
+function OwnerField({ label, value }: { label: string; value: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span
+      className="text-[10px] text-gray-500 cursor-pointer hover:text-gray-700 transition-colors"
+      onClick={() => {
+        navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+      }}
+      title="Clique para copiar"
+    >
+      <span className="text-gray-400">{label}:</span> <span className="font-medium text-gray-600">{value}</span>
+      {copied && <span className="text-green-600 ml-1">copiado!</span>}
+    </span>
+  );
+}
+
 function TabPhase5() {
   const [cards, setCards] = useState<Phase5Card[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1350,6 +1369,15 @@ function TabPhase5() {
                     <Phase5EditButton cardId={c.id} cardTitle={c.title} lastComment={c.lastComment} />
                   </div>
                 </div>
+
+                {/* Proprietário */}
+                {c.owner && (c.owner.nome || c.owner.telefone || c.owner.email) && (
+                  <div className="flex gap-4 mt-2 mb-1">
+                    {c.owner.nome && <OwnerField label="Proprietário" value={c.owner.nome} />}
+                    {c.owner.telefone && <OwnerField label="Telefone" value={c.owner.telefone} />}
+                    {c.owner.email && <OwnerField label="E-mail" value={c.owner.email} />}
+                  </div>
+                )}
 
                 {/* Labels */}
                 {c.labels.length > 0 && (
