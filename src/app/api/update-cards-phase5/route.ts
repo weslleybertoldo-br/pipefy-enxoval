@@ -5,6 +5,91 @@ import {
   replaceCommentFupDate, requireAuth, PHASE_5_ID, PIPE_1_PHASES,
 } from "@/lib/pipefy";
 
+const COUNTRY_CODES: Record<string, string> = {
+  "1": "EUA", "7": "Rússia", "27": "África do Sul", "30": "Grécia", "31": "Holanda",
+  "32": "Bélgica", "33": "França", "34": "Espanha", "36": "Hungria", "39": "Itália",
+  "40": "Romênia", "41": "Suíça", "43": "Áustria", "44": "Reino Unido", "45": "Dinamarca",
+  "46": "Suécia", "47": "Noruega", "48": "Polônia", "49": "Alemanha", "51": "Peru",
+  "52": "México", "53": "Cuba", "54": "Argentina", "56": "Chile", "57": "Colômbia",
+  "58": "Venezuela", "60": "Malásia", "61": "Austrália", "62": "Indonésia", "63": "Filipinas",
+  "64": "Nova Zelândia", "65": "Singapura", "66": "Tailândia", "81": "Japão", "82": "Coreia do Sul",
+  "86": "China", "90": "Turquia", "91": "Índia", "92": "Paquistão", "93": "Afeganistão",
+  "212": "Marrocos", "234": "Nigéria", "351": "Portugal", "352": "Luxemburgo",
+  "353": "Irlanda", "354": "Islândia", "358": "Finlândia", "380": "Ucrânia",
+  "420": "República Tcheca", "421": "Eslováquia", "502": "Guatemala", "503": "El Salvador",
+  "504": "Honduras", "506": "Costa Rica", "507": "Panamá", "509": "Haiti",
+  "591": "Bolívia", "593": "Equador", "595": "Paraguai", "598": "Uruguai",
+  "972": "Israel", "971": "Emirados Árabes",
+};
+
+// DDDs válidos do Brasil (2 dígitos, 11-99)
+const BRAZIL_DDDS = new Set([
+  "11","12","13","14","15","16","17","18","19",
+  "21","22","24","27","28",
+  "31","32","33","34","35","37","38",
+  "41","42","43","44","45","46",
+  "47","48","49",
+  "51","53","54","55",
+  "61","62","63","64","65","66","67","68","69",
+  "71","73","74","75","77","79",
+  "81","82","83","84","85","86","87","88","89",
+  "91","92","93","94","95","96","97","98","99",
+]);
+
+function formatPhone(raw: string): string {
+  if (!raw) return "";
+  try {
+
+  // Limpar: remover espaços, parênteses, hífens
+  const cleaned = raw.replace(/[\s\-\(\)\.]/g, "");
+
+  // Se começa com + ou tem mais de 11 dígitos, pode ser internacional
+  if (cleaned.startsWith("+") || cleaned.startsWith("00")) {
+    const digits = cleaned.replace(/\D/g, "");
+
+    // Verificar se é Brasil (+55)
+    if (digits.startsWith("55") && digits.length >= 12) {
+      const ddd = digits.slice(2, 4);
+      // Se o DDD após 55 é um DDD válido do Brasil, é número brasileiro
+      if (BRAZIL_DDDS.has(ddd)) {
+        const rest = digits.slice(4);
+        if (rest.length === 9) {
+          return `(${ddd}) ${rest[0]} ${rest.slice(1, 5)} ${rest.slice(5)}`;
+        } else if (rest.length === 8) {
+          return `(${ddd}) ${rest.slice(0, 4)} ${rest.slice(4)}`;
+        }
+        return `(${ddd}) ${rest}`;
+      }
+    }
+
+    // Número internacional — encontrar o país
+    for (const len of [3, 2, 1]) {
+      const prefix = digits.slice(0, len);
+      if (COUNTRY_CODES[prefix]) {
+        return `+${prefix} ${digits.slice(len)} (${COUNTRY_CODES[prefix]})`;
+      }
+    }
+
+    // País não encontrado, retorna como está com +
+    return `+${digits}`;
+  }
+
+  // Número sem código de país — assumir Brasil
+  const digits = cleaned.replace(/\D/g, "");
+  if (digits.length === 11) {
+    const ddd = digits.slice(0, 2);
+    const rest = digits.slice(2);
+    return `(${ddd}) ${rest[0]} ${rest.slice(1, 5)} ${rest.slice(5)}`;
+  } else if (digits.length === 10) {
+    const ddd = digits.slice(0, 2);
+    const rest = digits.slice(2);
+    return `(${ddd}) ${rest.slice(0, 4)} ${rest.slice(4)}`;
+  }
+
+  return raw;
+  } catch { return raw; }
+}
+
 async function getOwnerInfo(code: string): Promise<{ nome: string; telefone: string; email: string }> {
   const empty = { nome: "", telefone: "", email: "" };
   try {
@@ -28,7 +113,7 @@ async function getOwnerInfo(code: string): Promise<{ nome: string; telefone: str
         const nome = fields.find((f: any) => f.name?.toLowerCase().includes("nome do proprietário"))?.value || "";
         const telefone = fields.find((f: any) => f.name?.toLowerCase().includes("telefone do proprietário"))?.value || "";
         const email = fields.find((f: any) => f.name?.toLowerCase().includes("e-mail do proprietário") || f.name?.toLowerCase().includes("email do proprietário"))?.value || "";
-        if (nome || telefone || email) return { nome, telefone, email };
+        if (nome || telefone || email) return { nome, telefone: formatPhone(telefone), email };
       }
     }
   } catch { /* silencioso */ }

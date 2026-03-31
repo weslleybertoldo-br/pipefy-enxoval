@@ -65,10 +65,10 @@ function getEnxovalFromComment(text: string): string {
   return "ok";
 }
 
-// Verificar se tem "COMPRADO" + "PP CSO" no enxoval (aceita - ou : como separador)
-function hasCompradoPPCSO(enxovalLine: string): boolean {
+// Verificar se marca do enxoval é Matinali (COMPRADO PP CSO ou MATINALI)
+function isMatinali(enxovalLine: string): boolean {
   const upper = enxovalLine.toUpperCase();
-  return upper.includes("COMPRADO") && upper.includes("PP CSO");
+  return (upper.includes("COMPRADO") && upper.includes("PP CSO")) || upper.includes("MATINALI");
 }
 
 // POST: Atualizar comentário editado
@@ -103,7 +103,7 @@ export async function POST(req: NextRequest) {
 
       const lastComment = (card.comments || [])[0]?.text || "";
       const enxovalLine = getEnxovalFromComment(lastComment);
-      const isCompradoPPCSO = hasCompradoPPCSO(enxovalLine);
+      const isEnxovalMatinali = isMatinali(enxovalLine);
       const actions: string[] = [];
       const errors: string[] = [];
 
@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
       );
 
       // 5. Marca do enxoval
-      const marcaValue = isCompradoPPCSO ? "Matinali" : "-";
+      const marcaValue = isEnxovalMatinali ? "Matinali" : "-";
       await step(`Marca enxoval → ${marcaValue}`, () =>
         pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_da_marca_do_enxoval", new_value: "${marcaValue}" }) { success } }`)
       );
