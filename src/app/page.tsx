@@ -640,7 +640,7 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [showFinalizar, setShowFinalizar] = useState(false);
-  const [amenitesOption, setAmenitesOption] = useState("Verificado + avisado anúncios");
+  const [amenitesChecked, setAmenitesChecked] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
 
   const handleUpdateComment = async () => {
@@ -674,7 +674,7 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
       const res = await fetch("/api/finalizar-card", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId, action: "finalizar", amenitesOption }),
+        body: JSON.stringify({ cardId, action: "finalizar", amenitesOption: amenitesChecked ? "Verificado + avisado anúncios" : "Nenhum dos itens foi comprado" }),
       });
       const data = await res.json();
       if (data.success) {
@@ -698,6 +698,10 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
       <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
         Finalizar
       </button>
+      <label className="flex items-center gap-1 cursor-pointer" title="Verificado + avisado anúncios">
+        <input type="checkbox" checked={amenitesChecked} onChange={(e) => setAmenitesChecked(e.target.checked)} className="w-3 h-3 accent-green-600" />
+        <span className="text-[10px] text-gray-500">Amenites</span>
+      </label>
 
       {result && (
         <div className={`mt-2 p-2 rounded text-xs ${result.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
@@ -743,13 +747,7 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
             <li>11. Aviso despesa → Fluxo aberto</li>
             <li>12. Mover para Concluídos</li>
           </ul>
-          <div className="mb-3">
-            <label className="text-xs text-green-700 block mb-1">Amenites:</label>
-            <select value={amenitesOption} onChange={(e) => setAmenitesOption(e.target.value)} className="border border-green-300 rounded-md px-3 py-1.5 text-sm bg-white">
-              <option value="Verificado + avisado anúncios">Verificado + avisado anúncios</option>
-              <option value="Nenhum dos itens foi comprado">Nenhum dos itens foi comprado</option>
-            </select>
-          </div>
+          <p className="text-xs text-green-700 mb-3">Amenites: <strong>{amenitesChecked ? "Verificado + avisado anúncios" : "Nenhum dos itens foi comprado"}</strong></p>
           <div className="flex gap-2">
             <button onClick={handleFinalizar} disabled={finalizing} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
               {finalizing ? "Finalizando..." : "Confirmar Finalização"}
