@@ -695,6 +695,8 @@ function TabPhase5() {
 
   return (
     <>
+      <SlackDespesa />
+
       <section className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-2">Fase 5 — Imóvel Ativo</h2>
         <p className="text-sm text-gray-500 mb-4">
