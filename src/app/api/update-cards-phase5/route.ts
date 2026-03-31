@@ -110,8 +110,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Card não pertence à Fase 5" }, { status: 400 });
     }
 
-    const baseDate = card.due_date || new Date().toISOString();
-    const newDueDate = getNextBusinessDayAt22(3, baseDate);
+    const newDueDate = getNextBusinessDayAt22(3);
     const newDueDateBR = formatDateBR(newDueDate);
     const actions: string[] = [];
 
