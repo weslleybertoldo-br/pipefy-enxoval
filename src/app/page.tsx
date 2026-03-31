@@ -1004,6 +1004,7 @@ interface RevisaoCard {
   dueFormatted: string;
   assignees: string[];
   labels: string[];
+  labelIds: string[];
   lastComment: string;
   lastCommentAuthor: string;
   lastCommentDate: string;
@@ -1036,7 +1037,9 @@ function TabRevisao() {
   const [updatingCard, setUpdatingCard] = useState<string | null>(null);
   const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
   const [editingComment, setEditingComment] = useState<string | null>(null);
+  const [editingComplexaComment, setEditingComplexaComment] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [complexaCommentText, setComplexaCommentText] = useState("");
   const [cardOptions, setCardOptions] = useState<Record<string, { complexa: boolean; itens: boolean; manut: boolean }>>({});
   const [summary, setSummary] = useState<{ complexaCount: number; revisaoCount: number } | null>(null);
 
@@ -1054,8 +1057,19 @@ function TabRevisao() {
       const res = await fetch("/api/update-cards-revisao");
       const data = await res.json();
       if (data.success) {
-        setCards(data.cards.filter((c: RevisaoCard) => c.type !== "none"));
+        const filtered = data.cards.filter((c: RevisaoCard) => c.type !== "none");
+        setCards(filtered);
         setSummary({ complexaCount: data.complexaCount, revisaoCount: data.revisaoCount });
+        // Pré-selecionar checkboxes baseado nas tags do card
+        const opts: Record<string, { complexa: boolean; itens: boolean; manut: boolean }> = {};
+        for (const c of filtered) {
+          opts[c.id] = {
+            complexa: (c.labelIds || []).includes("314328534"),
+            itens: (c.labelIds || []).includes("310938809"),
+            manut: (c.labelIds || []).includes("310938821"),
+          };
+        }
+        setCardOptions(opts);
       } else {
         setError(data.error || "Erro ao carregar");
       }
@@ -1084,6 +1098,38 @@ function TabRevisao() {
       setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: "Erro de conexão" } }));
     } finally {
       setUpdatingCard(null);
+    }
+  };
+
+  const sendComplexaComment = async () => {
+    if (!editingComplexaComment) return;
+    const cardId = editingComplexaComment;
+    const opts = getCardOpts(cardId);
+    setUpdatingCard(cardId);
+    try {
+      const res = await fetch("/api/update-cards-revisao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cardId,
+          type: "complexa_update",
+          customComment: complexaCommentText,
+          isComplexa: opts.complexa,
+          addItensPequenos: opts.itens,
+          addManutencoesPequenas: opts.manut,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "updated", message: data.details } }));
+      } else {
+        setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: data.error || "Erro" } }));
+      }
+    } catch {
+      setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setUpdatingCard(null);
+      setEditingComplexaComment(null);
     }
   };
 
@@ -1186,11 +1232,58 @@ function TabRevisao() {
                     <div className="flex items-center gap-2">
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
                       <button onClick={() => updateComplexa(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors whitespace-nowrap">
-                        {isUpdating ? "Atualizando..." : "+1 dia"}
+                        {isUpdating && editingComplexaComment !== c.id ? "Atualizando..." : "+1 dia"}
                       </button>
+                      {!cardStatus && (
+                        <>
+                          <button onClick={() => { setEditingComplexaComment(editingComplexaComment === c.id ? null : c.id); setComplexaCommentText(c.lastComment); }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
+                            Atualizar Comentário
+                          </button>
+                          <div className="flex flex-col gap-0.5">
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" checked={getCardOpts(c.id).complexa} onChange={(e) => setCardOpt(c.id, "complexa", e.target.checked)} className="w-3 h-3 accent-orange-600" />
+                              <span className="text-[10px] text-gray-500">Complexa</span>
+                            </label>
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" checked={getCardOpts(c.id).itens} onChange={(e) => setCardOpt(c.id, "itens", e.target.checked)} className="w-3 h-3 accent-blue-600" />
+                              <span className="text-[10px] text-gray-500">Itens peq.</span>
+                            </label>
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" checked={getCardOpts(c.id).manut} onChange={(e) => setCardOpt(c.id, "manut", e.target.checked)} className="w-3 h-3 accent-blue-600" />
+                              <span className="text-[10px] text-gray-500">Manut. peq.</span>
+                            </label>
+                          </div>
+                        </>
+                      )}
                     </div>
                   </div>
-                  {c.lastComment && (
+
+                  {/* Editor de comentário complexa */}
+                  {editingComplexaComment === c.id && (
+                    <div className="fixed inset-0 z-50 flex">
+                      <div className="w-1/2 bg-black/30" onClick={() => setEditingComplexaComment(null)} />
+                      <div className="w-1/2 bg-white shadow-xl p-6 overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-semibold text-gray-900">Editar comentário — {c.title}</h3>
+                          <button onClick={() => setEditingComplexaComment(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <div className="mb-3 text-xs text-gray-500">
+                          {getCardOpts(c.id).complexa ? "Complexa marcado → +1 dia, mantém na fase" : "Complexa desmarcado → +2 dias, move para Fase 4"}
+                        </div>
+                        <textarea value={complexaCommentText} onChange={(e) => setComplexaCommentText(e.target.value)} rows={25} className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+                        <div className="flex gap-2 mt-4">
+                          <button onClick={sendComplexaComment} disabled={isUpdating} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
+                            {isUpdating ? "Enviando..." : "Enviar comentário"}
+                          </button>
+                          <button onClick={() => setEditingComplexaComment(null)} className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+                            Cancelar
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {c.lastComment && editingComplexaComment !== c.id && (
                     <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-xs font-medium text-gray-700">{c.lastCommentAuthor}</span>

@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
         dueFormatted,
         assignees: (c.assignees || []).map((a: any) => a.name),
         labels: (c.labels || []).map((l: any) => l.name),
+        labelIds: (c.labels || []).map((l: any) => l.id),
         lastComment: lastComment?.text || "",
         lastCommentAuthor: lastComment?.author_name || "",
         lastCommentDate: lastComment?.created_at || "",
@@ -98,6 +99,65 @@ export async function POST(req: NextRequest) {
         const newText = replaceCommentFupDate(lastComment.text, newDueDateBR);
         await createComment(validId, newText);
         actions.push("Comentário adicionado");
+      }
+
+      return NextResponse.json({ success: true, action: "updated", details: actions.join(" | ") });
+    }
+
+    if (type === "complexa_update") {
+      const actions: string[] = [];
+
+      // Buscar card para labels
+      const result = await pipefyQuery(`{
+        card(id: ${validId}) { id title labels { id } }
+      }`);
+      const card = result?.data?.card;
+      const currentLabels: string[] = (card?.labels || []).map((l: any) => l.id);
+
+      if (isComplexa) {
+        // Manter complexa: +1 dia, atualizar tags conforme checkboxes
+        const newDueDate = getNextBusinessDayAt22(1);
+        const newDueDateBR = formatDateBR(newDueDate);
+        await updateDueDate(validId, newDueDate);
+        actions.push(`Vencimento → ${newDueDateBR} 22:00`);
+
+        // Garantir tag complexa + adicionar/remover itens/manut
+        const newLabels = currentLabels.filter((id) => id !== TAG_ITENS_PEQUENOS && id !== TAG_MANUTENCOES_PEQUENAS);
+        if (!newLabels.includes(TAG_ADEQUACAO_COMPLEXA)) newLabels.push(TAG_ADEQUACAO_COMPLEXA);
+        if (addItensPequenos) newLabels.push(TAG_ITENS_PEQUENOS);
+        if (addManutencoesPequenas) newLabels.push(TAG_MANUTENCOES_PEQUENAS);
+        const labelArray = [...new Set(newLabels)].map((id) => `"${id}"`).join(", ");
+        await pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
+        actions.push("Tags atualizadas");
+      } else {
+        // Desmarcar complexa: +2 dias, remover tag complexa, mover fase 4
+        const newDueDate = getNextBusinessDayAt22(2);
+        const newDueDateBR = formatDateBR(newDueDate);
+        await updateDueDate(validId, newDueDate);
+        actions.push(`Vencimento → ${newDueDateBR} 22:00`);
+
+        // Remover tag complexa + adicionar/remover itens/manut
+        const newLabels = currentLabels.filter((id) => id !== TAG_ADEQUACAO_COMPLEXA && id !== TAG_ITENS_PEQUENOS && id !== TAG_MANUTENCOES_PEQUENAS);
+        if (addItensPequenos) newLabels.push(TAG_ITENS_PEQUENOS);
+        if (addManutencoesPequenas) newLabels.push(TAG_MANUTENCOES_PEQUENAS);
+        const labelArray = [...new Set(newLabels)].map((id) => `"${id}"`).join(", ");
+        await pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
+        actions.push("Tag Complexa removida");
+
+        // Campos obrigatórios
+        await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "envio_de_mensagem_quando_n_o_tiver_mais_pend_ncias_complexas", new_value: "Mensagem enviada" }) { success } }`);
+        await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "revis_o_de_pend_ncias_finalizada", new_value: "Revisão realizada" }) { success } }`);
+        actions.push("Campos obrigatórios preenchidos");
+
+        // Mover para Fase 4
+        await pipefyQuery(`mutation { moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${PHASE_4_ID} }) { card { id } } }`);
+        actions.push("Card → Fase 4");
+      }
+
+      // Comentário
+      if (customComment) {
+        await createComment(validId, customComment);
+        actions.push("Comentário atualizado");
       }
 
       return NextResponse.json({ success: true, action: "updated", details: actions.join(" | ") });
