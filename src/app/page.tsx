@@ -521,27 +521,15 @@ function CopyScriptPendencias() {
     const h = parseInt(hours);
     const saudacao = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
 
-    const text = `${saudacao}, tudo bem?
+    const plainText = `${saudacao}, tudo bem?\n\n\nVi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D\n\n\nREGISTROS PENDENTES\n\n\nITENS MÍNIMOS:\nTábua de corte;\n\n\nMANUTENÇÃO:\nFerro de passar;\n\n\nENXOVAL:\n(CONFIRMAÇÃO) Entrega e validação do enxoval.`;
 
+    const html = `<p>${saudacao}, tudo bem?</p><br><p>Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D</p><br><p><b>REGISTROS PENDENTES</b></p><br><p><b>ITENS MÍNIMOS:</b><br>Tábua de corte;</p><br><p><b>MANUTENÇÃO:</b><br>Ferro de passar;</p><br><p><b>ENXOVAL:</b><br>(CONFIRMAÇÃO) Entrega e validação do enxoval.</p>`;
 
-Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D
-
-
-**REGISTROS PENDENTES**
-
-
-**ITENS MÍNIMOS:**
-Tábua de corte;
-
-
-**MANUTENÇÃO:**
-Ferro de passar;
-
-
-**ENXOVAL:**
-(CONFIRMAÇÃO) Entrega e validação do enxoval.`;
-
-    navigator.clipboard.writeText(text).then(() => {
+    const blob = new Blob([html], { type: "text/html" });
+    const blobText = new Blob([plainText], { type: "text/plain" });
+    navigator.clipboard.write([
+      new ClipboardItem({ "text/html": blob, "text/plain": blobText }),
+    ]).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
