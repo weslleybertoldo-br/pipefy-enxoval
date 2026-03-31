@@ -1341,7 +1341,7 @@ function CopyDiasTexto() {
 }
 
 function TabOcorrenciaSuporte() {
-  const [activeForm, setActiveForm] = useState<"suporte" | "ocorrencia">("suporte");
+  const [activeForm, setActiveForm] = useState<"suporte" | "ocorrencia" | "anuncio">("suporte");
 
   return (
     <>
@@ -1360,12 +1360,19 @@ function TabOcorrenciaSuporte() {
           >
             Ocorrência
           </button>
+          <button
+            onClick={() => setActiveForm("anuncio")}
+            className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "anuncio" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+          >
+            Atualizar Anúncio
+          </button>
         </div>
         <CopyDiasTexto />
       </section>
 
       {activeForm === "suporte" && <FormSuporte />}
       {activeForm === "ocorrencia" && <FormOcorrencia />}
+      {activeForm === "anuncio" && <FormAtualizarAnuncio />}
     </>
   );
 }
@@ -1551,6 +1558,101 @@ function RegistrarOcorrenciaCard() {
         {result && <span className={`text-xs ${result.success ? "text-green-600" : "text-red-600"}`}>{result.message}</span>}
       </div>
     </div>
+  );
+}
+
+function FormAtualizarAnuncio() {
+  const [codigo, setCodigo] = useState("");
+  const [tipoAlteracao, setTipoAlteracao] = useState<"Temporária" | "Permanente">("Permanente");
+  const [itens, setItens] = useState("");
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const descricao = itens.trim() ? `INCLUIR\n${itens.trim()}` : "";
+
+  const handleEnviar = async () => {
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/create-anuncio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo: codigo.trim(), tipoAlteracao, descricao }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ success: true, message: `Anúncio criado! Card #${data.cardId}` });
+        setCodigo("");
+        setItens("");
+      } else {
+        setResult({ success: false, message: data.error || "Erro ao criar" });
+      }
+    } catch {
+      setResult({ success: false, message: "Erro de conexão" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="bg-white rounded-lg shadow p-6 mb-6">
+      <h3 className="text-lg font-semibold mb-1">Atualizar Anúncio</h3>
+      <p className="text-xs text-gray-500 mb-4">Preencha e clique &quot;Enviar&quot;. O card será criado diretamente no Pipefy.</p>
+
+      <div className="space-y-4">
+        <div className="bg-gray-50 rounded-md p-4 border border-gray-200">
+          <p className="text-xs text-gray-500 mb-2">Campos preenchidos automaticamente:</p>
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div><span className="font-medium text-gray-700">Nome:</span> Weslley Bertoldo da Silva</div>
+            <div><span className="font-medium text-gray-700">Email:</span> weslley.bertoldo@seazone.com.br</div>
+            <div><span className="font-medium text-gray-700">Vínculo:</span> Time de implantação</div>
+            <div><span className="font-medium text-gray-700">Tipo:</span> Informações do imóvel - Ajuste da descrição/ammenites/locomoção</div>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Código do Imóvel</label>
+          <input type="text" value={codigo} onChange={(e) => setCodigo(e.target.value.toUpperCase())} placeholder="Ex: ALA0004" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Alteração temporária ou permanente?</label>
+          <div className="flex gap-3">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" checked={tipoAlteracao === "Permanente"} onChange={() => setTipoAlteracao("Permanente")} />
+              Permanente
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" checked={tipoAlteracao === "Temporária"} onChange={() => setTipoAlteracao("Temporária")} />
+              Temporária
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-sm font-medium text-gray-700 block mb-1">Itens para incluir</label>
+          <p className="text-xs text-gray-500 mb-1">Digite os itens (um por linha). O texto &quot;INCLUIR&quot; será adicionado automaticamente.</p>
+          <textarea value={itens} onChange={(e) => setItens(e.target.value)} placeholder={"Ferro de passar\nTábua de roupas\nSecador de cabelo"} rows={5} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+
+        {descricao && (
+          <div className="bg-green-50 rounded-md p-4 border border-green-200">
+            <p className="text-xs font-medium text-green-700 mb-2">Descrição que será enviada:</p>
+            <pre className="text-xs text-green-900 whitespace-pre-wrap font-sans">{descricao}</pre>
+          </div>
+        )}
+
+        {result && (
+          <div className={`p-3 rounded-md text-sm ${result.success ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+            {result.message}
+          </div>
+        )}
+
+        <button onClick={handleEnviar} disabled={sending || !codigo.trim() || !itens.trim()} className="w-full bg-green-600 text-white py-3 rounded-md font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+          {sending ? "Enviando..." : "Enviar Atualização de Anúncio"}
+        </button>
+      </div>
+    </section>
   );
 }
 
