@@ -2445,6 +2445,82 @@ function TabEnxovalCso() {
 }
 
 // =====================
+// COMPONENTE: Pesquisa global
+// =====================
+
+function GlobalSearch() {
+  const [query, setQuery] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [results, setResults] = useState<{ id: string; title: string; phase: string; dueFormatted: string }[] | null>(null);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setResults(null);
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const search = async () => {
+    if (query.trim().length < 2) return;
+    setSearching(true);
+    try {
+      const res = await fetch(`/api/search-global?q=${encodeURIComponent(query.trim())}`);
+      const data = await res.json();
+      if (data.success) {
+        setResults(data.cards);
+      }
+    } catch { /* silencioso */ }
+    finally { setSearching(false); }
+  };
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="flex gap-1.5">
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value.toUpperCase())}
+          onKeyDown={(e) => e.key === "Enter" && search()}
+          placeholder="Pesquisar código..."
+          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-44"
+        />
+        <button
+          onClick={search}
+          disabled={searching || query.trim().length < 2}
+          className="bg-blue-500 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+        >
+          {searching ? "..." : "Buscar"}
+        </button>
+      </div>
+      {results !== null && (
+        <div className="absolute top-full mt-1 right-0 bg-white border border-gray-200 rounded-lg shadow-xl z-50 w-80 max-h-72 overflow-y-auto">
+          {results.length === 0 ? (
+            <p className="text-sm text-gray-400 p-4 text-center">Nenhum card encontrado</p>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {results.map((c) => (
+                <div key={c.id} className="px-4 py-3 hover:bg-gray-50">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-sm text-gray-900">{c.title}</span>
+                    <span className="text-[10px] text-gray-400">#{c.id}</span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1">
+                    <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded font-medium">{c.phase}</span>
+                    <span className="text-xs text-gray-500">Vencimento: {c.dueFormatted}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// =====================
 // MAIN APP
 // =====================
 
@@ -2487,11 +2563,14 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-gray-900">Pipefy Enxoval</h1>
           <p className="text-gray-500 mt-1">Automação de registro de enxoval — Seazone</p>
         </div>
-        <WithHelp help="Faz logout e volta para a tela de login">
-          <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-            Sair
-          </button>
-        </WithHelp>
+        <div className="flex items-center gap-4">
+          <GlobalSearch />
+          <WithHelp help="Faz logout e volta para a tela de login">
+            <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+              Sair
+            </button>
+          </WithHelp>
+        </div>
       </header>
 
       {/* Tabs */}
