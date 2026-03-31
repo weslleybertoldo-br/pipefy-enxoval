@@ -1,10 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, requireAuth, PIPE_ID } from "@/lib/pipefy";
-
-function toBrazilDate(d: Date) {
-  const parts = d.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).split("/");
-  return { day: parseInt(parts[1]), month: parseInt(parts[0]) - 1, year: parseInt(parts[2]) };
-}
+import { pipefyQuery, requireAuth, PIPE_ID, toBrazilDate } from "@/lib/pipefy";
 
 export async function GET(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {
@@ -19,22 +14,21 @@ export async function GET(req: NextRequest) {
   try {
     const escaped = JSON.stringify(search.trim()).slice(1, -1);
 
+    // Usar findCards que busca por título no pipe inteiro
     const result = await pipefyQuery(`{
-      pipe(id: ${PIPE_ID}) {
-        cards(first: 10, search: { title: "${escaped}" }) {
-          edges {
-            node {
-              id
-              title
-              due_date
-              current_phase { name }
-            }
+      findCards(pipeId: ${PIPE_ID}, search: { title: "${escaped}" }) {
+        edges {
+          node {
+            id
+            title
+            due_date
+            current_phase { name }
           }
         }
       }
     }`);
 
-    const edges = result?.data?.pipe?.cards?.edges || [];
+    const edges = result?.data?.findCards?.edges || [];
     const cards = edges
       .map((e: any) => {
         const c = e.node;
