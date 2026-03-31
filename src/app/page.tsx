@@ -1367,7 +1367,7 @@ function TabOcorrenciaSuporte() {
             Atualizar Anúncio
           </button>
         </div>
-        <CopyDiasTexto />
+        {activeForm === "ocorrencia" && <CopyDiasTexto />}
       </section>
 
       {activeForm === "suporte" && <FormSuporte />}
