@@ -6,13 +6,32 @@ import { useState, useCallback, useRef, useEffect, type ReactNode } from "react"
 // COMPONENTE: Tooltip expandível ao passar o mouse
 // =====================
 
-function WithHelp({ help, children }: { help: string; children: ReactNode }) {
+function WithHelp({ help, children, className }: { help: string; children: ReactNode; className?: string }) {
   const [showBtn, setShowBtn] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
+  // Formata o texto: cada frase numerada (ex: "1. ...") fica em sua própria linha
+  const formatHelp = (text: string) => {
+    const sections = text.split("|");
+    return sections.map((section, si) => {
+      const lines = section.trim().split(/(?=\d+\.\s)/);
+      return (
+        <span key={si}>
+          {si > 0 && <><br /><hr className="border-gray-700 my-1.5" /></>}
+          {lines.map((line, li) => (
+            <span key={li}>
+              {li > 0 && <br />}
+              {line.trim()}
+            </span>
+          ))}
+        </span>
+      );
+    });
+  };
+
   return (
     <div
-      className="relative inline-flex"
+      className={`relative ${className || "inline-flex"}`}
       onMouseEnter={() => { setShowBtn(true); setExpanded(false); }}
       onMouseLeave={() => { setShowBtn(false); setExpanded(false); }}
     >
@@ -26,13 +45,8 @@ function WithHelp({ help, children }: { help: string; children: ReactNode }) {
         </button>
       )}
       {expanded && (
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-gray-900 text-white text-[11px] px-3 py-2 rounded-lg shadow-lg z-[60] max-w-sm leading-relaxed">
-          {help.includes("|") ? help.split("|").map((part, i) => (
-            <span key={i}>
-              {i > 0 && <><br /><hr className="border-gray-700 my-1.5" /></>}
-              {part.trim()}
-            </span>
-          )) : help}
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-gray-900 text-white text-[11px] px-4 py-3 rounded-lg shadow-lg z-[60] w-[28rem] leading-relaxed">
+          {formatHelp(help)}
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900" />
         </div>
       )}
@@ -2340,10 +2354,10 @@ export default function Home() {
             { id: "revisao", label: "Complexa/Revisão finalizada", help: "Cards com tag Adequação Complexa ou Revisão de Pendências Finalizada na Fase 3" },
             { id: "fase5", label: "Fase 5", help: "Cards da Fase 5 com comentários, atualização individual e finalização" },
           ] as { id: typeof activeTab; label: string; help: string }[]).map((tab) => (
-            <WithHelp key={tab.id} help={tab.help}>
+            <WithHelp key={tab.id} help={tab.help} className="relative flex-1">
               <button
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+                className={`w-full py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
                   activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
@@ -2360,10 +2374,10 @@ export default function Home() {
             { id: "enxovalcso", label: "ENXOVAL/CSO", help: "Cards da Fase 5 com enxoval pendente — atualiza para COMPRADO PP CSO" },
             { id: "complexa", label: "Complexa", help: "Lista todos os cards com tag Adequação Complexa na Fase 3, independente do vencimento" },
           ] as { id: typeof activeTab; label: string; help: string }[]).map((tab) => (
-            <WithHelp key={tab.id} help={tab.help}>
+            <WithHelp key={tab.id} help={tab.help} className="relative flex-1">
               <button
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+                className={`w-full py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
                   activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
                 }`}
               >
