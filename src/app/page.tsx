@@ -1096,9 +1096,12 @@ function CopyFinalizarSults() {
   const [copied, setCopied] = useState(false);
   const text = `Olá Ana,
 
+
 Todas as pendências desta unidade foram finalizadas.
 
+
 Com isso, finalizamos a implantação deste imóvel!
+
 
 Muito obrigado por toda colaboração e boas reservas!`;
 
