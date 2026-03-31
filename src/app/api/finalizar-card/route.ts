@@ -1,6 +1,46 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pipefyQuery, validateCardId, createComment, updateDueDate, getNextBusinessDayAt22, formatDateBR, requireAuth, PHASE_5_ID } from "@/lib/pipefy";
 
+// Pipe 1 - fases 1 a 10 (exclui Fase 11 para evitar duplicatas)
+const PIPE_1_PHASES = [
+  "323044780",  // Backlog
+  "333371452",  // Fase 0
+  "323044781",  // Fase 1
+  "323044783",  // Fase 2
+  "323044784",  // Fase 3
+  "323044785",  // Fase 4
+  "323044786",  // Fase 5
+  "323044787",  // Fase 6
+  "323044796",  // Fase 7
+  "323044844",  // Fase 8
+  "323044836",  // Fase 9
+  "326702699",  // Fase 10
+];
+
+async function buscarFranquiaPipe1(code: string): Promise<string | null> {
+  for (const phaseId of PIPE_1_PHASES) {
+    const result = await pipefyQuery(`{
+      phase(id: ${phaseId}) {
+        cards(first: 3, search: { title: "${JSON.stringify(code).slice(1, -1)}" }) {
+          edges {
+            node {
+              title
+              fields { name value }
+            }
+          }
+        }
+      }
+    }`);
+    const edges = result?.data?.phase?.cards?.edges || [];
+    const card = edges.find((e: any) => e.node.title.toUpperCase() === code.toUpperCase());
+    if (card) {
+      const field = (card.node.fields || []).find((f: any) => f.name?.toLowerCase() === "anfitrião escolhido");
+      if (field?.value) return field.value;
+    }
+  }
+  return null;
+}
+
 const CONCLUDED_PHASE_ID = "323315793";
 
 // Extrair status do enxoval do comentário
@@ -142,6 +182,28 @@ export async function POST(req: NextRequest) {
       await step("Card → Concluídos", () =>
         pipefyQuery(`mutation { moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${CONCLUDED_PHASE_ID} }) { card { id } } }`)
       );
+
+      // 15. Aviso de lançamento de despesa no Slack
+      await step("Aviso despesa Slack", async () => {
+        const franquia = await buscarFranquiaPipe1(card.title);
+        if (!franquia) {
+          throw new Error("Franquia não encontrada nas fases 1-10 do Pipe 1 — aviso não enviado");
+        }
+        const hoje = new Date();
+        const dd = String(hoje.getDate()).padStart(2, "0");
+        const mm = String(hoje.getMonth() + 1).padStart(2, "0");
+        const yyyy = hoje.getFullYear();
+        const dataHoje = `${yyyy}-${mm}-${dd}`;
+
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://pipefy-enxoval-git-master-weslleybertoldo-brs-projects.vercel.app";
+        const slackRes = await fetch(`${baseUrl}/api/slack-despesa`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Cookie: `auth_token=${req.cookies.get("auth_token")?.value}` },
+          body: JSON.stringify({ codigo: card.title, franquia, data: dataHoje }),
+        });
+        const slackData = await slackRes.json();
+        if (!slackData.success) throw new Error(slackData.error || "Erro ao enviar Slack");
+      });
 
       const allDetails = [...actions, ...errors.map((e) => `❌ ${e}`)].join(" | ");
       return NextResponse.json({ success: errors.length === 0, details: allDetails });

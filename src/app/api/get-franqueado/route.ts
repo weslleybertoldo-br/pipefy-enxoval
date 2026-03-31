@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { pipefyQuery, requireAuth } from "@/lib/pipefy";
 
-// Pipe 1 - Implantação/Mãe - todas as fases relevantes
+// Pipe 1 - Implantação/Mãe - fases 1 a 10 (exclui Fase 11 para evitar duplicatas)
 const PIPE_1_PHASES = [
   "323044780",  // Backlog
   "333371452",  // Fase 0
@@ -15,7 +15,6 @@ const PIPE_1_PHASES = [
   "323044844",  // Fase 8
   "323044836",  // Fase 9
   "326702699",  // Fase 10
-  "323044845",  // Fase 11
 ];
 
 export async function GET(req: NextRequest) {
