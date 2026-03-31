@@ -3,6 +3,8 @@ import { requireAuth } from "@/lib/pipefy";
 
 const SLACK_TOKEN = process.env.SLACK_BOT_TOKEN || "";
 const CHANNEL_ID = "C09CQRNEVLZ"; // despesas-implantação
+const BRUNO_ID = "U05AKADK9EY";
+const WESLLEY_ID = "U08DF2E4RLP";
 
 export async function POST(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {
@@ -27,7 +29,27 @@ export async function POST(req: NextRequest) {
       dataFormatada = `${d}/${m}/${y}`;
     }
 
-    const message = `📋 *Lançamento de Despesa*\n\n*Código do imóvel:* ${codigo}\n*Franquia responsável:* ${franquia}\n*Data que deve ser lançado:* ${dataFormatada}`;
+    const blocks = [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text: `<@${BRUNO_ID}>, o imóvel *${codigo}* está liberado para lançamento de despesa.\n\n*Franquia responsável:* ${franquia}\n*Data que deve ser lançado:* ${dataFormatada}\n\nApós o lançamento, o card pode ser finalizado no pipe 1 :a-parrot:`,
+        },
+      },
+      {
+        type: "actions",
+        elements: [
+          {
+            type: "button",
+            text: { type: "plain_text", text: "Despesa lançada", emoji: true },
+            style: "primary",
+            action_id: "despesa_lancada",
+            value: WESLLEY_ID,
+          },
+        ],
+      },
+    ];
 
     const res = await fetch("https://slack.com/api/chat.postMessage", {
       method: "POST",
@@ -37,15 +59,13 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         channel: CHANNEL_ID,
-        text: message,
+        text: `Lançamento de despesa - ${codigo}`,
+        blocks,
       }),
     });
 
     const result = await res.json();
-
-    if (!result.ok) {
-      throw new Error(`Slack: ${result.error}`);
-    }
+    if (!result.ok) throw new Error(`Slack: ${result.error}`);
 
     return NextResponse.json({ success: true, message: "Mensagem enviada no canal despesas-implantação" });
   } catch (err: unknown) {
