@@ -1037,10 +1037,13 @@ function TabRevisao() {
   const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
-  const [isComplexaChecked, setIsComplexaChecked] = useState(false);
-  const [addItensPequenos, setAddItensPequenos] = useState(false);
-  const [addManutencoesPequenas, setAddManutencoesPequenas] = useState(false);
+  const [cardOptions, setCardOptions] = useState<Record<string, { complexa: boolean; itens: boolean; manut: boolean }>>({});
   const [summary, setSummary] = useState<{ complexaCount: number; revisaoCount: number } | null>(null);
+
+  const getCardOpts = (id: string) => cardOptions[id] || { complexa: false, itens: false, manut: false };
+  const setCardOpt = (id: string, key: "complexa" | "itens" | "manut", val: boolean) => {
+    setCardOptions((prev) => ({ ...prev, [id]: { ...getCardOpts(id), [key]: val } }));
+  };
 
   const loadCards = async () => {
     setLoading(true);
@@ -1085,7 +1088,8 @@ function TabRevisao() {
   };
 
   const openRevisaoEditor = (cardId: string) => {
-    const days = isComplexaChecked ? 1 : 2;
+    const opts = getCardOpts(cardId);
+    const days = opts.complexa ? 1 : 2;
     const now = new Date();
     let added = 0;
     const next = new Date(now);
@@ -1108,7 +1112,7 @@ function TabRevisao() {
       const res = await fetch("/api/update-cards-revisao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId: editingComment, type: "revisao", customComment: commentText, isComplexa: isComplexaChecked, addItensPequenos, addManutencoesPequenas }),
+        body: JSON.stringify({ cardId: editingComment, type: "revisao", customComment: commentText, isComplexa: getCardOpts(editingComment).complexa, addItensPequenos: getCardOpts(editingComment).itens, addManutencoesPequenas: getCardOpts(editingComment).manut }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1230,15 +1234,15 @@ function TabRevisao() {
                           </button>
                           <div className="flex flex-col gap-0.5">
                             <label className="flex items-center gap-1 cursor-pointer">
-                              <input type="checkbox" checked={isComplexaChecked} onChange={(e) => setIsComplexaChecked(e.target.checked)} className="w-3 h-3 accent-orange-600" />
+                              <input type="checkbox" checked={getCardOpts(c.id).complexa} onChange={(e) => setCardOpt(c.id, "complexa", e.target.checked)} className="w-3 h-3 accent-orange-600" />
                               <span className="text-[10px] text-gray-500">Complexa</span>
                             </label>
                             <label className="flex items-center gap-1 cursor-pointer">
-                              <input type="checkbox" checked={addItensPequenos} onChange={(e) => setAddItensPequenos(e.target.checked)} className="w-3 h-3 accent-blue-600" />
+                              <input type="checkbox" checked={getCardOpts(c.id).itens} onChange={(e) => setCardOpt(c.id, "itens", e.target.checked)} className="w-3 h-3 accent-blue-600" />
                               <span className="text-[10px] text-gray-500">Itens peq.</span>
                             </label>
                             <label className="flex items-center gap-1 cursor-pointer">
-                              <input type="checkbox" checked={addManutencoesPequenas} onChange={(e) => setAddManutencoesPequenas(e.target.checked)} className="w-3 h-3 accent-blue-600" />
+                              <input type="checkbox" checked={getCardOpts(c.id).manut} onChange={(e) => setCardOpt(c.id, "manut", e.target.checked)} className="w-3 h-3 accent-blue-600" />
                               <span className="text-[10px] text-gray-500">Manut. peq.</span>
                             </label>
                           </div>
