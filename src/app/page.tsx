@@ -634,6 +634,130 @@ interface Phase5Card {
   lastCommentDate: string;
 }
 
+function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; cardTitle: string; lastComment: string }) {
+  const [showEditor, setShowEditor] = useState(false);
+  const [editText, setEditText] = useState(lastComment);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [showFinalizar, setShowFinalizar] = useState(false);
+  const [amenitesOption, setAmenitesOption] = useState("Verificado + avisado anúncios");
+  const [finalizing, setFinalizing] = useState(false);
+
+  const handleUpdateComment = async () => {
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/finalizar-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId, action: "update_comment", commentText: editText }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ success: true, message: "Comentário atualizado" });
+        setShowEditor(false);
+      } else {
+        setResult({ success: false, message: data.error || "Erro" });
+      }
+    } catch {
+      setResult({ success: false, message: "Erro de conexão" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const handleFinalizar = async () => {
+    if (!confirm(`Finalizar o card ${cardTitle}? Isso irá preencher todos os campos e mover para Concluídos.`)) return;
+    setFinalizing(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/finalizar-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId, action: "finalizar", amenitesOption }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setResult({ success: true, message: data.details });
+      } else {
+        setResult({ success: false, message: data.error || "Erro" });
+      }
+    } catch {
+      setResult({ success: false, message: "Erro de conexão" });
+    } finally {
+      setFinalizing(false);
+      setShowFinalizar(false);
+    }
+  };
+
+  return (
+    <>
+      <button onClick={() => { setShowEditor(!showEditor); setShowFinalizar(false); }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
+        Atualizar
+      </button>
+      <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
+        Finalizar
+      </button>
+
+      {result && (
+        <div className={`mt-2 p-2 rounded text-xs ${result.success ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
+          {result.message}
+        </div>
+      )}
+
+      {showEditor && (
+        <div className="mt-3 bg-yellow-50 rounded-md p-4 border border-yellow-200 w-full">
+          <p className="text-xs font-medium text-yellow-700 mb-2">Editar comentário:</p>
+          <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={12} className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+          <div className="flex gap-2 mt-2">
+            <button onClick={handleUpdateComment} disabled={sending} className="bg-yellow-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
+              {sending ? "Enviando..." : "Enviar comentário"}
+            </button>
+            <button onClick={() => setShowEditor(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showFinalizar && (
+        <div className="mt-3 bg-green-50 rounded-md p-4 border border-green-200 w-full">
+          <p className="text-xs font-medium text-green-700 mb-3">Finalizar card — todas as ações abaixo serão executadas:</p>
+          <ul className="text-xs text-green-800 space-y-1 mb-3">
+            <li>1. Validação Enxoval (baseado no comentário)</li>
+            <li>2. Itens faltantes → ok</li>
+            <li>3. Manutenções pendentes → ok</li>
+            <li>4. Adequações sinalizadas → Todas finalizadas</li>
+            <li>5. Marca do enxoval (Matinali se COMPRADO PP CSO)</li>
+            <li>6. Gerar registro de enxoval (se não existir)</li>
+            <li>7. Solicitar atualização vistoria</li>
+            <li>8. Subir vistoria SAPRON</li>
+            <li>9. Enviar vistoria proprietário</li>
+            <li>10. Verificar amenites (selecione abaixo)</li>
+            <li>11. Aviso despesa → Fluxo aberto</li>
+            <li>12. Mover para Concluídos</li>
+          </ul>
+          <div className="mb-3">
+            <label className="text-xs text-green-700 block mb-1">Amenites:</label>
+            <select value={amenitesOption} onChange={(e) => setAmenitesOption(e.target.value)} className="border border-green-300 rounded-md px-3 py-1.5 text-sm bg-white">
+              <option value="Verificado + avisado anúncios">Verificado + avisado anúncios</option>
+              <option value="Nenhum dos itens foi comprado">Nenhum dos itens foi comprado</option>
+            </select>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleFinalizar} disabled={finalizing} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+              {finalizing ? "Finalizando..." : "Confirmar Finalização"}
+            </button>
+            <button onClick={() => setShowFinalizar(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
 function TabPhase5() {
   const [cards, setCards] = useState<Phase5Card[]>([]);
   const [loading, setLoading] = useState(false);
@@ -739,6 +863,7 @@ function TabPhase5() {
                     >
                       {isUpdating ? "Atualizando..." : "+3 dias"}
                     </button>
+                    <Phase5EditButton cardId={c.id} cardTitle={c.title} lastComment={c.lastComment} />
                   </div>
                 </div>
 
