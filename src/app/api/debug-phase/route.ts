@@ -66,20 +66,11 @@ export async function GET(request: NextRequest) {
 
   const pipeResult = await pipefyQuery(pipeQuery);
 
-  // Buscar fields de um card da Fase 4 para descobrir field_ids
-  const cardCode = request.nextUrl.searchParams.get("card") || "";
-  let cardFields = null;
-  if (cardCode) {
-    for (const phaseId of [PHASE_5_ID, "333848207", "323529403"]) {
-      const r = await pipefyQuery(`{ phase(id: ${phaseId}) { cards(first: 3, search: { title: "${cardCode}" }) { edges { node { id title fields { name value phase_field { id label } } } } } } }`);
-      const edges = r?.data?.phase?.cards?.edges || [];
-      const found = edges.find((e: any) => e.node.title.toUpperCase() === cardCode.toUpperCase());
-      if (found) { cardFields = found.node; break; }
-    }
-  }
+  // Buscar fields da Fase 4
+  const phase4Fields = await pipefyQuery(`{ phase(id: 333848207) { fields { id label } } }`);
 
   return NextResponse.json({
-    card_fields: cardFields,
+    phase4_fields: phase4Fields?.data?.phase?.fields || [],
     phase_5_id: PHASE_5_ID,
     phase_info: phaseResult.data?.phase ? {
       id: phaseResult.data.phase.id,
