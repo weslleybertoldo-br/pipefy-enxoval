@@ -410,7 +410,7 @@ function TabProcessamento() {
                     )}
                   </div>
                 </div>
-                <WithHelp help="Cria o registro de enxoval para este card individual no Pipefy">
+                <WithHelp help="1. Busca o card pelo código na Fase 5~2. Procura o PDF de enxoval nos anexos do card~3. Faz download e extrai as quantidades de cada item do PDF~4. Faz upload do PDF no Pipefy~5. Cria registro na tabela de enxoval com todas as quantidades~6. Conecta o registro ao card">
                   <button
                     onClick={() => processCard(c.title)}
                     disabled={isProcessing || processingCard !== null || (c.hasRecord && !cardStatus)}
@@ -561,7 +561,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
         <p className="text-sm text-gray-500 mb-4">{phaseDescription}</p>
 
         <div className="flex gap-3">
-          <WithHelp help="Busca os cards da fase com vencimento para hoje e mostra quais serão atualizados">
+          <WithHelp help="Busca os cards da fase com vencimento para hoje.~Cards com tags 'Adequação Complexa' ou 'Revisão de Pendências Finalizada' são ignorados">
             <button
               onClick={loadCards}
               disabled={loading || processing}
@@ -572,7 +572,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
           </WithHelp>
 
           {cards.length > 0 && (
-            <WithHelp help="Atualiza vencimento e comentário de todos os cards, processando um por um">
+            <WithHelp help="Para cada card, executa:~1. Atualiza vencimento para próximo dia útil às 22:00~2. Muda responsável para Weslley (se não for)~3. Busca último comentário e substitui a data do FUP~4. Adiciona comentário atualizado no card~Processa um por um, sequencialmente">
               <button
                 onClick={processAll}
                 disabled={processing || loading}
@@ -764,12 +764,12 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
 
   return (
     <>
-      <WithHelp help="Abre editor lateral com o último comentário do card. Após editar e enviar, o comentário editado será adicionado como novo comentário no Pipefy">
+      <WithHelp help="Abre editor lateral com o último comentário do card.~Após editar e clicar 'Enviar comentário', o texto será adicionado como novo comentário no card do Pipefy (não substitui o anterior)">
         <button onClick={() => { setShowEditor(!showEditor); setShowFinalizar(false); }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
           Atualizar
         </button>
       </WithHelp>
-      <WithHelp help="Abre painel de finalização com todas as etapas que serão executadas:~1. Validação Enxoval (baseado no comentário)~2. Itens faltantes → ok~3. Manutenções pendentes → ok~4. Adequações sinalizadas → Todas finalizadas~5. Marca do enxoval (Matinali se COMPRADO PP CSO)~6. Gerar registro de enxoval (se não existir)~7. Solicitar atualização vistoria~8. Subir vistoria SAPRON~9. Enviar vistoria proprietário~10. Verificar amenites (conforme checkbox)~11. Aviso despesa → Fluxo aberto~12. Atualiza vencimento para próximo dia útil às 22:00~13. Mover para Concluídos">
+      <WithHelp help="Abre painel de finalização com todas as etapas que serão executadas:~1. Validação Enxoval (baseado no comentário)~2. Itens faltantes → ok~3. Manutenções pendentes → ok~4. Adequações sinalizadas → Todas finalizadas~5. Marca do enxoval (Matinali se COMPRADO PP CSO)~6. Gerar registro de enxoval (se não existir)~7. Solicitar atualização vistoria~8. Subir vistoria SAPRON~9. Enviar vistoria proprietário~10. Verificar amenites (conforme checkbox)~11. Aviso despesa → Fluxo aberto~12. Remove tags (Itens grandes/pequenos, Manutenções grandes/pequenas)~13. Atualiza vencimento para próximo dia útil às 22:00~14. Mover para Concluídos">
         <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
           Finalizar
         </button>
@@ -829,7 +829,7 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
           </ul>
           <p className="text-xs text-green-700 mb-3">Amenites: <strong>{amenitesChecked ? "Verificado + avisado anúncios" : "Nenhum dos itens foi comprado"}</strong></p>
           <div className="flex gap-2">
-            <WithHelp help="Executa todas as etapas:~1. Validação Enxoval~2. Itens faltantes → ok~3. Manutenções pendentes → ok~4. Adequações → Todas finalizadas~5. Marca do enxoval~6. Gerar registro de enxoval~7. Solicitar atualização vistoria~8. Subir vistoria SAPRON~9. Enviar vistoria proprietário~10. Verificar amenites~11. Aviso despesa → Fluxo aberto~12. Atualiza vencimento para próximo dia útil às 22:00~13. Move para Concluídos">
+            <WithHelp help="Executa todas as etapas:~1. Validação Enxoval~2. Itens faltantes → ok~3. Manutenções pendentes → ok~4. Adequações → Todas finalizadas~5. Marca do enxoval~6. Gerar registro de enxoval~7. Solicitar atualização vistoria~8. Subir vistoria SAPRON~9. Enviar vistoria proprietário~10. Verificar amenites~11. Aviso despesa → Fluxo aberto~12. Remove tags (Itens/Manutenções grandes e pequenas)~13. Atualiza vencimento para próximo dia útil às 22:00~14. Move para Concluídos">
               <button onClick={handleFinalizar} disabled={finalizing} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
                 {finalizing ? "Finalizando..." : "Confirmar Finalização"}
               </button>
@@ -1328,7 +1328,7 @@ function TabRevisao() {
                       </WithHelp>
                       {!cardStatus && (
                         <>
-                          <WithHelp help="Abre editor lateral com o último comentário e FUP recalculado:~Se 'Complexa' marcado → FUP +1 dia útil~Se 'Complexa' desmarcado → FUP +2 dias úteis~Edite o texto antes de enviar">
+                          <WithHelp help="Abre editor lateral com o último comentário e FUP recalculado:~Se 'Complexa' marcado → FUP +1 dia útil~Se 'Complexa' desmarcado → FUP +2 dias úteis~Edite o texto antes de enviar.|Ao enviar com 'Complexa' marcado:~Vencimento +1 dia, mantém tag Complexa, adiciona/remove tags Itens e Manut conforme checkboxes, mantém na Fase 3|Ao enviar com 'Complexa' desmarcado:~Vencimento +2 dias, remove tag Complexa, adiciona/remove tags Itens e Manut conforme checkboxes, preenche campos obrigatórios, move para Fase 4">
                             <button onClick={() => {
                               if (editingComplexaComment === c.id) {
                                 setEditingComplexaComment(null);
@@ -1440,7 +1440,7 @@ function TabRevisao() {
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
                       {!isEditing && !cardStatus && (
                         <>
-                          <WithHelp help="Abre editor com comentário padrão e FUP calculado:~Se 'Complexa' marcado → FUP +1 dia útil~Se 'Complexa' desmarcado → FUP +2 dias úteis~Edite o texto antes de enviar">
+                          <WithHelp help="Abre editor com comentário padrão e FUP calculado:~Se 'Complexa' marcado → FUP +1 dia útil~Se 'Complexa' desmarcado → FUP +2 dias úteis~Edite o texto antes de enviar.|Ao enviar com 'Complexa' marcado:~Muda responsável para Weslley, vencimento +1 dia, adiciona tag Complexa, adiciona tags Itens/Manut se marcados, mantém na Fase 3|Ao enviar com 'Complexa' desmarcado:~Muda responsável para Weslley, vencimento +2 dias, adiciona tags Itens/Manut se marcados, preenche campos obrigatórios, move para Fase 4">
                             <button onClick={() => openRevisaoEditor(c.id)} disabled={updatingCard !== null} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
                               Atualizar comentário
                             </button>
@@ -1946,7 +1946,7 @@ function RegistrarOcorrenciaCard() {
           <label className="text-xs text-gray-500 block mb-1">Código do imóvel</label>
           <input type="text" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Ex: ALA0004" className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-40" />
         </div>
-        <WithHelp help="Adiciona 'Ocorrência Registrada | DD/MM' no comentário e a tag 'OCORRÊNCIA REGISTRADA' no card">
+        <WithHelp help="1. Busca o card pelo código nas Fases 3, 4 e 5~2. Insere 'Ocorrência Registrada | DD/MM' abaixo da linha de FUP no último comentário~3. Adiciona a tag 'OCORRÊNCIA REGISTRADA' no card (se ainda não tiver)">
           <button onClick={handleRegistrar} disabled={sending || !code.trim()} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
             {sending ? "Registrando..." : "Registrar no card"}
           </button>
@@ -2267,7 +2267,7 @@ function TabEnxovalCso() {
                       <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>
                     )}
                     {!cardStatus && (
-                      <WithHelp help="Atualiza comentário substituindo ❌ ENXOVAL e define campo Validação Enxoval como 'COMPRADO - PP CSO'">
+                      <WithHelp help="1. Busca o último comentário do card~2. Substitui a linha '❌ ENXOVAL' pelo novo status (COMPRADO PP CSO ou PROP COMPROU POR CONTA PRÓPRIA)~3. Adiciona o comentário atualizado no card~4. Atualiza o campo 'Validação Enxoval' no Pipefy com o mesmo status">
                         <button
                           onClick={() => updateCard(c.title, c.enxovalType)}
                           disabled={isUpdating || updatingCard !== null}
