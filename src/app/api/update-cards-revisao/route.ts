@@ -170,6 +170,15 @@ export async function POST(req: NextRequest) {
           actions.push("Comentário adicionado");
         }
 
+        // Preencher campos obrigatórios antes de mover
+        await pipefyQuery(`mutation {
+          updateCardField(input: { card_id: ${validId}, field_id: "envio_de_mensagem_quando_n_o_tiver_mais_pend_ncias_complexas", new_value: "Mensagem enviada" }) { success }
+        }`);
+        await pipefyQuery(`mutation {
+          updateCardField(input: { card_id: ${validId}, field_id: "revis_o_de_pend_ncias_finalizada", new_value: "Revisão realizada" }) { success }
+        }`);
+        actions.push("Campos obrigatórios preenchidos");
+
         // Mover para Fase 4
         await pipefyQuery(`mutation {
           moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${PHASE_4_ID} }) {
