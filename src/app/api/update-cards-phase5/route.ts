@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     if (!card) return NextResponse.json({ error: "Card não encontrado" }, { status: 404 });
 
     // Validar que o card pertence à Fase 5
-    if (card.current_phase?.id !== PHASE_5_ID) {
+    if (String(card.current_phase?.id) !== PHASE_5_ID) {
       return NextResponse.json({ error: "Card não pertence à Fase 5" }, { status: 400 });
     }
 

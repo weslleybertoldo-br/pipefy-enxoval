@@ -14,7 +14,6 @@ export async function POST(req: NextRequest) {
     const email = formData.get("email") as string;
     const envolveimovel = formData.get("envolveimovel") as string || "Sim";
     const codigo = formData.get("codigo") as string;
-    const categoria = formData.get("categoria") as string;
     const franquia = formData.get("franquia") as string;
     const origem = formData.get("origem") as string;
     const descricao = formData.get("descricao") as string;

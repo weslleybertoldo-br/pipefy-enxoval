@@ -237,10 +237,32 @@ export function hasSkipTag(card: any): { skip: boolean; reason: string } {
 }
 
 // ========================
-// Auth helper para rotas (verifica existência do cookie)
-// A validação do token HMAC é feita no endpoint /api/auth GET
+// Auth helper para rotas (verifica assinatura HMAC do token)
 // ========================
 
 export function requireAuth(cookieValue: string | undefined): boolean {
-  return !!cookieValue && cookieValue.length > 10;
+  if (!cookieValue || cookieValue.length < 10) return false;
+  try {
+    const { createHmac } = require("crypto");
+    const secret = process.env.TOKEN_SECRET;
+    if (!secret) return false;
+    const decoded = Buffer.from(cookieValue, "base64").toString();
+    const parts = decoded.split(":");
+    if (parts.length < 3) return false;
+    const signature = parts.pop()!;
+    const payload = parts.join(":");
+    const expected = createHmac("sha256", secret).update(payload).digest("hex");
+    if (signature !== expected) return false;
+    // Verificar expiração (24h)
+    const timestamp = parseInt(parts[1]);
+    if (isNaN(timestamp) || Date.now() - timestamp > 24 * 60 * 60 * 1000) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// Sanitizar string para GraphQL (previne injection)
+export function sanitizeGraphQL(str: string): string {
+  return JSON.stringify(str).slice(1, -1);
 }

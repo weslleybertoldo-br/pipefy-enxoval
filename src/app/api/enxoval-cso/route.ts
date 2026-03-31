@@ -33,7 +33,7 @@ async function getTagsFromPipe0(code: string): Promise<string[]> {
     try {
       const result = await pipefyQuery(`{
         phase(id: ${phaseId}) {
-          cards(first: 3, search: { title: "${code.replace(/"/g, '\\"')}" }) {
+          cards(first: 3, search: { title: "${JSON.stringify(code).slice(1, -1)}" }) {
             edges { node { title labels { name } } }
           }
         }
@@ -54,7 +54,7 @@ async function getCardFromPipe2(code: string): Promise<{ id: string; lastComment
     try {
       const result = await pipefyQuery(`{
         phase(id: ${phaseId}) {
-          cards(first: 3, search: { title: "${code.replace(/"/g, '\\"')}" }) {
+          cards(first: 3, search: { title: "${JSON.stringify(code).slice(1, -1)}" }) {
             edges { node { id title comments { id text } fields { name value } } }
           }
         }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, PHASE_5_ID } from "@/lib/pipefy";
+import { pipefyQuery, validateCardId, toBrazilDate } from "@/lib/pipefy";
 
 const SLACK_TOKEN = process.env.SLACK_BOT_TOKEN || "";
 const CHANNEL_ID = "C09CQRNEVLZ"; // despesas-implantação
@@ -21,15 +21,23 @@ async function sendSlackMessage(text: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-
-    // Pipefy envia o card_id no webhook
-    const cardId = body?.data?.card?.id || body?.card_id || body?.cardId;
-    if (!cardId) {
-      return NextResponse.json({ error: "card_id não encontrado" }, { status: 400 });
+    // Verificar token secreto no query param
+    const webhookSecret = process.env.WEBHOOK_SECRET;
+    if (webhookSecret) {
+      const url = new URL(req.url);
+      if (url.searchParams.get("secret") !== webhookSecret) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
     }
 
-    // Buscar dados do card
+    const body = await req.json();
+
+    const rawCardId = body?.data?.card?.id || body?.card_id || body?.cardId;
+    if (!rawCardId) {
+      return NextResponse.json({ error: "card_id não encontrado" }, { status: 400 });
+    }
+    const cardId = validateCardId(rawCardId);
+
     const result = await pipefyQuery(`{
       card(id: ${cardId}) {
         id title
@@ -51,12 +59,9 @@ export async function POST(req: NextRequest) {
     );
     const franquia = franquiaField?.value || "Não informado";
 
-    // Data de hoje
-    const now = new Date();
-    const dd = String(now.getDate()).padStart(2, "0");
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const yyyy = now.getFullYear();
-    const dataHoje = `${dd}/${mm}/${yyyy}`;
+    // Data de hoje (Brasília)
+    const br = toBrazilDate(new Date());
+    const dataHoje = `${String(br.day).padStart(2, "0")}/${String(br.month + 1).padStart(2, "0")}/${br.year}`;
 
     // Enviar mensagem no Slack
     const message = `📋 *Lançamento de Despesa*\n\n*Código do imóvel:* ${codigo}\n*Franquia responsável:* ${franquia}\n*Data que deve ser lançado:* ${dataHoje}`;

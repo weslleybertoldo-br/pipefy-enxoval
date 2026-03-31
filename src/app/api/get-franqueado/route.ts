@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
     for (const phaseId of PIPE_1_PHASES) {
       const result = await pipefyQuery(`{
         phase(id: ${phaseId}) {
-          cards(first: 3, search: { title: "${code.replace(/"/g, '\\"')}" }) {
+          cards(first: 3, search: { title: "${JSON.stringify(code).slice(1, -1)}" }) {
             edges {
               node {
                 title
