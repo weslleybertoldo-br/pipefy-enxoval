@@ -11,6 +11,7 @@ function WithHelp({ help, children, className }: { help: string; children: React
   const [expanded, setExpanded] = useState(false);
   const [showBelow, setShowBelow] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const hideTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Formata o texto: "~" separa linhas, "|" separa seções com linha divisória
   const formatHelp = (text: string) => {
@@ -45,8 +46,8 @@ function WithHelp({ help, children, className }: { help: string; children: React
     <div
       ref={containerRef}
       className={`relative ${className || "inline-flex"}`}
-      onMouseEnter={() => { setShowBtn(true); setExpanded(false); }}
-      onMouseLeave={() => { setShowBtn(false); setExpanded(false); }}
+      onMouseEnter={() => { if (hideTimeout.current) clearTimeout(hideTimeout.current); setShowBtn(true); setExpanded(false); }}
+      onMouseLeave={() => { hideTimeout.current = setTimeout(() => { setShowBtn(false); setExpanded(false); }, 400); }}
     >
       {children}
       {showBtn && !expanded && (
