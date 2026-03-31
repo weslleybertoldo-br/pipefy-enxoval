@@ -1948,27 +1948,44 @@ export default function Home() {
       </header>
 
       {/* Tabs */}
-      <div className="flex flex-wrap gap-1 mb-6 bg-gray-100 p-1 rounded-lg">
-        {([
-          { id: "fase3", label: "Fase 3" },
-          { id: "fase4", label: "Fase 4" },
-          { id: "revisao", label: "Complexa/Revisão finalizada" },
-          { id: "fase5", label: "Fase 5" },
-          { id: "processamento", label: "Processamento" },
-          { id: "ocorrencia", label: "Ocorrência/Suportes" },
-          { id: "enxovalcso", label: "ENXOVAL/CSO" },
-          { id: "complexa", label: "Complexa" },
-        ] as const).map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-              activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
+      <div className="mb-6 bg-gray-100 p-1 rounded-lg space-y-px">
+        <div className="flex gap-1">
+          {([
+            { id: "fase3", label: "Fase 3" },
+            { id: "fase4", label: "Fase 4" },
+            { id: "revisao", label: "Complexa/Revisão finalizada" },
+            { id: "fase5", label: "Fase 5" },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+                activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <hr className="border-gray-200" />
+        <div className="flex gap-1">
+          {([
+            { id: "processamento", label: "Processamento" },
+            { id: "ocorrencia", label: "Ocorrência/Suportes" },
+            { id: "enxovalcso", label: "ENXOVAL/CSO" },
+            { id: "complexa", label: "Complexa" },
+          ] as const).map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+                activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Tab content */}
