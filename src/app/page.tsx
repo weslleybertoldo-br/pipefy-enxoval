@@ -366,6 +366,8 @@ function TabProcessamento() {
           })}
         </section>
       )}
+
+      <SlackDespesa />
     </>
   );
 }
@@ -767,8 +769,6 @@ function TabPhase5() {
         </section>
       )}
 
-      {/* Lançamento de Despesa via Slack */}
-      <SlackDespesa />
     </>
   );
 }
@@ -1905,7 +1905,7 @@ function TabEnxovalCso() {
 
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"processamento" | "fase3" | "fase4" | "fase5" | "revisao" | "complexa" | "ocorrencia" | "enxovalcso">("processamento");
+  const [activeTab, setActiveTab] = useState<"fase3" | "fase4" | "revisao" | "fase5" | "processamento" | "ocorrencia" | "enxovalcso" | "complexa">("fase3");
 
   // Verificar auth ao carregar
   useEffect(() => {
@@ -1948,82 +1948,38 @@ export default function Home() {
       </header>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg">
-        <button
-          onClick={() => setActiveTab("processamento")}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === "processamento" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Processamento
-        </button>
-        <button
-          onClick={() => setActiveTab("fase3")}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === "fase3" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Fase 3
-        </button>
-        <button
-          onClick={() => setActiveTab("fase4")}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === "fase4" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Fase 4
-        </button>
-        <button
-          onClick={() => setActiveTab("fase5")}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === "fase5" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Fase 5
-        </button>
-        <button
-          onClick={() => setActiveTab("revisao")}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === "revisao" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Complexa/Revisão finalizada
-        </button>
-        <button
-          onClick={() => setActiveTab("complexa")}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === "complexa" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Complexa
-        </button>
-        <button
-          onClick={() => setActiveTab("ocorrencia")}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === "ocorrencia" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          Ocorrência/Suportes
-        </button>
-        <button
-          onClick={() => setActiveTab("enxovalcso")}
-          className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
-            activeTab === "enxovalcso" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
-          }`}
-        >
-          ENXOVAL/CSO
-        </button>
+      <div className="flex flex-wrap gap-1 mb-6 bg-gray-100 p-1 rounded-lg">
+        {([
+          { id: "fase3", label: "Fase 3" },
+          { id: "fase4", label: "Fase 4" },
+          { id: "revisao", label: "Complexa/Revisão finalizada" },
+          { id: "fase5", label: "Fase 5" },
+          { id: "processamento", label: "Processamento" },
+          { id: "ocorrencia", label: "Ocorrência/Suportes" },
+          { id: "enxovalcso", label: "ENXOVAL/CSO" },
+          { id: "complexa", label: "Complexa" },
+        ] as const).map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex-1 py-2.5 px-4 rounded-md text-sm font-medium transition-colors ${
+              activeTab === tab.id ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
       {/* Tab content */}
-      {activeTab === "processamento" && <TabProcessamento />}
       {activeTab === "fase3" && <TabUpdateCards apiRoute="/api/update-cards" phaseName="Fase 3" phaseDescription={'Atualiza vencimento para o próximo dia útil às 22:00, responsável para Weslley Bertoldo, e replica o último comentário com a nova data. Cards com tags "Adequação Complexa" ou "Revisão de Pendências Finalizada" são ignorados.'} />}
       {activeTab === "fase4" && <TabUpdateCards apiRoute="/api/update-cards-phase4" phaseName="Fase 4" phaseDescription="Atualiza vencimento para daqui a 2 dias úteis às 22:00 e replica o último comentário com a nova data. Só atualiza cards do Weslley com vencimento para hoje." showCopyButton />}
-      {activeTab === "fase5" && <TabPhase5 />}
       {activeTab === "revisao" && <TabRevisao />}
-      {activeTab === "complexa" && <TabComplexa />}
+      {activeTab === "fase5" && <TabPhase5 />}
+      {activeTab === "processamento" && <TabProcessamento />}
       {activeTab === "ocorrencia" && <TabOcorrenciaSuporte />}
       {activeTab === "enxovalcso" && <TabEnxovalCso />}
+      {activeTab === "complexa" && <TabComplexa />}
     </div>
   );
 }
