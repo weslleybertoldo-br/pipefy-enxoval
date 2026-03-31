@@ -494,14 +494,7 @@ function CopyScriptUnicoItem() {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
-    const now = new Date();
-    const hours = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false });
-    const h = parseInt(hours);
-    const saudacao = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
-
-    const text = `${saudacao}, tudo bem?
-
-Vi que ainda ficou um item pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio do registro? :D`;
+    const text = `Vi que ainda ficou um item pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio do registro? :D`;
 
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
@@ -534,18 +527,18 @@ function CopyScriptPendencias() {
 Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D
 
 
-REGISTROS PENDENTES
+**REGISTROS PENDENTES**
 
 
-ITENS MÍNIMOS:
+**ITENS MÍNIMOS:**
 Tábua de corte;
 
 
-MANUTENÇÃO:
+**MANUTENÇÃO:**
 Ferro de passar;
 
 
-ENXOVAL:
+**ENXOVAL:**
 (CONFIRMAÇÃO) Entrega e validação do enxoval.`;
 
     navigator.clipboard.writeText(text).then(() => {
