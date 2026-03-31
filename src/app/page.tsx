@@ -832,13 +832,15 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                   <div className="flex items-center gap-2">
                     {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
                     {cardStatus?.status === "error" && <span className="text-red-600 text-xs">{cardStatus.message}</span>}
-                    <button
-                      onClick={() => updateAtivo(c.id)}
-                      disabled={isUpdating || ativosUpdating !== null}
-                      className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-                    >
-                      {isUpdating ? "Atualizando..." : "Atualizar Ativo"}
-                    </button>
+                    <WithHelp help="1. Parseia o último comentário e extrai seções (Enxoval, Itens, Manutenção)~2. Preenche campo 'Validação de enxoval': se ❌ → texto do enxoval / se ✔️ → ok~3. Preenche campo 'Itens faltantes atualmente': se ❌ → lista dos itens / se ✔️ → ok~4. Preenche campo 'Manutenções pendentes atualmente': se ❌ → lista / se ✔️ → ok~5. Adiciona tag 'Imóvel Ativo'~6. Atualiza vencimento +3 dias úteis às 22:00~7. Novo comentário: '✅ Imóvel ativo' + 'Aguardando registros pendentes' + FUP +3 dias + mantém conteúdo abaixo dos '...'">
+                      <button
+                        onClick={() => updateAtivo(c.id)}
+                        disabled={isUpdating || ativosUpdating !== null}
+                        className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                      >
+                        {isUpdating ? "Atualizando..." : "Atualizar Ativo"}
+                      </button>
+                    </WithHelp>
                   </div>
                 </div>
                 {c.labels.length > 0 && (
