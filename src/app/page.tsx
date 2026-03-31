@@ -26,8 +26,13 @@ function WithHelp({ help, children }: { help: string; children: ReactNode }) {
         </button>
       )}
       {expanded && (
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-gray-900 text-white text-[11px] px-3 py-2 rounded-lg shadow-lg z-[60] w-64 leading-relaxed">
-          {help}
+        <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-gray-900 text-white text-[11px] px-3 py-2 rounded-lg shadow-lg z-[60] max-w-sm leading-relaxed">
+          {help.includes("|") ? help.split("|").map((part, i) => (
+            <span key={i}>
+              {i > 0 && <><br /><hr className="border-gray-700 my-1.5" /></>}
+              {part.trim()}
+            </span>
+          )) : help}
           <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900" />
         </div>
       )}
@@ -745,12 +750,12 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
 
   return (
     <>
-      <WithHelp help="Abre editor lateral para editar o último comentário do card">
+      <WithHelp help="Abre editor lateral com o último comentário do card. Após editar e enviar, o comentário editado será adicionado como novo comentário no Pipefy">
         <button onClick={() => { setShowEditor(!showEditor); setShowFinalizar(false); }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
           Atualizar
         </button>
       </WithHelp>
-      <WithHelp help="Abre painel com as 12 etapas de finalização: validação, campos, enxoval, vistoria, amenites e move para Concluídos">
+      <WithHelp help="Abre painel de finalização com todas as etapas que serão executadas: 1. Validação Enxoval (baseado no comentário). 2. Itens faltantes → ok. 3. Manutenções pendentes → ok. 4. Adequações sinalizadas → Todas finalizadas. 5. Marca do enxoval (Matinali se COMPRADO PP CSO). 6. Gerar registro de enxoval (se não existir). 7. Solicitar atualização vistoria. 8. Subir vistoria SAPRON. 9. Enviar vistoria proprietário. 10. Verificar amenites (conforme checkbox). 11. Aviso despesa → Fluxo aberto. 12. Mover para Concluídos">
         <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
           Finalizar
         </button>
@@ -810,7 +815,7 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
           </ul>
           <p className="text-xs text-green-700 mb-3">Amenites: <strong>{amenitesChecked ? "Verificado + avisado anúncios" : "Nenhum dos itens foi comprado"}</strong></p>
           <div className="flex gap-2">
-            <WithHelp help="Executa todas as 12 etapas de finalização e move o card para Concluídos">
+            <WithHelp help="Executa todas as etapas: 1. Validação Enxoval. 2. Itens faltantes → ok. 3. Manutenções pendentes → ok. 4. Adequações → Todas finalizadas. 5. Marca do enxoval. 6. Gerar registro de enxoval. 7. Solicitar atualização vistoria. 8. Subir vistoria SAPRON. 9. Enviar vistoria proprietário. 10. Verificar amenites. 11. Aviso despesa → Fluxo aberto. 12. Atualiza vencimento para próximo dia útil 22:00. 13. Move para Concluídos">
               <button onClick={handleFinalizar} disabled={finalizing} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
                 {finalizing ? "Finalizando..." : "Confirmar Finalização"}
               </button>
@@ -932,7 +937,7 @@ function TabPhase5() {
                   <div className="flex items-center gap-2">
                     {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
                     {cardStatus?.status === "error" && <span className="text-red-600 text-xs">{cardStatus.message}</span>}
-                    <WithHelp help="Atualiza vencimento +3 dias úteis às 22:00 e replica comentário com nova data">
+                    <WithHelp help="1. Atualiza vencimento +3 dias úteis às 22:00 (pulando sábado e domingo). 2. Busca o último comentário do card. 3. Substitui a data do FUP pela nova data calculada. 4. Adiciona o comentário atualizado no card">
                       <button
                         onClick={() => updateSingleCard(c.id)}
                         disabled={isUpdating || updatingCard !== null}
@@ -1302,14 +1307,14 @@ function TabRevisao() {
                     </div>
                     <div className="flex items-center gap-2">
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
-                      <WithHelp help="Atualiza vencimento +1 dia útil às 22:00 e adiciona comentário com nova data FUP">
+                      <WithHelp help="1. Atualiza vencimento +1 dia útil às 22:00. 2. Busca o último comentário do card. 3. Substitui a data do FUP pela nova data. 4. Adiciona o comentário atualizado no card">
                         <button onClick={() => updateComplexa(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors whitespace-nowrap">
                           {isUpdating && editingComplexaComment !== c.id ? "Atualizando..." : "+1 dia"}
                         </button>
                       </WithHelp>
                       {!cardStatus && (
                         <>
-                          <WithHelp help="Abre editor lateral com o último comentário e FUP recalculado conforme checkbox Complexa (+1 ou +2 dias úteis)">
+                          <WithHelp help="Abre editor lateral com o último comentário e FUP recalculado. Se 'Complexa' marcado: FUP +1 dia útil. Se desmarcado: FUP +2 dias úteis. Edite o texto antes de enviar">
                             <button onClick={() => {
                               if (editingComplexaComment === c.id) {
                                 setEditingComplexaComment(null);
@@ -1367,7 +1372,7 @@ function TabRevisao() {
                         </div>
                         <textarea value={complexaCommentText} onChange={(e) => setComplexaCommentText(e.target.value)} rows={25} className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500" />
                         <div className="flex gap-2 mt-4">
-                          <WithHelp help="Envia comentário editado, ajusta tags e vencimento conforme checkboxes (Complexa/Itens/Manut)">
+                          <WithHelp help="Se 'Complexa' marcado: 1. Vencimento +1 dia útil 22:00. 2. Mantém tag Adequação Complexa. 3. Adiciona/remove tags Itens peq. e Manut. peq. conforme checkboxes. 4. Mantém na Fase 3. 5. Envia o comentário. | Se 'Complexa' desmarcado: 1. Vencimento +2 dias úteis 22:00. 2. Remove tag Adequação Complexa. 3. Adiciona/remove tags Itens peq. e Manut. peq. conforme checkboxes. 4. Preenche campos obrigatórios. 5. Move o card para Fase 4. 6. Envia o comentário">
                             <button onClick={sendComplexaComment} disabled={isUpdating} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
                               {isUpdating ? "Enviando..." : "Enviar comentário"}
                             </button>
@@ -1421,7 +1426,7 @@ function TabRevisao() {
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
                       {!isEditing && !cardStatus && (
                         <>
-                          <WithHelp help="Abre editor com comentário padrão e FUP calculado (+1 ou +2 dias conforme checkbox Complexa). Muda responsável e ajusta tags">
+                          <WithHelp help="Abre editor com comentário padrão e FUP calculado. Se 'Complexa' marcado: FUP +1 dia útil. Se desmarcado: FUP +2 dias úteis. Após enviar: muda responsável para Weslley, ajusta tags e vencimento conforme checkboxes">
                             <button onClick={() => openRevisaoEditor(c.id)} disabled={updatingCard !== null} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
                               Atualizar comentário
                             </button>
@@ -1456,7 +1461,7 @@ function TabRevisao() {
                         className="w-full border border-purple-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-purple-500"
                       />
                       <div className="flex gap-2 mt-3">
-                        <WithHelp help="Envia comentário, muda responsável para Weslley, ajusta tags e vencimento. Se não for complexa, move para Fase 4">
+                        <WithHelp help="Se 'Complexa' marcado: 1. Muda responsável para Weslley. 2. Vencimento +1 dia útil 22:00. 3. Adiciona tag Adequação Complexa. 4. Adiciona/remove tags Itens peq. e Manut. peq. conforme checkboxes. 5. Mantém na Fase 3. 6. Envia o comentário. | Se 'Complexa' desmarcado: 1. Muda responsável para Weslley. 2. Vencimento +2 dias úteis 22:00. 3. Adiciona/remove tags Itens peq. e Manut. peq. conforme checkboxes. 4. Envia o comentário. 5. Preenche campos obrigatórios. 6. Move o card para Fase 4">
                           <button onClick={sendRevisaoComment} disabled={isUpdating} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors">
                             {isUpdating ? "Enviando..." : "Enviar comentário"}
                           </button>
