@@ -1094,7 +1094,13 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
 
 function CopyFinalizarSults() {
   const [copied, setCopied] = useState(false);
-  const text = `Olá Ana,\n\nTodas as pendências desta unidade foram finalizadas.\n\nCom isso, finalizamos a implantação deste imóvel!\n\nMuito obrigado por toda colaboração e boas reservas!`;
+  const text = `Olá Ana,
+
+Todas as pendências desta unidade foram finalizadas.
+
+Com isso, finalizamos a implantação deste imóvel!
+
+Muito obrigado por toda colaboração e boas reservas!`;
 
   return (
     <WithHelp help="Copia texto de finalização para enviar no Sults">
