@@ -632,6 +632,8 @@ interface Phase5Card {
   lastComment: string;
   lastCommentAuthor: string;
   lastCommentDate: string;
+  hasRecord: boolean;
+  recordId: string;
 }
 
 function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; cardTitle: string; lastComment: string }) {
@@ -855,6 +857,11 @@ function TabPhase5() {
                     <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
                     {c.assignees.length > 0 && (
                       <span className="text-xs text-gray-400 ml-3">{c.assignees.join(", ")}</span>
+                    )}
+                    {c.hasRecord ? (
+                      <span className="text-xs text-green-600 ml-2">Registro #{c.recordId}</span>
+                    ) : (
+                      <span className="text-xs text-red-500 ml-2">Sem registro</span>
                     )}
                   </div>
                   <div className="flex items-center gap-2">

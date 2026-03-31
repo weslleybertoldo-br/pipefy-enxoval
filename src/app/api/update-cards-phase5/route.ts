@@ -1,16 +1,54 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  pipefyQuery, fetchAllCardsFromPhase, updateDueDate, createComment,
+  pipefyQuery, updateDueDate, createComment,
   validateCardId, toBrazilDate, formatDateBR, isDueToday, getNextBusinessDayAt22,
   replaceCommentFupDate, requireAuth, PHASE_5_ID,
 } from "@/lib/pipefy";
+
+// Buscar cards da Fase 5 com fields (para registro de enxoval)
+async function fetchPhase5Cards(): Promise<any[]> {
+  let allCards: any[] = [];
+  let cursor: string | undefined;
+  let pages = 0;
+  while (pages < 50) {
+    const afterClause = cursor ? `, after: "${cursor}"` : "";
+    const result = await pipefyQuery(`{
+      phase(id: ${PHASE_5_ID}) {
+        cards(first: 50${afterClause}) {
+          edges {
+            node {
+              id title due_date
+              labels { id name }
+              assignees { id name }
+              comments { id text created_at author_name }
+              fields {
+                name value
+                connected_repo_items { ... on TableRecord { id title } ... on Card { id title } }
+              }
+            }
+          }
+          pageInfo { hasNextPage endCursor }
+        }
+      }
+    }`);
+    const data = result?.data?.phase?.cards;
+    const edges = data?.edges || [];
+    if (edges.length === 0) break;
+    allCards = [...allCards, ...edges.map((e: any) => e.node)];
+    if (!data?.pageInfo?.hasNextPage) break;
+    cursor = data.pageInfo.endCursor;
+    if (!cursor) break;
+    pages++;
+  }
+  return allCards;
+}
 
 export async function GET(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const allCards = await fetchAllCardsFromPhase(PHASE_5_ID);
+    const allCards = await fetchPhase5Cards();
     const cards = allCards.filter((c) => c.due_date && isDueToday(c.due_date));
 
     return NextResponse.json({
@@ -22,6 +60,15 @@ export async function GET(req: NextRequest) {
         const dueFormatted = br
           ? `${String(br.day).padStart(2, "0")}/${String(br.month + 1).padStart(2, "0")}/${br.year}`
           : "Sem vencimento";
+
+        // Buscar registro de enxoval
+        const enxovalField = (c.fields || []).find((f: any) =>
+          f.name?.toLowerCase().includes("registro de enxoval")
+        );
+        const connectedItems = enxovalField?.connected_repo_items || [];
+        const hasRecord = connectedItems.length > 0 && !!connectedItems[0]?.id;
+        const recordId = hasRecord ? connectedItems[0].id : "";
+
         return {
           id: c.id,
           title: c.title,
@@ -32,6 +79,8 @@ export async function GET(req: NextRequest) {
           lastComment: lastComment?.text || "",
           lastCommentAuthor: lastComment?.author_name || "",
           lastCommentDate: lastComment?.created_at || "",
+          hasRecord,
+          recordId,
         };
       }),
     });
