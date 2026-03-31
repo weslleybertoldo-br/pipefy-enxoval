@@ -66,25 +66,7 @@ export async function GET(request: NextRequest) {
 
   const pipeResult = await pipefyQuery(pipeQuery);
 
-  // Buscar labels do pipe
-  const labelsQuery = `{ pipe(id: 303828424) { labels { id name } } }`;
-  const labelsResult = await pipefyQuery(labelsQuery);
-
-  // Buscar card EAF0404 para ver suas labels
-  const cardSearch = request.nextUrl.searchParams.get("card") || "";
-  let cardLabels = null;
-  if (cardSearch) {
-    for (const phaseId of [PHASE_5_ID, "323529403", "333848207", "323315793"]) {
-      const r = await pipefyQuery(`{ phase(id: ${phaseId}) { cards(first: 3, search: { title: "${cardSearch}" }) { edges { node { id title labels { id name } } } } } }`);
-      const edges = r?.data?.phase?.cards?.edges || [];
-      const found = edges.find((e: any) => e.node.title.toUpperCase() === cardSearch.toUpperCase());
-      if (found) { cardLabels = found.node; break; }
-    }
-  }
-
   return NextResponse.json({
-    pipe_labels: labelsResult.data?.pipe?.labels || [],
-    card_labels: cardLabels,
     phase_5_id: PHASE_5_ID,
     phase_info: phaseResult.data?.phase ? {
       id: phaseResult.data.phase.id,

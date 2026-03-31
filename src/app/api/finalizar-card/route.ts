@@ -153,16 +153,19 @@ export async function POST(req: NextRequest) {
         pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "aviso_no_canal_para_lan_amento_de_despesa", new_value: "Sim, fluxo aberto" }) { success } }`)
       );
 
-      // 12. Remover tags
+      // 12. Remover tags antigas + adicionar tags de finalização
       const TAGS_TO_REMOVE = ["310938809", "310938821", "310425321", "310425328"];
+      const TAGS_TO_ADD = ["315963981", "316723774"]; // Atualizar laudo vistoria + Solicitado lançamento de despesa
       const currentLabels = (card.labels || []).map((l: any) => l.id);
-      const filteredLabels = currentLabels.filter((id: string) => !TAGS_TO_REMOVE.includes(id));
-      if (filteredLabels.length !== currentLabels.length) {
-        await step("Tags removidas", () => {
-          const labelArray = filteredLabels.map((id: string) => `"${id}"`).join(", ");
-          return pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
-        });
-      }
+      const updatedLabels = [
+        ...currentLabels.filter((id: string) => !TAGS_TO_REMOVE.includes(id)),
+        ...TAGS_TO_ADD.filter((id) => !currentLabels.includes(id)),
+      ];
+      const uniqueLabels = [...new Set(updatedLabels)];
+      await step("Tags atualizadas (removidas + adicionadas)", () => {
+        const labelArray = uniqueLabels.map((id: string) => `"${id}"`).join(", ");
+        return pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
+      });
 
       // 13. Vencimento
       const newDueDate = getNextBusinessDayAt22(1);
