@@ -151,12 +151,24 @@ export async function POST(req: NextRequest) {
       }`);
       actions.push("Despesa → Fluxo aberto");
 
-      // 12. Atualizar vencimento para próximo dia útil 22:00
+      // 12. Remover tags "Itens pequenos" e "Manutenções pequenas"
+      const TAGS_TO_REMOVE = ["310938809", "310938821", "310425321", "310425328"]; // Itens pequenos, Manutenções pequenas, Itens grandes, Manutenções grandes
+      const currentLabels = (card.labels || []).map((l: any) => l.id);
+      const filteredLabels = currentLabels.filter((id: string) => !TAGS_TO_REMOVE.includes(id));
+      if (filteredLabels.length !== currentLabels.length) {
+        const labelArray = filteredLabels.map((id: string) => `"${id}"`).join(", ");
+        await pipefyQuery(`mutation {
+          updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } }
+        }`);
+        actions.push("Tags removidas: Itens pequenos / Manutenções pequenas");
+      }
+
+      // 13. Atualizar vencimento para próximo dia útil 22:00
       const newDueDate = getNextBusinessDayAt22(1);
       await updateDueDate(validId, newDueDate);
       actions.push(`Vencimento → ${formatDateBR(newDueDate)} 22:00`);
 
-      // 13. Mover para Concluídos
+      // 14. Mover para Concluídos
       await pipefyQuery(`mutation {
         moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${CONCLUDED_PHASE_ID} }) {
           card { id current_phase { name } }
