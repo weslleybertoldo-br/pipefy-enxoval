@@ -706,16 +706,22 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
       )}
 
       {showEditor && (
-        <div className="mt-3 bg-yellow-50 rounded-md p-4 border border-yellow-200 w-full">
-          <p className="text-xs font-medium text-yellow-700 mb-2">Editar comentário:</p>
-          <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={12} className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500" />
-          <div className="flex gap-2 mt-2">
-            <button onClick={handleUpdateComment} disabled={sending} className="bg-yellow-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
-              {sending ? "Enviando..." : "Enviar comentário"}
-            </button>
-            <button onClick={() => setShowEditor(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
-              Cancelar
-            </button>
+        <div className="fixed inset-0 z-50 flex">
+          <div className="w-1/2 bg-black/30" onClick={() => setShowEditor(false)} />
+          <div className="w-1/2 bg-white shadow-xl p-6 overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-900">Editar comentário — {cardTitle}</h3>
+              <button onClick={() => setShowEditor(false)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+            </div>
+            <textarea value={editText} onChange={(e) => setEditText(e.target.value)} rows={25} className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+            <div className="flex gap-2 mt-4">
+              <button onClick={handleUpdateComment} disabled={sending} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
+                {sending ? "Enviando..." : "Enviar comentário"}
+              </button>
+              <button onClick={() => setShowEditor(false)} className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       )}
