@@ -506,6 +506,8 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
   const [ativosLoading, setAtivosLoading] = useState(false);
   const [ativosUpdating, setAtivosUpdating] = useState<string | null>(null);
   const [ativosStatuses, setAtivosStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
+  const [editingAtivo, setEditingAtivo] = useState<string | null>(null);
+  const [ativoCommentText, setAtivoCommentText] = useState("");
 
   const loadAtivos = async () => {
     setAtivosLoading(true);
@@ -526,13 +528,44 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
     }
   };
 
-  const updateAtivo = async (cardId: string) => {
+  const openAtivoEditor = (cardId: string) => {
+    const card = ativosCards.find((c) => c.id === cardId);
+    if (!card?.lastComment) return;
+
+    const days = 3;
+    const now = new Date();
+    let added = 0;
+    const next = new Date(now);
+    while (added < days) {
+      next.setDate(next.getDate() + 1);
+      if (next.getDay() !== 0 && next.getDay() !== 6) added++;
+    }
+    const dd = String(next.getDate()).padStart(2, "0");
+    const mm = String(next.getMonth() + 1).padStart(2, "0");
+    const fupDate = `${dd}/${mm}`;
+
+    // Gerar preview: texto acima do FUP + FUP novo + conteúdo abaixo dos "..."
+    const lines = card.lastComment.split("\n");
+    let separatorIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+      if (lines[i].trim().match(/^\.{3,}/)) { separatorIdx = i; break; }
+    }
+    const belowSeparator = separatorIdx >= 0 ? lines.slice(separatorIdx).join("\n") : "";
+    const preview = `✅ Imóvel ativo\n\n🚨 Aguardando o envio dos registros pendentes\n\n⏭️ Fup: ${fupDate}\n\n${belowSeparator}`;
+
+    setEditingAtivo(cardId);
+    setAtivoCommentText(preview);
+  };
+
+  const sendAtivoComment = async () => {
+    if (!editingAtivo || !ativoCommentText.trim()) return;
+    const cardId = editingAtivo;
     setAtivosUpdating(cardId);
     try {
       const res = await fetch("/api/update-cards-phase4-ativos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId }),
+        body: JSON.stringify({ cardId, customComment: ativoCommentText }),
       });
       const data = await res.json();
       if (data.success && data.action === "updated") {
@@ -544,6 +577,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
       setAtivosStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: "Erro de conexão" } }));
     } finally {
       setAtivosUpdating(null);
+      setEditingAtivo(null);
     }
   };
 
@@ -832,17 +866,47 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                   <div className="flex items-center gap-2">
                     {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
                     {cardStatus?.status === "error" && <span className="text-red-600 text-xs">{cardStatus.message}</span>}
-                    <WithHelp help="1. Parseia o último comentário e extrai seções (Enxoval, Itens, Manutenção)~2. Preenche campo 'Validação de enxoval': se ❌ → texto do enxoval / se ✔️ → ok~3. Preenche campo 'Itens faltantes atualmente': se ❌ → lista dos itens / se ✔️ → ok~4. Preenche campo 'Manutenções pendentes atualmente': se ❌ → lista / se ✔️ → ok~5. Adiciona tag 'Imóvel Ativo'~6. Atualiza vencimento +3 dias úteis às 22:00~7. Novo comentário: '✅ Imóvel ativo' + 'Aguardando registros pendentes' + FUP +3 dias + mantém conteúdo abaixo dos '...'">
-                      <button
-                        onClick={() => updateAtivo(c.id)}
-                        disabled={isUpdating || ativosUpdating !== null}
-                        className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-                      >
-                        {isUpdating ? "Atualizando..." : "Atualizar Ativo"}
-                      </button>
-                    </WithHelp>
+                    {!cardStatus && (
+                      <WithHelp help="1. Abre editor com comentário atualizado (editável antes de enviar)~2. Preenche campos na Fase 5: Validação Enxoval, Itens faltantes, Manutenções pendentes~3. Adiciona tag 'Imóvel Ativo'~4. Atualiza vencimento +3 dias úteis às 22:00~5. Envia o comentário editado~6. Move o card para Fase 5">
+                        <button
+                          onClick={() => openAtivoEditor(c.id)}
+                          disabled={ativosUpdating !== null}
+                          className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                        >
+                          Atualizar Ativo
+                        </button>
+                      </WithHelp>
+                    )}
                   </div>
                 </div>
+
+                {/* Editor lateral */}
+                {editingAtivo === c.id && (
+                  <div className="fixed inset-0 z-50 flex">
+                    <div className="w-1/2 bg-black/30" onClick={() => setEditingAtivo(null)} />
+                    <div className="w-1/2 bg-white shadow-xl p-6 overflow-y-auto">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="font-semibold text-gray-900">Editar comentário — {c.title}</h3>
+                        <button onClick={() => setEditingAtivo(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                      </div>
+                      <div className="mb-3 text-xs text-gray-500">
+                        Edite o comentário antes de enviar. Após enviar: preenche campos, adiciona tag, atualiza vencimento e move para Fase 5.
+                      </div>
+                      <textarea value={ativoCommentText} onChange={(e) => setAtivoCommentText(e.target.value)} rows={25} className="w-full border border-green-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500" />
+                      <div className="flex gap-2 mt-4">
+                        <WithHelp help="Envia o comentário, preenche campos (Enxoval, Itens, Manutenção) na Fase 5, adiciona tag 'Imóvel Ativo', vencimento +3 dias, move para Fase 5">
+                          <button onClick={sendAtivoComment} disabled={ativosUpdating !== null} className="bg-green-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+                            {isUpdating ? "Enviando..." : "Enviar e mover para Fase 5"}
+                          </button>
+                        </WithHelp>
+                        <button onClick={() => setEditingAtivo(null)} className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {c.labels.length > 0 && (
                   <div className="flex gap-1 mb-3">
                     {c.labels.map((l) => (
@@ -850,7 +914,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                     ))}
                   </div>
                 )}
-                {c.lastComment ? (
+                {c.lastComment && editingAtivo !== c.id ? (
                   <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="text-xs font-medium text-gray-700">{c.lastCommentAuthor}</span>
@@ -858,9 +922,9 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                     </div>
                     <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">{c.lastComment}</pre>
                   </div>
-                ) : (
+                ) : !c.lastComment ? (
                   <p className="text-xs text-gray-400">Sem comentários</p>
-                )}
+                ) : null}
               </div>
             );
           })}
