@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/pipefy";
+import { pipefyQuery, requireAuth } from "@/lib/pipefy";
 
-const PIPEFY_API = "https://api.pipefy.com/graphql";
-const PIPEFY_TOKEN = process.env.PIPEFY_TOKEN || "";
 const TABLE_ID = "uPKa2zs_";
 const ORG_ID = "330500";
 
@@ -27,18 +25,6 @@ interface EnxovalData {
   capa_edredom_casal: number;
   capa_edredom_queen_size: number;
   capa_edredom_king_size: number;
-}
-
-async function pipefyQuery(query: string) {
-  const res = await fetch(PIPEFY_API, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${PIPEFY_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query }),
-  });
-  return res.json();
 }
 
 async function uploadFileToPipefy(file: File): Promise<string> {
@@ -95,13 +81,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    if (!PIPEFY_TOKEN) {
-      return NextResponse.json(
-        { error: "Token do Pipefy não configurado no servidor" },
-        { status: 500 }
-      );
-    }
-
     const formData = await request.formData();
     const dataStr = formData.get("data") as string;
     const pdfFile = formData.get("pdf") as File;

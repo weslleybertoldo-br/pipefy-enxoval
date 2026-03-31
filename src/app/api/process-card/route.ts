@@ -1,28 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/pipefy";
+import { pipefyQuery, requireAuth, PIPE_ID, PHASE_5_ID } from "@/lib/pipefy";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdf = require("@/lib/pdf-parse");
 
-const PIPEFY_API = "https://api.pipefy.com/graphql";
-const PIPEFY_TOKEN = process.env.PIPEFY_TOKEN || "";
-const PIPE_ID = "303828424";
 const TABLE_ID = "uPKa2zs_";
 const ORG_ID = "330500";
-
-async function pipefyQuery(query: string) {
-  const res = await fetch(PIPEFY_API, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${PIPEFY_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query }),
-  });
-  return res.json();
-}
-
-const PHASE_5_ID = "333848127";
 
 // Step 1: Find card by code directly in Phase 5
 async function findCard(code: string) {
@@ -297,10 +280,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    if (!PIPEFY_TOKEN) {
-      return NextResponse.json({ error: "Token não configurado" }, { status: 500 });
-    }
-
     const { code } = await request.json();
     if (!code) {
       return NextResponse.json({ error: "Código não fornecido" }, { status: 400 });
