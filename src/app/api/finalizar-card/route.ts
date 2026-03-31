@@ -58,16 +58,17 @@ function getEnxovalFromComment(text: string): string {
   const lines = text.split("\n");
   for (const line of lines) {
     const trimmed = line.trim();
-    if (/^[✔️❌]\s*ENXOVAL/i.test(trimmed)) {
+    if (/^[❌✔✅]/.test(trimmed) && trimmed.toUpperCase().includes("ENXOVAL")) {
       return trimmed;
     }
   }
   return "ok";
 }
 
-// Verificar se tem "COMPRADO - PP CSO" no enxoval
+// Verificar se tem "COMPRADO" + "PP CSO" no enxoval (aceita - ou : como separador)
 function hasCompradoPPCSO(enxovalLine: string): boolean {
-  return enxovalLine.toUpperCase().includes("COMPRADO - PP CSO");
+  const upper = enxovalLine.toUpperCase();
+  return upper.includes("COMPRADO") && upper.includes("PP CSO");
 }
 
 // POST: Atualizar comentário editado
