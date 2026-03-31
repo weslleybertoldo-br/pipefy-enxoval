@@ -1536,7 +1536,7 @@ function TabRevisao() {
                         <textarea value={complexaCommentText} onChange={(e) => setComplexaCommentText(e.target.value)} rows={25} className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500" />
                         <div className="flex gap-2 mt-4">
                           <WithHelp help="Se 'Complexa' marcado:~1. Vencimento +1 dia útil às 22:00~2. Mantém tag Adequação Complexa~3. Se 'Itens peq.' marcado → adiciona tag / se desmarcado → remove tag~4. Se 'Manut. peq.' marcado → adiciona tag / se desmarcado → remove tag~5. Mantém o card na Fase 3~6. Envia o comentário editado|Se 'Complexa' desmarcado:~1. Vencimento +2 dias úteis às 22:00~2. Remove a tag Adequação Complexa~3. Se 'Itens peq.' marcado → adiciona tag / se desmarcado → remove tag~4. Se 'Manut. peq.' marcado → adiciona tag / se desmarcado → remove tag~5. Preenche campos obrigatórios (mensagem enviada + revisão realizada)~6. Move o card para a Fase 4~7. Envia o comentário editado~8. Envia DM no Slack para Bruno: 'CÓDIGO - Liberado ✅'">
-                            <button onClick={sendComplexaComment} disabled={isUpdating} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
+                            <button onClick={sendComplexaComment} disabled={updatingCard !== null} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
                               {isUpdating ? "Enviando..." : "Enviar comentário"}
                             </button>
                           </WithHelp>
@@ -1625,7 +1625,7 @@ function TabRevisao() {
                       />
                       <div className="flex gap-2 mt-3">
                         <WithHelp help="Se 'Complexa' marcado:~1. Muda responsável para Weslley~2. Vencimento +1 dia útil às 22:00~3. Adiciona tag Adequação Complexa~4. Se 'Itens peq.' marcado → adiciona tag / se desmarcado → não adiciona~5. Se 'Manut. peq.' marcado → adiciona tag / se desmarcado → não adiciona~6. Mantém o card na Fase 3~7. Envia o comentário editado|Se 'Complexa' desmarcado:~1. Muda responsável para Weslley~2. Vencimento +2 dias úteis às 22:00~3. Se 'Itens peq.' marcado → adiciona tag / se desmarcado → não adiciona~4. Se 'Manut. peq.' marcado → adiciona tag / se desmarcado → não adiciona~5. Envia o comentário editado~6. Preenche campos obrigatórios (mensagem enviada + revisão realizada)~7. Move o card para a Fase 4">
-                          <button onClick={sendRevisaoComment} disabled={isUpdating} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors">
+                          <button onClick={sendRevisaoComment} disabled={updatingCard !== null} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors">
                             {isUpdating ? "Enviando..." : "Enviar comentário"}
                           </button>
                         </WithHelp>
