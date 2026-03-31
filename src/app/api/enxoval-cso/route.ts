@@ -27,25 +27,39 @@ function getEnxovalStatus(comment: string): "ok" | "pendente" | "comprado" | "un
   return "unknown";
 }
 
-// Buscar tags do card no Pipe 0
-async function getTagsFromPipe0(code: string): Promise<string[]> {
-  for (const phaseId of PIPE_0_PHASES) {
-    try {
-      const result = await pipefyQuery(`{
-        phase(id: ${phaseId}) {
-          cards(first: 3, search: { title: "${JSON.stringify(code).slice(1, -1)}" }) {
-            edges { node { title labels { name } } }
-          }
+// Buscar TODOS os cards do Pipe 0 de uma vez e criar mapa por título
+async function buildPipe0TagsMap(): Promise<Map<string, string[]>> {
+  const tagsMap = new Map<string, string[]>();
+
+  // Buscar em paralelo (3 fases por vez para não sobrecarregar)
+  for (let i = 0; i < PIPE_0_PHASES.length; i += 3) {
+    const batch = PIPE_0_PHASES.slice(i, i + 3);
+    const results = await Promise.all(
+      batch.map(async (phaseId) => {
+        try {
+          const result = await pipefyQuery(`{
+            phase(id: ${phaseId}) {
+              cards(first: 100) {
+                edges { node { title labels { name } } }
+              }
+            }
+          }`);
+          return result?.data?.phase?.cards?.edges || [];
+        } catch { return []; }
+      })
+    );
+
+    for (const edges of results) {
+      for (const edge of edges) {
+        const title = edge.node.title?.toUpperCase();
+        if (title && !tagsMap.has(title)) {
+          tagsMap.set(title, (edge.node.labels || []).map((l: any) => l.name));
         }
-      }`);
-      const edges = result?.data?.phase?.cards?.edges || [];
-      const card = edges.find((e: any) => e.node.title.toUpperCase() === code.toUpperCase());
-      if (card) {
-        return (card.node.labels || []).map((l: any) => l.name);
       }
-    } catch { /* continua */ }
+    }
   }
-  return [];
+
+  return tagsMap;
 }
 
 // Buscar card no Pipe 2 (para pegar comentário e id)
@@ -79,18 +93,20 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const allCards = await fetchAllCardsFromPhase(PHASE_5_ID);
+    // Buscar cards da Fase 5 e tags do Pipe 0 em paralelo
+    const [allCards, pipe0Tags] = await Promise.all([
+      fetchAllCardsFromPhase(PHASE_5_ID),
+      buildPipe0TagsMap(),
+    ]);
 
     const results = [];
     for (const c of allCards) {
       const lastComment = (c.comments || [])[0]?.text || "";
       const status = getEnxovalStatus(lastComment);
 
-      // Só mostrar cards com ❌ ENXOVAL (sem COMPRADO)
       if (status !== "pendente") continue;
 
-      // Buscar tags no Pipe 0
-      const tags = await getTagsFromPipe0(c.title);
+      const tags = pipe0Tags.get(c.title?.toUpperCase()) || [];
       const hasEnxovalComprado = tags.some((t) => t.toUpperCase().includes("ENXOVAL COMPRADO"));
 
       results.push({
