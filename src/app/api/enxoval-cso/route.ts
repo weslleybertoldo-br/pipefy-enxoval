@@ -14,14 +14,14 @@ const PIPE_2_PHASES = [
   "333848207", "333848127", "323315793",
 ];
 
-function getEnxovalStatus(comment: string): "ok" | "pendente" | "comprado" | "unknown" {
+function getEnxovalStatus(comment: string): "ok" | "pendente" | "comprado" | "propria" | "unknown" {
   if (!comment) return "unknown";
-  // Verificar linha por linha
   const lines = comment.split("\n");
   for (const line of lines) {
     const trimmed = line.trim();
     if (/^✔️\s*ENXOVAL/i.test(trimmed)) return "ok";
     if (/^❌\s*ENXOVAL\s*:\s*COMPRADO/i.test(trimmed)) return "comprado";
+    if (/^❌\s*ENXOVAL\s*:\s*PROP/i.test(trimmed)) return "propria";
     if (/^❌\s*ENXOVAL/i.test(trimmed)) return "pendente";
   }
   return "unknown";
