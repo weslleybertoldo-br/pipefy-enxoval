@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/pipefy";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdf = require("@/lib/pdf-parse");
@@ -169,6 +170,9 @@ function parsePdfText(text: string): ParsedEnxoval {
 }
 
 export async function POST(request: NextRequest) {
+  if (!requireAuth(request.cookies.get("auth_token")?.value)) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
   try {
     const formData = await request.formData();
     const file = formData.get("pdf") as File;

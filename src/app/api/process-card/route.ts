@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, requireAuth, PIPE_ID, PHASE_5_ID } from "@/lib/pipefy";
+import { pipefyQuery, requireAuth, PIPE_ID, PHASE_5_ID, sanitizeGraphQL } from "@/lib/pipefy";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdf = require("@/lib/pdf-parse");
@@ -11,7 +11,7 @@ const ORG_ID = "330500";
 async function findCard(code: string) {
   const query = `{
     phase(id: ${PHASE_5_ID}) {
-      cards(first: 50, search: { title: "${code.replace(/"/g, '\\"')}" }) {
+      cards(first: 50, search: { title: "${sanitizeGraphQL(code)}" }) {
         edges {
           node {
             id
@@ -178,7 +178,7 @@ async function uploadPdfBuffer(buffer: Buffer, fileName: string): Promise<string
     mutation {
       createPresignedUrl(input: {
         organizationId: "${ORG_ID}"
-        fileName: "${fileName.replace(/"/g, '\\"')}"
+        fileName: "${sanitizeGraphQL(fileName)}"
       }) { url }
     }
   `;

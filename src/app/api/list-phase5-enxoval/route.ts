@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, fetchAllCardsFromPhase, requireAuth, PHASE_5_ID } from "@/lib/pipefy";
+import { pipefyQuery, requireAuth, PHASE_5_ID } from "@/lib/pipefy";
 
 // Buscar cards da Fase 5 com o campo de registro de enxoval
 async function getCardsWithEnxovalInfo(): Promise<any[]> {

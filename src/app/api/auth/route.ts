@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { randomBytes, createHmac } from "crypto";
+import { createHmac } from "crypto";
 
 const VALID_EMAIL = process.env.AUTH_EMAIL || "";
 const VALID_PASSWORD = process.env.AUTH_PASSWORD || "";

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, requireAuth } from "@/lib/pipefy";
+import { pipefyQuery, requireAuth, sanitizeGraphQL } from "@/lib/pipefy";
 
 const TABLE_ID = "uPKa2zs_";
 const ORG_ID = "330500";
@@ -33,7 +33,7 @@ async function uploadFileToPipefy(file: File): Promise<string> {
     mutation {
       createPresignedUrl(input: {
         organizationId: "${ORG_ID}"
-        fileName: "${file.name.replace(/"/g, '\\"')}"
+        fileName: "${sanitizeGraphQL(file.name)}"
       }) {
         clientMutationId
         url

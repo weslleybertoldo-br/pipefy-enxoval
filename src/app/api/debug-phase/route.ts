@@ -1,21 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth } from "@/lib/pipefy";
-
-const PIPEFY_API = "https://api.pipefy.com/graphql";
-const PIPEFY_TOKEN = process.env.PIPEFY_TOKEN || "";
-const PHASE_5_ID = "333848127";
-
-async function pipefyQuery(query: string) {
-  const res = await fetch(PIPEFY_API, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${PIPEFY_TOKEN}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query }),
-  });
-  return res.json();
-}
+import { pipefyQuery, requireAuth, PHASE_5_ID, sanitizeGraphQL } from "@/lib/pipefy";
 
 export async function GET(request: NextRequest) {
   if (!requireAuth(request.cookies.get("auth_token")?.value)) {
@@ -23,48 +7,34 @@ export async function GET(request: NextRequest) {
   }
 
   const search = request.nextUrl.searchParams.get("q") || "VIL0004";
+  const escaped = sanitizeGraphQL(search);
 
-  // 1. Check phase info
-  const phaseQuery = `{
+  const phaseResult = await pipefyQuery(`{
     phase(id: ${PHASE_5_ID}) {
-      id
-      name
-      cards_count
+      id name cards_count
       cards(first: 5) {
         edges {
-          node {
-            id
-            title
-            fields { field_id name value }
-          }
+          node { id title fields { name value } }
         }
       }
     }
-  }`;
+  }`);
 
-  const phaseResult = await pipefyQuery(phaseQuery);
-
-  // 2. Try search by title
-  const searchQuery = `{
+  const searchResult = await pipefyQuery(`{
     phase(id: ${PHASE_5_ID}) {
-      cards(first: 10, search: { title: "${search}" }) {
+      cards(first: 10, search: { title: "${escaped}" }) {
         edges {
           node { id title }
         }
       }
     }
-  }`;
+  }`);
 
-  const searchResult = await pipefyQuery(searchQuery);
-
-  // 3. Also try allCards from the pipe
-  const pipeQuery = `{
+  const pipeResult = await pipefyQuery(`{
     pipe(id: 303828424) {
       phases { id name cards_count }
     }
-  }`;
-
-  const pipeResult = await pipefyQuery(pipeQuery);
+  }`);
 
   return NextResponse.json({
     phase_5_id: PHASE_5_ID,
@@ -73,7 +43,7 @@ export async function GET(request: NextRequest) {
       name: phaseResult.data.phase.name,
       cards_count: phaseResult.data.phase.cards_count,
       sample_cards: phaseResult.data.phase.cards?.edges?.map(
-        (e: { node: { id: string; title: string; fields: { field_id: string; name: string; value: string }[] } }) => ({
+        (e: { node: { id: string; title: string; fields: { name: string; value: string }[] } }) => ({
           id: e.node.id,
           title: e.node.title,
           fields: e.node.fields?.slice(0, 5),
