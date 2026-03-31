@@ -9,6 +9,8 @@ import { useState, useCallback, useRef, useEffect, type ReactNode } from "react"
 function WithHelp({ help, children, className }: { help: string; children: ReactNode; className?: string }) {
   const [showBtn, setShowBtn] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showBelow, setShowBelow] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Formata o texto: "~" separa linhas, "|" separa seções com linha divisória
   const formatHelp = (text: string) => {
@@ -29,8 +31,19 @@ function WithHelp({ help, children, className }: { help: string; children: React
     });
   };
 
+  const handleExpand = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      setShowBelow(rect.top < 300);
+    }
+    setExpanded(true);
+  };
+
   return (
     <div
+      ref={containerRef}
       className={`relative ${className || "inline-flex"}`}
       onMouseEnter={() => { setShowBtn(true); setExpanded(false); }}
       onMouseLeave={() => { setShowBtn(false); setExpanded(false); }}
@@ -38,16 +51,16 @@ function WithHelp({ help, children, className }: { help: string; children: React
       {children}
       {showBtn && !expanded && (
         <button
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(true); }}
+          onClick={handleExpand}
           className="absolute -top-5 left-1/2 -translate-x-1/2 bg-gray-800 text-white text-[9px] px-1.5 py-0.5 rounded shadow-lg z-[60] whitespace-nowrap cursor-pointer hover:bg-gray-700 transition-colors"
         >
           expandir
         </button>
       )}
       {expanded && (
-        <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-gray-900 text-white text-[11px] px-4 py-3 rounded-lg shadow-lg z-[60] w-[28rem] leading-relaxed">
+        <div className={`absolute left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[11px] px-4 py-3 rounded-lg shadow-lg z-[60] w-[28rem] leading-relaxed ${showBelow ? "top-full mt-2" : "-top-2 -translate-y-full"}`}>
           {formatHelp(help)}
-          <div className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-gray-900" />
+          <div className={`absolute left-1/2 -translate-x-1/2 rotate-45 w-2 h-2 bg-gray-900 ${showBelow ? "top-0 -translate-y-1/2" : "bottom-0 translate-y-1/2"}`} />
         </div>
       )}
     </div>
