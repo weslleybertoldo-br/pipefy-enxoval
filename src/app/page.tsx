@@ -366,8 +366,6 @@ function TabProcessamento() {
           })}
         </section>
       )}
-
-      <SlackDespesa />
     </>
   );
 }
