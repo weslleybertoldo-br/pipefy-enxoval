@@ -490,6 +490,35 @@ function CopyFupButton({ days, template = "fase4" }: { days: number; template?: 
   );
 }
 
+function CopyScriptUnicoItem() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const now = new Date();
+    const hours = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false });
+    const h = parseInt(hours);
+    const saudacao = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+
+    const text = `${saudacao}, tudo bem?
+
+Vi que ainda ficou um item pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio do registro? :D`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copied ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"}`}
+    >
+      {copied ? "Copiado!" : "Único item"}
+    </button>
+  );
+}
+
 function CopyScriptPendencias() {
   const [copied, setCopied] = useState(false);
 
@@ -501,15 +530,20 @@ function CopyScriptPendencias() {
 
     const text = `${saudacao}, tudo bem?
 
+
 Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D
 
+
 REGISTROS PENDENTES
+
 
 ITENS MÍNIMOS:
 Tábua de corte;
 
+
 MANUTENÇÃO:
 Ferro de passar;
+
 
 ENXOVAL:
 (CONFIRMAÇÃO) Entrega e validação do enxoval.`;
@@ -798,7 +832,12 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
               </button>
             </WithHelp>
           )}
-          {showCopyButton && <CopyScriptPendencias />}
+          {showCopyButton && (
+            <div className="flex flex-col gap-1">
+              <CopyScriptUnicoItem />
+              <CopyScriptPendencias />
+            </div>
+          )}
         </div>
 
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
