@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/pipefy";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const pdf = require("@/lib/pdf-parse");
@@ -46,7 +47,7 @@ async function findCard(code: string) {
   const codeUpper = code.toUpperCase();
   const found = edges.find(
     (e: { node: { title: string } }) =>
-      e.node.title.toUpperCase().includes(codeUpper)
+      e.node.title.toUpperCase() === codeUpper
   );
 
   return found ? found.node : null;
@@ -292,6 +293,9 @@ async function createRecordAndConnect(
 
 // Main handler: process a single card code
 export async function POST(request: NextRequest) {
+  if (!requireAuth(request.cookies.get("auth_token")?.value)) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
   try {
     if (!PIPEFY_TOKEN) {
       return NextResponse.json({ error: "Token não configurado" }, { status: 500 });

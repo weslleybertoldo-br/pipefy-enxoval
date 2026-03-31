@@ -1,21 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, requireAuth } from "@/lib/pipefy";
-
-// Pipe 1 - Implantação/Mãe - fases 1 a 10 (exclui Fase 11 para evitar duplicatas)
-const PIPE_1_PHASES = [
-  "323044780",  // Backlog
-  "333371452",  // Fase 0
-  "323044781",  // Fase 1
-  "323044783",  // Fase 2
-  "323044784",  // Fase 3
-  "323044785",  // Fase 4
-  "323044786",  // Fase 5
-  "323044787",  // Fase 6
-  "323044796",  // Fase 7
-  "323044844",  // Fase 8
-  "323044836",  // Fase 9
-  "326702699",  // Fase 10
-];
+import { pipefyQuery, requireAuth, PIPE_1_PHASES } from "@/lib/pipefy";
 
 export async function GET(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {

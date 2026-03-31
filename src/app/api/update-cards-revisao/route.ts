@@ -198,6 +198,8 @@ export async function POST(req: NextRequest) {
         } catch (e: unknown) {
           actions.push(`Slack DM erro: ${e instanceof Error ? e.message : "erro"}`);
         }
+      } else if (!isComplexa && !SLACK_TOKEN) {
+        actions.push("Slack DM não enviado (token não configurado)");
       }
 
       return NextResponse.json({ success: true, action: "updated", details: actions.join(" | ") });

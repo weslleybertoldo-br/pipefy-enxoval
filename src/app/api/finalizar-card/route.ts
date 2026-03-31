@@ -1,21 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, validateCardId, createComment, updateDueDate, getNextBusinessDayAt22, formatDateBR, requireAuth, PHASE_5_ID } from "@/lib/pipefy";
+import { pipefyQuery, validateCardId, createComment, updateDueDate, getNextBusinessDayAt22, formatDateBR, toBrazilDate, requireAuth, PHASE_5_ID, PIPE_1_PHASES } from "@/lib/pipefy";
 
-// Pipe 1 - fases 1 a 10 (exclui Fase 11 para evitar duplicatas)
-const PIPE_1_PHASES = [
-  "323044780",  // Backlog
-  "333371452",  // Fase 0
-  "323044781",  // Fase 1
-  "323044783",  // Fase 2
-  "323044784",  // Fase 3
-  "323044785",  // Fase 4
-  "323044786",  // Fase 5
-  "323044787",  // Fase 6
-  "323044796",  // Fase 7
-  "323044844",  // Fase 8
-  "323044836",  // Fase 9
-  "326702699",  // Fase 10
-];
 
 async function buscarFranquiaPipe1(code: string): Promise<string | null> {
   for (const phaseId of PIPE_1_PHASES) {
@@ -81,6 +66,7 @@ export async function POST(req: NextRequest) {
         card(id: ${validId}) {
           id title
           current_phase { id }
+          labels { id }
           comments { id text }
           fields { name value }
         }
@@ -132,7 +118,7 @@ export async function POST(req: NextRequest) {
       if (!hasRecord) {
         await step("Registro enxoval", async () => {
           const processRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "https://pipefy-enxoval-git-master-weslleybertoldo-brs-projects.vercel.app"}/api/process-card`, {
-            method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: card.title }),
+            method: "POST", headers: { "Content-Type": "application/json", Cookie: `auth_token=${req.cookies.get("auth_token")?.value}` }, body: JSON.stringify({ code: card.title }),
           });
           const processData = await processRes.json();
           if (!processData.success) throw new Error(processData.error || "erro");
@@ -189,10 +175,10 @@ export async function POST(req: NextRequest) {
         if (!franquia) {
           throw new Error("Franquia não encontrada nas fases 1-10 do Pipe 1 — aviso não enviado");
         }
-        const hoje = new Date();
-        const dd = String(hoje.getDate()).padStart(2, "0");
-        const mm = String(hoje.getMonth() + 1).padStart(2, "0");
-        const yyyy = hoje.getFullYear();
+        const hojeBR = toBrazilDate(new Date());
+        const dd = String(hojeBR.day).padStart(2, "0");
+        const mm = String(hojeBR.month + 1).padStart(2, "0");
+        const yyyy = hojeBR.year;
         const dataHoje = `${yyyy}-${mm}-${dd}`;
 
         const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://pipefy-enxoval-git-master-weslleybertoldo-brs-projects.vercel.app";

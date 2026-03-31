@@ -11,6 +11,22 @@ export const PHASE_4_ID = "333848207";
 export const PHASE_5_ID = "333848127";
 export const WESLLEY_USER_ID = "305932218";
 
+// Pipe 1 - fases 1 a 10 (exclui Fase 11 para evitar duplicatas)
+export const PIPE_1_PHASES = [
+  "323044780",  // Backlog
+  "333371452",  // Fase 0
+  "323044781",  // Fase 1
+  "323044783",  // Fase 2
+  "323044784",  // Fase 3
+  "323044785",  // Fase 4
+  "323044786",  // Fase 5
+  "323044787",  // Fase 6
+  "323044796",  // Fase 7
+  "323044844",  // Fase 8
+  "323044836",  // Fase 9
+  "326702699",  // Fase 10
+];
+
 // ========================
 // Query com tratamento de erros e timeout
 // ========================

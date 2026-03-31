@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAuth } from "@/lib/pipefy";
 
 const PIPEFY_API = "https://api.pipefy.com/graphql";
 const PIPEFY_TOKEN = process.env.PIPEFY_TOKEN || "";
@@ -17,6 +18,10 @@ async function pipefyQuery(query: string) {
 }
 
 export async function GET(request: NextRequest) {
+  if (!requireAuth(request.cookies.get("auth_token")?.value)) {
+    return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
+  }
+
   const search = request.nextUrl.searchParams.get("q") || "VIL0004";
 
   // 1. Check phase info
