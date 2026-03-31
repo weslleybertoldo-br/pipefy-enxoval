@@ -222,7 +222,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         {error && <p className="text-red-600 text-sm mb-3">{error}</p>}
-        <WithHelp help="Faz login no sistema com email e senha para acessar o dashboard">
+        <WithHelp help="Faz login no sistema com email e senha para acessar o dashboard" className="relative w-full">
           <button
             onClick={handleLogin}
             disabled={loading || !email || !password}
@@ -1890,7 +1890,7 @@ function FormSuporte() {
           </div>
         )}
 
-        <WithHelp help="Cria card de Suporte Franquias diretamente no Pipefy com os dados preenchidos">
+        <WithHelp help="Cria card de Suporte Franquias diretamente no Pipefy com os dados preenchidos" className="relative w-full">
           <button onClick={handleEnviar} disabled={sending || !codigo.trim()} className="w-full bg-blue-600 text-white py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors">
             {sending ? "Enviando..." : "Enviar Suporte"}
           </button>
@@ -2044,7 +2044,7 @@ function FormAtualizarAnuncio() {
           </div>
         )}
 
-        <WithHelp help="Cria card de atualização de anúncio no Pipefy com os itens para incluir">
+        <WithHelp help="Cria card de atualização de anúncio no Pipefy com os itens para incluir" className="relative w-full">
           <button onClick={handleEnviar} disabled={sending || !codigo.trim() || !itens.trim()} className="w-full bg-green-600 text-white py-3 rounded-md font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
             {sending ? "Enviando..." : "Enviar Atualização de Anúncio"}
           </button>
@@ -2158,7 +2158,7 @@ function FormOcorrencia() {
           </div>
         )}
 
-        <WithHelp help="Cria card de Ocorrência diretamente no Pipefy com os dados e evidência anexada">
+        <WithHelp help="Cria card de Ocorrência diretamente no Pipefy com os dados e evidência anexada" className="relative w-full">
           <button onClick={handleEnviar} disabled={sending || !codigo.trim() || !descricao.trim() || !franquia} className="w-full bg-orange-600 text-white py-3 rounded-md font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors">
             {sending ? "Enviando..." : "Enviar Ocorrência"}
           </button>
