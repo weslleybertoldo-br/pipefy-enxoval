@@ -72,7 +72,7 @@ function filterPendingItems(rawContent: string): string {
   if (!fullText) return "";
 
   const items = fullText.split(";").map((item) => item.trim()).filter(Boolean);
-  const pending = items.filter((item) => !item.startsWith("✅") && !item.startsWith("✔️"));
+  const pending = items.filter((item) => !item.startsWith("✅") && !item.startsWith("✔️") && !item.startsWith("✔"));
   if (pending.length === 0) return "";
   return pending.join(";\n") + ";";
 }
@@ -190,24 +190,31 @@ export async function POST(req: NextRequest) {
     const comments = card.comments || [];
     const lastComment = comments[0];
 
+    if (!lastComment?.text && !customComment) {
+      return NextResponse.json({ error: "Card sem comentário — não é possível atualizar" }, { status: 400 });
+    }
+
     // 2. Calcular nova data (+3 dias uteis a partir de hoje)
     const newDueDate = getNextBusinessDayAt22(3);
     const newDueDateBR = formatDateBR(newDueDate);
 
     // 3. Determinar o comentário final (editado ou gerado)
-    const commentToSend = customComment || (lastComment?.text ? buildNewComment(lastComment.text, newDueDateBR) : null);
+    const commentToSend = customComment || buildNewComment(lastComment.text, newDueDateBR);
 
     // Parsear seções do comentário NOVO (editado), não do original
     const sections = commentToSend ? parseSections(commentToSend) : null;
 
+    const errors: string[] = [];
+
+    async function step(name: string, fn: () => Promise<void>) {
+      try { await fn(); actions.push(name); } catch (e: unknown) { errors.push(`${name}: ${e instanceof Error ? e.message : "erro"}`); }
+    }
+
     // 4. Atualizar tags baseado no comentário editado
     let updatedLabels = (card.labels || []).map((l: any) => l.id) as string[];
-
-    // Sempre adicionar "Imóvel Ativo"
     if (!updatedLabels.includes(IMOVEL_ATIVO_TAG)) updatedLabels.push(IMOVEL_ATIVO_TAG);
 
     if (sections) {
-      // ENXOVAL: ✔️ → remove Comprar/Entregar/Validar enxoval | ❌ → adiciona Validar enxoval
       if (sections.enxoval.status) {
         if (sections.enxoval.status === "❌") {
           if (!updatedLabels.includes(TAG_VALIDAR_ENXOVAL)) updatedLabels.push(TAG_VALIDAR_ENXOVAL);
@@ -215,8 +222,6 @@ export async function POST(req: NextRequest) {
           updatedLabels = updatedLabels.filter((id) => id !== TAG_COMPRAR_ENXOVAL && id !== TAG_ENTREGAR_ENXOVAL && id !== TAG_VALIDAR_ENXOVAL);
         }
       }
-
-      // ITENS: ✔️ → remove Itens pequenos | ❌ → adiciona Itens pequenos
       if (sections.itens.status) {
         if (sections.itens.status === "❌") {
           if (!updatedLabels.includes(TAG_ITENS_PEQUENOS)) updatedLabels.push(TAG_ITENS_PEQUENOS);
@@ -224,8 +229,6 @@ export async function POST(req: NextRequest) {
           updatedLabels = updatedLabels.filter((id) => id !== TAG_ITENS_PEQUENOS);
         }
       }
-
-      // MANUTENÇÃO: ✔️ → remove Manutenções pequenas | ❌ → adiciona Manutenções pequenas
       if (sections.manutencao.status) {
         if (sections.manutencao.status === "❌") {
           if (!updatedLabels.includes(TAG_MANUT_PEQUENAS)) updatedLabels.push(TAG_MANUT_PEQUENAS);
@@ -235,71 +238,73 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const uniqueLabels = [...new Set(updatedLabels)];
-    const labelArray = uniqueLabels.map((id) => `"${id}"`).join(", ");
-    await pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
-    actions.push("Tags atualizadas");
+    await step("Tags atualizadas", () => {
+      const uniqueLabels = [...new Set(updatedLabels)];
+      const labelArray = uniqueLabels.map((id) => `"${id}"`).join(", ");
+      return pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
+    });
 
-    // 5. Atualizar vencimento +3 dias úteis às 22:00
-    await updateDueDate(validId, newDueDate);
-    actions.push(`Vencimento → ${newDueDateBR} 22:00`);
+    // 5. Atualizar vencimento
+    await step(`Vencimento → ${newDueDateBR} 22:00`, () => updateDueDate(validId, newDueDate));
 
     // 6. Adicionar comentário
-    if (commentToSend) {
-      await createComment(validId, commentToSend);
-      actions.push("Comentário adicionado");
-    } else {
-      actions.push("Sem comentário anterior");
-    }
+    await step("Comentário adicionado", () => createComment(validId, commentToSend));
 
-    // 7. Preencher campo obrigatório "Fase 4 - Adequações sinalizadas" → Imóvel ativado
-    await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "fase_4_adequa_es_sinalizadas", new_value: "Imóvel ativado" }) { success } }`);
-    actions.push("Adequações → Imóvel ativado");
+    // 7. Campo obrigatório
+    await step("Adequações → Imóvel ativado", () =>
+      pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "fase_4_adequa_es_sinalizadas", new_value: "Imóvel ativado" }) { success } }`)
+    );
 
     // 8. Mover para Fase 5
-    await pipefyQuery(`mutation { moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${PHASE_5_ID} }) { card { id } } }`);
-    actions.push("Card → Fase 5");
+    await step("Card → Fase 5", () =>
+      pipefyQuery(`mutation { moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${PHASE_5_ID} }) { card { id } } }`)
+    );
 
-    // 9. Preencher campos (após mover para Fase 5, pois são campos dessa fase)
+    // 9. Preencher campos (após mover para Fase 5)
     if (sections) {
       if (sections.enxoval.status) {
         if (sections.enxoval.status === "❌") {
           const escaped = JSON.stringify(sections.enxoval.titleLine).slice(1, -1);
-          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "${escaped}" }) { success } }`);
-          actions.push("Campo enxoval: pendente");
+          await step("Campo enxoval: pendente", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "${escaped}" }) { success } }`)
+          );
         } else {
-          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "ok" }) { success } }`);
-          actions.push("Campo enxoval: ok");
+          await step("Campo enxoval: ok", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "ok" }) { success } }`)
+          );
         }
       }
-
       if (sections.itens.status) {
         if (sections.itens.status === "❌") {
           const escaped = JSON.stringify(sections.itens.content).slice(1, -1);
-          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "${escaped}" }) { success } }`);
-          actions.push("Campo itens: pendentes");
+          await step("Campo itens: pendentes", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "${escaped}" }) { success } }`)
+          );
         } else {
-          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "ok" }) { success } }`);
-          actions.push("Campo itens: ok");
+          await step("Campo itens: ok", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "ok" }) { success } }`)
+          );
         }
       }
-
       if (sections.manutencao.status) {
         if (sections.manutencao.status === "❌") {
           const escaped = JSON.stringify(sections.manutencao.content).slice(1, -1);
-          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "${escaped}" }) { success } }`);
-          actions.push("Campo manutenção: pendentes");
+          await step("Campo manutenção: pendentes", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "${escaped}" }) { success } }`)
+          );
         } else {
-          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "ok" }) { success } }`);
-          actions.push("Campo manutenção: ok");
+          await step("Campo manutenção: ok", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "ok" }) { success } }`)
+          );
         }
       }
     }
 
+    const allDetails = [...actions, ...errors.map((e) => `❌ ${e}`)].join(" | ");
     return NextResponse.json({
-      success: true,
+      success: errors.length === 0,
       action: "updated",
-      details: actions.join(" | "),
+      details: allDetails,
     });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });
