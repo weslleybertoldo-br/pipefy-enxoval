@@ -1092,6 +1092,27 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
   );
 }
 
+function CopyFinalizarSults() {
+  const [copied, setCopied] = useState(false);
+  const text = `Olá Ana,\n\nTodas as pendências desta unidade foram finalizadas.\n\nCom isso, finalizamos a implantação deste imóvel!\n\nMuito obrigado por toda colaboração e boas reservas!`;
+
+  return (
+    <WithHelp help="Copia texto de finalização para enviar no Sults">
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+          });
+        }}
+        className={`px-6 py-3 rounded-md font-medium transition-colors ${copied ? "bg-green-600 text-white" : "bg-purple-500 text-white hover:bg-purple-600"}`}
+      >
+        {copied ? "Copiado!" : "Finalizar Sults"}
+      </button>
+    </WithHelp>
+  );
+}
+
 function TabPhase5() {
   const [cards, setCards] = useState<Phase5Card[]>([]);
   const [loading, setLoading] = useState(false);
@@ -1212,6 +1233,7 @@ function TabPhase5() {
             </button>
           </WithHelp>
           <CopyFupButton days={3} template="fase5" />
+          <CopyFinalizarSults />
         </div>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </section>
