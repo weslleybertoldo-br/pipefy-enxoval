@@ -501,6 +501,62 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
 
+  // Estados para Fase 4 Ativos
+  const [ativosCards, setAtivosCards] = useState<{ id: string; title: string; due_date: string | null; dueFormatted: string; assignees: string[]; labels: string[]; lastComment: string; lastCommentAuthor: string; lastCommentDate: string }[]>([]);
+  const [ativosLoading, setAtivosLoading] = useState(false);
+  const [ativosUpdating, setAtivosUpdating] = useState<string | null>(null);
+  const [ativosStatuses, setAtivosStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
+
+  const loadAtivos = async () => {
+    setAtivosLoading(true);
+    setAtivosCards([]);
+    setAtivosStatuses({});
+    try {
+      const res = await fetch("/api/update-cards-phase4-ativos");
+      const data = await res.json();
+      if (data.success) {
+        setAtivosCards(data.cards);
+      } else {
+        setError(data.error || "Erro ao carregar ativos");
+      }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setAtivosLoading(false);
+    }
+  };
+
+  const updateAtivo = async (cardId: string) => {
+    setAtivosUpdating(cardId);
+    try {
+      const res = await fetch("/api/update-cards-phase4-ativos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId }),
+      });
+      const data = await res.json();
+      if (data.success && data.action === "updated") {
+        setAtivosStatuses((prev) => ({ ...prev, [cardId]: { status: "updated", message: data.details } }));
+      } else {
+        setAtivosStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: data.error || data.details || "Erro" } }));
+      }
+    } catch {
+      setAtivosStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setAtivosUpdating(null);
+    }
+  };
+
+  const formatAtivosCommentDate = (dateStr: string) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    const dd = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const hh = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dd}/${mm} ${hh}:${min}`;
+  };
+
   const searchCard = async () => {
     if (!searchCode.trim()) return;
     setSearching(true);
@@ -654,6 +710,18 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
           )}
 
           {showCopyButton && <CopyFupButton days={2} />}
+
+          {showCopyButton && (
+            <WithHelp help="Busca cards da Fase 4 que já estão na Fase 9 ou 10 do Pipe 1 (imóvel ativo). Mostra com opção de atualizar comentário e campos">
+              <button
+                onClick={loadAtivos}
+                disabled={ativosLoading}
+                className="bg-green-600 text-white px-6 py-3 rounded-md font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+              >
+                {ativosLoading ? "Buscando..." : "Fase 4 Ativos"}
+              </button>
+            </WithHelp>
+          )}
         </div>
 
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
@@ -741,6 +809,59 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
               </div>
             ))}
           </div>
+        </section>
+      )}
+
+      {/* Lista de cards Fase 4 Ativos */}
+      {ativosCards.length > 0 && (
+        <section className="space-y-3 mt-6">
+          <h2 className="text-lg font-semibold mb-3">Fase 4 Ativos ({ativosCards.length} cards)</h2>
+          {ativosCards.map((c) => {
+            const cardStatus = ativosStatuses[c.id];
+            const isUpdating = ativosUpdating === c.id;
+            return (
+              <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-blue-500"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <CopyableCode code={c.title} className="text-base" />
+                    <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
+                    {c.assignees.length > 0 && (
+                      <span className="text-xs text-gray-400 ml-3">{c.assignees.join(", ")}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
+                    {cardStatus?.status === "error" && <span className="text-red-600 text-xs">{cardStatus.message}</span>}
+                    <button
+                      onClick={() => updateAtivo(c.id)}
+                      disabled={isUpdating || ativosUpdating !== null}
+                      className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+                    >
+                      {isUpdating ? "Atualizando..." : "Atualizar Ativo"}
+                    </button>
+                  </div>
+                </div>
+                {c.labels.length > 0 && (
+                  <div className="flex gap-1 mb-3">
+                    {c.labels.map((l) => (
+                      <span key={l} className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{l}</span>
+                    ))}
+                  </div>
+                )}
+                {c.lastComment ? (
+                  <div className="bg-gray-50 rounded-md p-3 border border-gray-200">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-medium text-gray-700">{c.lastCommentAuthor}</span>
+                      <span className="text-[10px] text-gray-400">{formatAtivosCommentDate(c.lastCommentDate)}</span>
+                    </div>
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed">{c.lastComment}</pre>
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400">Sem comentários</p>
+                )}
+              </div>
+            );
+          })}
         </section>
       )}
     </>
