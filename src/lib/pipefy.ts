@@ -252,7 +252,8 @@ export function requireAuth(cookieValue: string | undefined): boolean {
     const signature = parts.pop()!;
     const payload = parts.join(":");
     const expected = createHmac("sha256", secret).update(payload).digest("hex");
-    if (signature !== expected) return false;
+    const { timingSafeEqual } = require("crypto");
+    if (!timingSafeEqual(Buffer.from(signature), Buffer.from(expected))) return false;
     // Verificar expiração (24h)
     const timestamp = parseInt(parts[1]);
     if (isNaN(timestamp) || Date.now() - timestamp > 24 * 60 * 60 * 1000) return false;

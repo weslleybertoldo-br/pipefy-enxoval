@@ -25,8 +25,11 @@ export async function POST(req: NextRequest) {
 
     const esc = (s: string) => JSON.stringify(s).slice(1, -1);
 
-    // Upload do arquivo se existir
+    // Upload do arquivo se existir (max 10MB)
     let filePath = "";
+    if (file && file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: "Arquivo muito grande (máximo 10MB)" }, { status: 400 });
+    }
     if (file && file.size > 0) {
       // 1. Criar presigned URL
       const presignedResult = await pipefyQuery(`mutation {

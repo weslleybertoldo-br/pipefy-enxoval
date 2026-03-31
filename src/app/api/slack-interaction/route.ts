@@ -5,7 +5,12 @@ const SLACK_TOKEN = process.env.SLACK_BOT_TOKEN || "";
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
-    const payload = JSON.parse(formData.get("payload") as string);
+    const payloadStr = formData.get("payload");
+    if (!payloadStr || typeof payloadStr !== "string") {
+      return new NextResponse("", { status: 400 });
+    }
+
+    const payload = JSON.parse(payloadStr);
 
     if (payload.type === "block_actions") {
       const action = payload.actions?.[0];
@@ -13,10 +18,15 @@ export async function POST(req: NextRequest) {
       if (action?.action_id === "despesa_lancada") {
         const channelId = payload.channel?.id;
         const threadTs = payload.message?.ts;
-        const userId = action.value; // Weslley user ID
+        const userId = action.value;
+
+        // Validar userId formato Slack
+        if (!userId || !/^U[A-Z0-9]+$/i.test(userId)) {
+          return new NextResponse("", { status: 200 });
+        }
 
         // Responder na thread
-        await fetch("https://slack.com/api/chat.postMessage", {
+        const replyRes = await fetch("https://slack.com/api/chat.postMessage", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${SLACK_TOKEN}`,
@@ -28,8 +38,10 @@ export async function POST(req: NextRequest) {
             text: `<@${userId}> a despesa foi lançada, o card foi finalizado :happygoat:`,
           }),
         });
+        const replyData = await replyRes.json();
+        if (!replyData.ok) console.error("Slack reply error:", replyData.error);
 
-        // Remover o botão da mensagem original (atualizar removendo o bloco de ações)
+        // Remover o botão da mensagem original
         const originalBlocks = payload.message?.blocks || [];
         const blocksWithoutButton = originalBlocks.filter((b: any) => b.type !== "actions");
         blocksWithoutButton.push({
@@ -37,7 +49,7 @@ export async function POST(req: NextRequest) {
           elements: [{ type: "mrkdwn", text: "✅ _Despesa lançada_" }],
         });
 
-        await fetch("https://slack.com/api/chat.update", {
+        const updateRes = await fetch("https://slack.com/api/chat.update", {
           method: "POST",
           headers: {
             Authorization: `Bearer ${SLACK_TOKEN}`,
@@ -50,6 +62,8 @@ export async function POST(req: NextRequest) {
             text: "Lançamento de despesa - finalizado",
           }),
         });
+        const updateData = await updateRes.json();
+        if (!updateData.ok) console.error("Slack update error:", updateData.error);
       }
     }
 
