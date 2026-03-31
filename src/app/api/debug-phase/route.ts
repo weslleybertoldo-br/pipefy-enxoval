@@ -66,11 +66,7 @@ export async function GET(request: NextRequest) {
 
   const pipeResult = await pipefyQuery(pipeQuery);
 
-  // Buscar fields da Fase 4
-  const phase4Fields = await pipefyQuery(`{ phase(id: 333848207) { fields { id label } } }`);
-
   return NextResponse.json({
-    phase4_fields: phase4Fields?.data?.phase?.fields || [],
     phase_5_id: PHASE_5_ID,
     phase_info: phaseResult.data?.phase ? {
       id: phaseResult.data.phase.id,

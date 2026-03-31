@@ -867,7 +867,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                     {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
                     {cardStatus?.status === "error" && <span className="text-red-600 text-xs">{cardStatus.message}</span>}
                     {!cardStatus && (
-                      <WithHelp help="1. Abre editor com comentário atualizado (editável antes de enviar)~2. Adiciona tag 'Imóvel Ativo'~3. Atualiza vencimento +3 dias úteis às 22:00~4. Envia o comentário editado~5. Move o card para Fase 5~6. Preenche campos na Fase 5: Validação Enxoval, Itens faltantes, Manutenções pendentes (após mover, pois são campos da Fase 5)">
+                      <WithHelp help="1. Abre editor com comentário atualizado (editável antes de enviar)~2. Adiciona tag 'Imóvel Ativo'~3. Atualiza vencimento +3 dias úteis às 22:00~4. Envia o comentário editado~5. Preenche campo 'Adequações sinalizadas' → Imóvel ativado~6. Move o card para Fase 5~7. Preenche campos na Fase 5: Validação Enxoval, Itens faltantes, Manutenções pendentes">
                         <button
                           onClick={() => openAtivoEditor(c.id)}
                           disabled={ativosUpdating !== null}
@@ -894,7 +894,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                       </div>
                       <textarea value={ativoCommentText} onChange={(e) => setAtivoCommentText(e.target.value)} rows={25} className="w-full border border-green-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-green-500" />
                       <div className="flex gap-2 mt-4">
-                        <WithHelp help="1. Adiciona tag 'Imóvel Ativo'~2. Atualiza vencimento +3 dias úteis às 22:00~3. Envia o comentário editado~4. Move o card para Fase 5~5. Preenche campos: Validação Enxoval, Itens faltantes, Manutenções pendentes (após mover, pois são campos da Fase 5)">
+                        <WithHelp help="1. Adiciona tag 'Imóvel Ativo'~2. Atualiza vencimento +3 dias úteis às 22:00~3. Envia o comentário editado~4. Preenche campo 'Adequações sinalizadas' → Imóvel ativado~5. Move o card para Fase 5~6. Preenche campos na Fase 5: Validação Enxoval, Itens faltantes, Manutenções pendentes">
                           <button onClick={sendAtivoComment} disabled={ativosUpdating !== null} className="bg-green-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
                             {isUpdating ? "Enviando..." : "Enviar e mover para Fase 5"}
                           </button>

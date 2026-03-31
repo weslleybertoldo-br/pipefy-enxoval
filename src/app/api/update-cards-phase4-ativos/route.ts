@@ -196,11 +196,15 @@ export async function POST(req: NextRequest) {
       actions.push("Sem comentário anterior");
     }
 
-    // 7. Mover para Fase 5
+    // 7. Preencher campo obrigatório "Fase 4 - Adequações sinalizadas" → Imóvel ativado
+    await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "fase_4_adequa_es_sinalizadas", new_value: "Imóvel ativado" }) { success } }`);
+    actions.push("Adequações → Imóvel ativado");
+
+    // 8. Mover para Fase 5
     await pipefyQuery(`mutation { moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${PHASE_5_ID} }) { card { id } } }`);
     actions.push("Card → Fase 5");
 
-    // 8. Preencher campos (após mover para Fase 5, pois são campos dessa fase)
+    // 9. Preencher campos (após mover para Fase 5, pois são campos dessa fase)
     if (sections) {
       if (sections.enxoval.status === "❌") {
         const enxovalLine = lastComment.text.split("\n").find((l: string) => l.trim().match(/^❌\s*ENXOVAL/i)) || "";
