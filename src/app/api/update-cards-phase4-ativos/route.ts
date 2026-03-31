@@ -9,6 +9,13 @@ const PIPE_1_PHASE_9 = "323044836";
 const PIPE_1_PHASE_10 = "326702699";
 const IMOVEL_ATIVO_TAG = "314317045";
 
+// Tags de enxoval/itens/manutenção
+const TAG_COMPRAR_ENXOVAL = "310425316";
+const TAG_ENTREGAR_ENXOVAL = "310938829";
+const TAG_VALIDAR_ENXOVAL = "310959732";
+const TAG_ITENS_PEQUENOS = "310938809";
+const TAG_MANUT_PEQUENAS = "310938821";
+
 // GET: Lista cards da Fase 4 que tambem existem na Fase 9 ou 10 do Pipe 1
 export async function GET(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {
@@ -193,15 +200,45 @@ export async function POST(req: NextRequest) {
     // Parsear seções do comentário NOVO (editado), não do original
     const sections = commentToSend ? parseSections(commentToSend) : null;
 
-    // 4. Adicionar tag "Imóvel Ativo" mantendo as existentes
-    const currentLabels = (card.labels || []).map((l: any) => l.id);
-    if (!currentLabels.includes(IMOVEL_ATIVO_TAG)) {
-      currentLabels.push(IMOVEL_ATIVO_TAG);
+    // 4. Atualizar tags baseado no comentário editado
+    let updatedLabels = (card.labels || []).map((l: any) => l.id) as string[];
+
+    // Sempre adicionar "Imóvel Ativo"
+    if (!updatedLabels.includes(IMOVEL_ATIVO_TAG)) updatedLabels.push(IMOVEL_ATIVO_TAG);
+
+    if (sections) {
+      // ENXOVAL: ✔️ → remove Comprar/Entregar/Validar enxoval | ❌ → adiciona Validar enxoval
+      if (sections.enxoval.status) {
+        if (sections.enxoval.status === "❌") {
+          if (!updatedLabels.includes(TAG_VALIDAR_ENXOVAL)) updatedLabels.push(TAG_VALIDAR_ENXOVAL);
+        } else {
+          updatedLabels = updatedLabels.filter((id) => id !== TAG_COMPRAR_ENXOVAL && id !== TAG_ENTREGAR_ENXOVAL && id !== TAG_VALIDAR_ENXOVAL);
+        }
+      }
+
+      // ITENS: ✔️ → remove Itens pequenos | ❌ → adiciona Itens pequenos
+      if (sections.itens.status) {
+        if (sections.itens.status === "❌") {
+          if (!updatedLabels.includes(TAG_ITENS_PEQUENOS)) updatedLabels.push(TAG_ITENS_PEQUENOS);
+        } else {
+          updatedLabels = updatedLabels.filter((id) => id !== TAG_ITENS_PEQUENOS);
+        }
+      }
+
+      // MANUTENÇÃO: ✔️ → remove Manutenções pequenas | ❌ → adiciona Manutenções pequenas
+      if (sections.manutencao.status) {
+        if (sections.manutencao.status === "❌") {
+          if (!updatedLabels.includes(TAG_MANUT_PEQUENAS)) updatedLabels.push(TAG_MANUT_PEQUENAS);
+        } else {
+          updatedLabels = updatedLabels.filter((id) => id !== TAG_MANUT_PEQUENAS);
+        }
+      }
     }
-    const uniqueLabels = [...new Set(currentLabels)] as string[];
+
+    const uniqueLabels = [...new Set(updatedLabels)];
     const labelArray = uniqueLabels.map((id) => `"${id}"`).join(", ");
     await pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
-    actions.push("Tag Imóvel Ativo adicionada");
+    actions.push("Tags atualizadas");
 
     // 5. Atualizar vencimento +3 dias úteis às 22:00
     await updateDueDate(validId, newDueDate);
