@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  pipefyQuery, fetchAllCardsFromPhase, updateDueDate, createComment,
+  pipefyQuery, fetchAllCardsFromPhase, updateDueDate, updateAssignee, createComment,
   validateCardId, toBrazilDate, formatDateBR, isDueToday, getNextBusinessDayAt22,
-  replaceCommentFupDate, requireAuth, PHASE_3_ID,
+  replaceCommentFupDate, requireAuth, PHASE_3_ID, PHASE_4_ID, WESLLEY_USER_ID,
 } from "@/lib/pipefy";
+
+const TAG_ADEQUACAO_COMPLEXA = "314328534";
+const TAG_ITENS_PEQUENOS = "310938809";
+const TAG_MANUTENCOES_PEQUENAS = "310938821";
 
 function normalize(str: string): string {
   return str.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -72,11 +76,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { cardId, type, customComment } = await req.json();
+    const { cardId, type, customComment, isComplexa, addItensPequenos, addManutencoesPequenas } = await req.json();
     const validId = validateCardId(cardId);
 
     if (type === "complexa") {
-      // +1 dia útil, replica último comentário com FUP atualizado
       const newDueDate = getNextBusinessDayAt22(1);
       const newDueDateBR = formatDateBR(newDueDate);
       const actions: string[] = [];
@@ -84,9 +87,8 @@ export async function POST(req: NextRequest) {
       await updateDueDate(validId, newDueDate);
       actions.push(`Vencimento → ${newDueDateBR} 22:00`);
 
-      // Buscar card para pegar último comentário
       const result = await pipefyQuery(`{
-        card(id: ${validId}) { id title comments { id text } }
+        card(id: ${validId}) { id title labels { id } comments { id text } }
       }`);
       const card = result?.data?.card;
       const comments = card?.comments || [];
@@ -102,17 +104,79 @@ export async function POST(req: NextRequest) {
     }
 
     if (type === "revisao") {
-      // +2 dias úteis, comentário customizado
-      const newDueDate = getNextBusinessDayAt22(2);
-      const newDueDateBR = formatDateBR(newDueDate);
       const actions: string[] = [];
 
-      await updateDueDate(validId, newDueDate);
-      actions.push(`Vencimento → ${newDueDateBR} 22:00`);
+      // Buscar card para labels
+      const result = await pipefyQuery(`{
+        card(id: ${validId}) { id title labels { id } comments { id text } }
+      }`);
+      const card = result?.data?.card;
+      const currentLabels: string[] = (card?.labels || []).map((l: any) => l.id);
 
-      if (customComment) {
-        await createComment(validId, customComment);
-        actions.push("Comentário customizado adicionado");
+      // 1. Mudar responsável para Weslley
+      await updateAssignee(validId, WESLLEY_USER_ID);
+      actions.push("Responsável → Weslley");
+
+      if (isComplexa) {
+        // Complexa: +1 dia, tag adequação complexa, não muda de fase
+        const newDueDate = getNextBusinessDayAt22(1);
+        const newDueDateBR = formatDateBR(newDueDate);
+
+        await updateDueDate(validId, newDueDate);
+        actions.push(`Vencimento → ${newDueDateBR} 22:00`);
+
+        // Adicionar tags
+        const newLabels = [...new Set([...currentLabels, TAG_ADEQUACAO_COMPLEXA])];
+        if (addItensPequenos) newLabels.push(TAG_ITENS_PEQUENOS);
+        if (addManutencoesPequenas) newLabels.push(TAG_MANUTENCOES_PEQUENAS);
+        const uniqueLabels = [...new Set(newLabels)];
+        const labelArray = uniqueLabels.map((id) => `"${id}"`).join(", ");
+        await pipefyQuery(`mutation {
+          updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } }
+        }`);
+        actions.push("Tag Adequação Complexa adicionada");
+        if (addItensPequenos) actions.push("Tag Itens pequenos");
+        if (addManutencoesPequenas) actions.push("Tag Manutenções pequenas");
+
+        // Comentário com FUP do dia seguinte
+        if (customComment) {
+          await createComment(validId, customComment);
+          actions.push("Comentário adicionado");
+        }
+      } else {
+        // Normal: +2 dias, mover para fase 4
+        const newDueDate = getNextBusinessDayAt22(2);
+        const newDueDateBR = formatDateBR(newDueDate);
+
+        await updateDueDate(validId, newDueDate);
+        actions.push(`Vencimento → ${newDueDateBR} 22:00`);
+
+        // Adicionar tags se marcadas
+        const newLabels = [...currentLabels];
+        if (addItensPequenos && !newLabels.includes(TAG_ITENS_PEQUENOS)) newLabels.push(TAG_ITENS_PEQUENOS);
+        if (addManutencoesPequenas && !newLabels.includes(TAG_MANUTENCOES_PEQUENAS)) newLabels.push(TAG_MANUTENCOES_PEQUENAS);
+        if (newLabels.length !== currentLabels.length) {
+          const labelArray = newLabels.map((id) => `"${id}"`).join(", ");
+          await pipefyQuery(`mutation {
+            updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } }
+          }`);
+          if (addItensPequenos) actions.push("Tag Itens pequenos");
+          if (addManutencoesPequenas) actions.push("Tag Manutenções pequenas");
+        }
+
+        // Comentário customizado
+        if (customComment) {
+          await createComment(validId, customComment);
+          actions.push("Comentário adicionado");
+        }
+
+        // Mover para Fase 4
+        await pipefyQuery(`mutation {
+          moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${PHASE_4_ID} }) {
+            card { id current_phase { name } }
+          }
+        }`);
+        actions.push("Card → Fase 4");
       }
 
       return NextResponse.json({ success: true, action: "updated", details: actions.join(" | ") });

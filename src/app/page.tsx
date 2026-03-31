@@ -1037,6 +1037,9 @@ function TabRevisao() {
   const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
   const [editingComment, setEditingComment] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
+  const [isComplexaChecked, setIsComplexaChecked] = useState(false);
+  const [addItensPequenos, setAddItensPequenos] = useState(false);
+  const [addManutencoesPequenas, setAddManutencoesPequenas] = useState(false);
   const [summary, setSummary] = useState<{ complexaCount: number; revisaoCount: number } | null>(null);
 
   const loadCards = async () => {
@@ -1082,11 +1085,11 @@ function TabRevisao() {
   };
 
   const openRevisaoEditor = (cardId: string) => {
-    // Calcular FUP +2 dias úteis
+    const days = isComplexaChecked ? 1 : 2;
     const now = new Date();
     let added = 0;
     const next = new Date(now);
-    while (added < 2) {
+    while (added < days) {
       next.setDate(next.getDate() + 1);
       if (next.getDay() !== 0 && next.getDay() !== 6) added++;
     }
@@ -1105,7 +1108,7 @@ function TabRevisao() {
       const res = await fetch("/api/update-cards-revisao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId: editingComment, type: "revisao", customComment: commentText }),
+        body: JSON.stringify({ cardId: editingComment, type: "revisao", customComment: commentText, isComplexa: isComplexaChecked, addItensPequenos, addManutencoesPequenas }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1169,9 +1172,12 @@ function TabRevisao() {
               return (
                 <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-orange-500"}`}>
                   <div className="flex items-center justify-between mb-3">
-                    <div>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <CopyableCode code={c.title} className="text-base" />
-                      <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
+                      <span className="text-xs text-gray-500">Vencimento: {c.dueFormatted}</span>
+                      {c.labels.map((l) => (
+                        <span key={l} className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{l}</span>
+                      ))}
                     </div>
                     <div className="flex items-center gap-2">
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
@@ -1208,16 +1214,35 @@ function TabRevisao() {
               return (
                 <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-purple-500"}`}>
                   <div className="flex items-center justify-between mb-3">
-                    <div>
+                    <div className="flex items-center gap-2 flex-wrap">
                       <CopyableCode code={c.title} className="text-base" />
-                      <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
+                      <span className="text-xs text-gray-500">Vencimento: {c.dueFormatted}</span>
+                      {c.labels.map((l) => (
+                        <span key={l} className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{l}</span>
+                      ))}
                     </div>
                     <div className="flex items-center gap-2">
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
                       {!isEditing && !cardStatus && (
-                        <button onClick={() => openRevisaoEditor(c.id)} disabled={updatingCard !== null} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
-                          Atualizar comentário
-                        </button>
+                        <>
+                          <button onClick={() => openRevisaoEditor(c.id)} disabled={updatingCard !== null} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                            Atualizar comentário
+                          </button>
+                          <div className="flex flex-col gap-0.5">
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" checked={isComplexaChecked} onChange={(e) => setIsComplexaChecked(e.target.checked)} className="w-3 h-3 accent-orange-600" />
+                              <span className="text-[10px] text-gray-500">Complexa</span>
+                            </label>
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" checked={addItensPequenos} onChange={(e) => setAddItensPequenos(e.target.checked)} className="w-3 h-3 accent-blue-600" />
+                              <span className="text-[10px] text-gray-500">Itens peq.</span>
+                            </label>
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" checked={addManutencoesPequenas} onChange={(e) => setAddManutencoesPequenas(e.target.checked)} className="w-3 h-3 accent-blue-600" />
+                              <span className="text-[10px] text-gray-500">Manut. peq.</span>
+                            </label>
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
