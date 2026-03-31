@@ -107,7 +107,8 @@ export async function GET(req: NextRequest) {
       if (status !== "pendente") continue;
 
       const tags = pipe0Tags.get(c.title?.toUpperCase()) || [];
-      const hasEnxovalComprado = tags.some((t) => t.toUpperCase().includes("ENXOVAL COMPRADO"));
+      const hasEnxovalComprado = tags.some((t) => t.toUpperCase() === "ENXOVAL COMPRADO");
+      const hasCompraPropria = tags.some((t) => t.toUpperCase().includes("ENXOVAL COMPRA PR") || t.toUpperCase().includes("COMPRA PRÓPRIA"));
 
       results.push({
         id: c.id,
@@ -115,6 +116,8 @@ export async function GET(req: NextRequest) {
         lastComment,
         tags,
         hasEnxovalComprado,
+        hasCompraPropria,
+        enxovalType: hasCompraPropria ? "propria" : hasEnxovalComprado ? "comprado" : "pendente",
       });
     }
 
@@ -128,16 +131,15 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Atualizar enxoval para "COMPRADO - PP CSO"
+// POST: Atualizar enxoval (duas situações: COMPRADO PP CSO ou PROP COMPROU POR CONTA PRÓPRIA)
 export async function POST(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { code } = await req.json();
+    const { code, enxovalType } = await req.json();
     if (!code) return NextResponse.json({ error: "Código obrigatório" }, { status: 400 });
 
-    // Buscar card no Pipe 2
     const pipe2Card = await getCardFromPipe2(code);
     if (!pipe2Card) {
       return NextResponse.json({ error: `Card "${code}" não encontrado no Pipe 2` }, { status: 404 });
@@ -146,11 +148,16 @@ export async function POST(req: NextRequest) {
     const cardId = validateCardId(pipe2Card.id);
     const actions: string[] = [];
 
-    // 1. Atualizar comentário: trocar qualquer "❌ ENXOVAL..." por "❌ ENXOVAL: COMPRADO - PP CSO"
+    // Determinar texto baseado no tipo
+    const enxovalText = enxovalType === "propria"
+      ? "❌ ENXOVAL: PROP COMPROU POR CONTA PRÓPRIA"
+      : "❌ ENXOVAL: COMPRADO - PP CSO";
+
+    // 1. Atualizar comentário
     if (pipe2Card.lastComment) {
       const newComment = pipe2Card.lastComment.replace(
         /❌\s*ENXOVAL[^\n]*/gi,
-        "❌ ENXOVAL: COMPRADO - PP CSO"
+        enxovalText
       );
       await createComment(cardId, newComment);
       actions.push("Comentário atualizado");
@@ -161,10 +168,10 @@ export async function POST(req: NextRequest) {
       updateCardField(input: {
         card_id: ${cardId}
         field_id: "valida_o_enxoval"
-        new_value: "❌ ENXOVAL: COMPRADO - PP CSO"
+        new_value: "${enxovalText}"
       }) { success }
     }`);
-    actions.push("Campo Validação Enxoval atualizado");
+    actions.push(`Validação Enxoval → ${enxovalText}`);
 
     return NextResponse.json({ success: true, cardId, details: actions.join(" | ") });
   } catch (err: unknown) {

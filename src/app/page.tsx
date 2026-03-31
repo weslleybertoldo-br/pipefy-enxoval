@@ -1946,6 +1946,8 @@ interface EnxovalCsoCard {
   lastComment: string;
   tags: string[];
   hasEnxovalComprado: boolean;
+  hasCompraPropria: boolean;
+  enxovalType: "comprado" | "propria" | "pendente";
 }
 
 function TabEnxovalCso() {
@@ -1974,13 +1976,13 @@ function TabEnxovalCso() {
     }
   };
 
-  const updateCard = async (code: string) => {
+  const updateCard = async (code: string, enxovalType: string) => {
     setUpdatingCard(code);
     try {
       const res = await fetch("/api/enxoval-cso", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, enxovalType }),
       });
       const data = await res.json();
       if (data.success) {
@@ -2016,38 +2018,28 @@ function TabEnxovalCso() {
             return (
               <div key={c.id} className={`bg-white rounded-lg shadow p-5 border-l-4 ${cardStatus?.status === "updated" ? "border-l-green-500" : cardStatus?.status === "error" ? "border-l-red-500" : "border-l-red-400"}`}>
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <CopyableCode code={c.title} className="text-base" />
                     <span className="text-xs text-red-500 font-medium">❌ ENXOVAL pendente</span>
+                    {c.tags.map((t) => (
+                      <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded ${t.toUpperCase().includes("ENXOVAL") ? "bg-green-200 text-green-800" : "bg-gray-200"}`}>{t}</span>
+                    ))}
                   </div>
                   <div className="flex items-center gap-3">
-                    {/* Tags do Pipe 0 */}
-                    {c.hasEnxovalComprado && (
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded font-medium">ENXOVAL COMPRADO</span>
-                    )}
                     {cardStatus && (
                       <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>
                     )}
                     {!cardStatus && (
                       <button
-                        onClick={() => updateCard(c.title)}
+                        onClick={() => updateCard(c.title, c.enxovalType)}
                         disabled={isUpdating || updatingCard !== null}
                         className="bg-orange-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-orange-700 disabled:opacity-50 transition-colors whitespace-nowrap"
                       >
-                        {isUpdating ? "Atualizando..." : "Marcar COMPRADO CSO"}
+                        {isUpdating ? "Atualizando..." : "Atualizar Info Enxoval"}
                       </button>
                     )}
                   </div>
                 </div>
-
-                {/* Tags */}
-                {c.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {c.tags.map((t) => (
-                      <span key={t} className={`text-[10px] px-1.5 py-0.5 rounded ${t.toUpperCase().includes("ENXOVAL") ? "bg-green-200 text-green-800" : "bg-gray-200"}`}>{t}</span>
-                    ))}
-                  </div>
-                )}
 
                 {/* Último comentário */}
                 {c.lastComment && (
