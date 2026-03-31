@@ -5,6 +5,29 @@ import {
   replaceCommentFupDate, requireAuth, PHASE_3_ID, PHASE_4_ID, WESLLEY_USER_ID,
 } from "@/lib/pipefy";
 
+const SLACK_TOKEN = process.env.SLACK_BOT_TOKEN || "";
+const BRUNO_ID = "U05AKADK9EY";
+
+async function sendSlackDM(userId: string, text: string) {
+  // Abrir conversa DM
+  const openRes = await fetch("https://slack.com/api/conversations.open", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${SLACK_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ users: userId }),
+  });
+  const openData = await openRes.json();
+  if (!openData.ok) throw new Error(`Slack open: ${openData.error}`);
+
+  // Enviar mensagem
+  const msgRes = await fetch("https://slack.com/api/chat.postMessage", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${SLACK_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ channel: openData.channel.id, text }),
+  });
+  const msgData = await msgRes.json();
+  if (!msgData.ok) throw new Error(`Slack msg: ${msgData.error}`);
+}
+
 const TAG_ADEQUACAO_COMPLEXA = "314328534";
 const TAG_ITENS_PEQUENOS = "310938809";
 const TAG_MANUTENCOES_PEQUENAS = "310938821";
@@ -158,6 +181,16 @@ export async function POST(req: NextRequest) {
       if (customComment) {
         await createComment(validId, customComment);
         actions.push("Comentário atualizado");
+      }
+
+      // Enviar DM no Slack para Bruno (somente quando Complexa desmarcado → card vai para Fase 4)
+      if (!isComplexa && SLACK_TOKEN && card?.title) {
+        try {
+          await sendSlackDM(BRUNO_ID, `${card.title} - Liberado ✅`);
+          actions.push("Slack DM → Bruno");
+        } catch (e: unknown) {
+          actions.push(`Slack DM erro: ${e instanceof Error ? e.message : "erro"}`);
+        }
       }
 
       return NextResponse.json({ success: true, action: "updated", details: actions.join(" | ") });
