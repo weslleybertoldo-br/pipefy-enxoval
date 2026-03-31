@@ -1236,7 +1236,27 @@ function TabRevisao() {
                       </button>
                       {!cardStatus && (
                         <>
-                          <button onClick={() => { setEditingComplexaComment(editingComplexaComment === c.id ? null : c.id); setComplexaCommentText(c.lastComment); }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
+                          <button onClick={() => {
+                            if (editingComplexaComment === c.id) {
+                              setEditingComplexaComment(null);
+                            } else {
+                              const opts = getCardOpts(c.id);
+                              const days = opts.complexa ? 1 : 2;
+                              const now = new Date();
+                              let added = 0;
+                              const next = new Date(now);
+                              while (added < days) {
+                                next.setDate(next.getDate() + 1);
+                                if (next.getDay() !== 0 && next.getDay() !== 6) added++;
+                              }
+                              const dd = String(next.getDate()).padStart(2, "0");
+                              const mm = String(next.getMonth() + 1).padStart(2, "0");
+                              const fupDate = `${dd}/${mm}`;
+                              const updatedComment = (c.lastComment || "").replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`);
+                              setEditingComplexaComment(c.id);
+                              setComplexaCommentText(updatedComment);
+                            }
+                          }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
                             Atualizar Comentário
                           </button>
                           <div className="flex flex-col gap-0.5">
