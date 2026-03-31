@@ -1,11 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHmac, timingSafeEqual } from "crypto";
 
 const SLACK_TOKEN = process.env.SLACK_BOT_TOKEN || "";
+const SIGNING_SECRET = process.env.SLACK_SIGNING_SECRET || "";
+
+function verifySlackSignature(body: string, timestamp: string, signature: string): boolean {
+  if (!SIGNING_SECRET) return false;
+  // Rejeitar requests com mais de 5 minutos (previne replay attacks)
+  if (Math.abs(Date.now() / 1000 - parseInt(timestamp)) > 300) return false;
+  const baseString = `v0:${timestamp}:${body}`;
+  const expected = "v0=" + createHmac("sha256", SIGNING_SECRET).update(baseString).digest("hex");
+  if (expected.length !== signature.length) return false;
+  return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const formData = await req.formData();
-    const payloadStr = formData.get("payload");
+    // Verificar assinatura do Slack
+    const rawBody = await req.text();
+    const timestamp = req.headers.get("x-slack-request-timestamp") || "";
+    const signature = req.headers.get("x-slack-signature") || "";
+    if (!verifySlackSignature(rawBody, timestamp, signature)) {
+      return new NextResponse("Unauthorized", { status: 401 });
+    }
+
+    const params = new URLSearchParams(rawBody);
+    const payloadStr = params.get("payload");
     if (!payloadStr || typeof payloadStr !== "string") {
       return new NextResponse("", { status: 400 });
     }
