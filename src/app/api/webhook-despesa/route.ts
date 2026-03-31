@@ -21,7 +21,7 @@ async function sendSlackMessage(text: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Verificar token secreto (header Authorization ou query param como fallback)
+    // Verificar token secreto (obrigatório)
     const webhookSecret = process.env.WEBHOOK_SECRET;
     if (!webhookSecret) {
       return NextResponse.json({ error: "WEBHOOK_SECRET não configurado" }, { status: 500 });
