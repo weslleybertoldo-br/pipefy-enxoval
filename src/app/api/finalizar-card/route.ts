@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, validateCardId, createComment, requireAuth, PHASE_5_ID } from "@/lib/pipefy";
+import { pipefyQuery, validateCardId, createComment, updateDueDate, getNextBusinessDayAt22, formatDateBR, requireAuth, PHASE_5_ID } from "@/lib/pipefy";
 
 const CONCLUDED_PHASE_ID = "323315793";
 
@@ -151,7 +151,12 @@ export async function POST(req: NextRequest) {
       }`);
       actions.push("Despesa → Fluxo aberto");
 
-      // 12. Mover para Concluídos
+      // 12. Atualizar vencimento para próximo dia útil 22:00
+      const newDueDate = getNextBusinessDayAt22(1);
+      await updateDueDate(validId, newDueDate);
+      actions.push(`Vencimento → ${formatDateBR(newDueDate)} 22:00`);
+
+      // 13. Mover para Concluídos
       await pipefyQuery(`mutation {
         moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${CONCLUDED_PHASE_ID} }) {
           card { id current_phase { name } }
