@@ -21,13 +21,15 @@ async function sendSlackMessage(text: string) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Verificar token secreto no query param
+    // Verificar token secreto (header Authorization ou query param como fallback)
     const webhookSecret = process.env.WEBHOOK_SECRET;
-    if (webhookSecret) {
-      const url = new URL(req.url);
-      if (url.searchParams.get("secret") !== webhookSecret) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
+    if (!webhookSecret) {
+      return NextResponse.json({ error: "WEBHOOK_SECRET não configurado" }, { status: 500 });
+    }
+    const authHeader = req.headers.get("authorization")?.replace("Bearer ", "");
+    const querySecret = new URL(req.url).searchParams.get("secret");
+    if (authHeader !== webhookSecret && querySecret !== webhookSecret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const body = await req.json();
