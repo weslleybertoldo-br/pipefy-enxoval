@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
   let cardFields = null;
   if (cardCode) {
     for (const phaseId of [PHASE_5_ID, "333848207", "323529403"]) {
-      const r = await pipefyQuery(`{ phase(id: ${phaseId}) { cards(first: 3, search: { title: "${cardCode}" }) { edges { node { id title fields { name field_id value } } } } } }`);
+      const r = await pipefyQuery(`{ phase(id: ${phaseId}) { cards(first: 3, search: { title: "${cardCode}" }) { edges { node { id title fields { name value phase_field { id label } } } } } } }`);
       const edges = r?.data?.phase?.cards?.edges || [];
       const found = edges.find((e: any) => e.node.title.toUpperCase() === cardCode.toUpperCase());
       if (found) { cardFields = found.node; break; }
