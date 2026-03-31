@@ -766,7 +766,93 @@ function TabPhase5() {
           })}
         </section>
       )}
+
+      {/* Lançamento de Despesa via Slack */}
+      <SlackDespesa />
     </>
+  );
+}
+
+// =====================
+// COMPONENTE: Lançamento de Despesa no Slack
+// =====================
+
+function SlackDespesa() {
+  const [code, setCode] = useState("");
+  const [franquia, setFranquia] = useState("");
+  const [data, setData] = useState("");
+  const [loadingFranquia, setLoadingFranquia] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Buscar franquia ao digitar código
+  useEffect(() => {
+    if (code.trim().length >= 3) {
+      const timer = setTimeout(async () => {
+        setLoadingFranquia(true);
+        try {
+          const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(code.trim())}`);
+          const d = await res.json();
+          if (d.franqueado) setFranquia(d.franqueado);
+        } catch { /* silencioso */ }
+        finally { setLoadingFranquia(false); }
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [code]);
+
+  const handleEnviar = async () => {
+    setSending(true);
+    setResult(null);
+    try {
+      const res = await fetch("/api/slack-despesa", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo: code.trim(), franquia, data }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setResult({ success: true, message: d.message });
+        setCode("");
+        setFranquia("");
+        setData("");
+      } else {
+        setResult({ success: false, message: d.error || "Erro" });
+      }
+    } catch {
+      setResult({ success: false, message: "Erro de conexão" });
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="bg-white rounded-lg shadow p-6 mt-6">
+      <h3 className="text-lg font-semibold mb-1">Aviso de Lançamento de Despesa</h3>
+      <p className="text-xs text-gray-500 mb-4">Envia mensagem no canal #despesas-implantação do Slack.</p>
+
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Código do imóvel</label>
+          <input type="text" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Ex: AGU0000" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Franquia {loadingFranquia && "(buscando...)"}</label>
+          <input type="text" value={franquia} onChange={(e) => setFranquia(e.target.value)} placeholder="Preenchido automaticamente" className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Data lançamento</label>
+          <input type="date" value={data} onChange={(e) => setData(e.target.value)} className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500" />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 mt-4">
+        <button onClick={handleEnviar} disabled={sending || !code.trim() || !franquia || !data} className="bg-green-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-green-700 disabled:opacity-50 transition-colors">
+          {sending ? "Enviando..." : "Enviar no Slack"}
+        </button>
+        {result && <span className={`text-xs ${result.success ? "text-green-600" : "text-red-600"}`}>{result.message}</span>}
+      </div>
+    </section>
   );
 }
 

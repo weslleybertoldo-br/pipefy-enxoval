@@ -20,7 +20,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "SLACK_BOT_TOKEN não configurado" }, { status: 500 });
     }
 
-    const message = `📋 *Lançamento de Despesa*\n\n*Código do imóvel:* ${codigo}\n*Franquia responsável:* ${franquia}\n*Data que deve ser lançado:* ${data}`;
+    // Formatar data YYYY-MM-DD para DD/MM/YYYY
+    let dataFormatada = data;
+    if (data.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [y, m, d] = data.split("-");
+      dataFormatada = `${d}/${m}/${y}`;
+    }
+
+    const message = `📋 *Lançamento de Despesa*\n\n*Código do imóvel:* ${codigo}\n*Franquia responsável:* ${franquia}\n*Data que deve ser lançado:* ${dataFormatada}`;
 
     const res = await fetch("https://slack.com/api/chat.postMessage", {
       method: "POST",
