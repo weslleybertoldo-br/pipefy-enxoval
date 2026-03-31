@@ -2468,11 +2468,12 @@ function GlobalSearch() {
     try {
       const res = await fetch(`/api/search-global?q=${encodeURIComponent(query.trim())}`);
       const data = await res.json();
-      if (data.success) {
-        setResults(data.cards);
-      }
-    } catch { /* silencioso */ }
-    finally { setSearching(false); }
+      setResults(data.success ? data.cards : []);
+    } catch {
+      setResults([]);
+    } finally {
+      setSearching(false);
+    }
   };
 
   return (
