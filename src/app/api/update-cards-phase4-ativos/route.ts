@@ -84,7 +84,7 @@ function parseSections(text: string): {
     let titleLine = "";
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (line.match(new RegExp(`^[❌✔️✅]\\s*${keyword}`, "i"))) {
+      if (line.match(new RegExp(`^[❌✔✅]`, "i")) && line.toUpperCase().includes(keyword.toUpperCase())) {
         startIdx = i;
         status = line.startsWith("❌") ? "❌" : "✔️";
         titleLine = line;
@@ -97,7 +97,7 @@ function parseSections(text: string): {
     const contentLines: string[] = [];
     for (let i = startIdx + 1; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (line.match(/^[❌✔️✅]\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i)) break;
+      if (line.match(/^[❌✔✅]\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i) || line.match(/^✔️\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i)) break;
       contentLines.push(lines[i]);
     }
 
@@ -225,31 +225,37 @@ export async function POST(req: NextRequest) {
 
     // 9. Preencher campos (após mover para Fase 5, pois são campos dessa fase)
     if (sections) {
-      if (sections.enxoval.status === "❌") {
-        const escaped = JSON.stringify(sections.enxoval.titleLine).slice(1, -1);
-        await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "${escaped}" }) { success } }`);
-        actions.push("Campo enxoval: pendente");
-      } else if (sections.enxoval.status === "✔️") {
-        await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "ok" }) { success } }`);
-        actions.push("Campo enxoval: ok");
+      if (sections.enxoval.status) {
+        if (sections.enxoval.status === "❌") {
+          const escaped = JSON.stringify(sections.enxoval.titleLine).slice(1, -1);
+          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "${escaped}" }) { success } }`);
+          actions.push("Campo enxoval: pendente");
+        } else {
+          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "ok" }) { success } }`);
+          actions.push("Campo enxoval: ok");
+        }
       }
 
-      if (sections.itens.status === "❌") {
-        const escaped = JSON.stringify(sections.itens.content).slice(1, -1);
-        await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "${escaped}" }) { success } }`);
-        actions.push("Campo itens: pendentes");
-      } else if (sections.itens.status === "✔️") {
-        await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "ok" }) { success } }`);
-        actions.push("Campo itens: ok");
+      if (sections.itens.status) {
+        if (sections.itens.status === "❌") {
+          const escaped = JSON.stringify(sections.itens.content).slice(1, -1);
+          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "${escaped}" }) { success } }`);
+          actions.push("Campo itens: pendentes");
+        } else {
+          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "ok" }) { success } }`);
+          actions.push("Campo itens: ok");
+        }
       }
 
-      if (sections.manutencao.status === "❌") {
-        const escaped = JSON.stringify(sections.manutencao.content).slice(1, -1);
-        await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "${escaped}" }) { success } }`);
-        actions.push("Campo manutenção: pendentes");
-      } else if (sections.manutencao.status === "✔️") {
-        await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "ok" }) { success } }`);
-        actions.push("Campo manutenção: ok");
+      if (sections.manutencao.status) {
+        if (sections.manutencao.status === "❌") {
+          const escaped = JSON.stringify(sections.manutencao.content).slice(1, -1);
+          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "${escaped}" }) { success } }`);
+          actions.push("Campo manutenção: pendentes");
+        } else {
+          await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "ok" }) { success } }`);
+          actions.push("Campo manutenção: ok");
+        }
       }
     }
 
