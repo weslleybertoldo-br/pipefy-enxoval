@@ -27,38 +27,42 @@ function getEnxovalStatus(comment: string): "ok" | "pendente" | "comprado" | "un
   return "unknown";
 }
 
-// Buscar TODOS os cards do Pipe 0 de uma vez e criar mapa por título
-async function buildPipe0TagsMap(): Promise<Map<string, string[]>> {
-  const tagsMap = new Map<string, string[]>();
-
-  // Buscar em paralelo (3 fases por vez para não sobrecarregar)
-  for (let i = 0; i < PIPE_0_PHASES.length; i += 3) {
-    const batch = PIPE_0_PHASES.slice(i, i + 3);
-    const results = await Promise.all(
-      batch.map(async (phaseId) => {
-        try {
-          const result = await pipefyQuery(`{
-            phase(id: ${phaseId}) {
-              cards(first: 100) {
-                edges { node { title labels { name } } }
-              }
+// Buscar tags de um card específico no Pipe 0 por search
+async function getTagsFromPipe0(code: string): Promise<string[]> {
+  // Buscar em paralelo em todas as fases
+  const results = await Promise.all(
+    PIPE_0_PHASES.map(async (phaseId) => {
+      try {
+        const result = await pipefyQuery(`{
+          phase(id: ${phaseId}) {
+            cards(first: 3, search: { title: "${JSON.stringify(code).slice(1, -1)}" }) {
+              edges { node { title labels { name } } }
             }
-          }`);
-          return result?.data?.phase?.cards?.edges || [];
-        } catch { return []; }
-      })
-    );
+          }
+        }`);
+        const edges = result?.data?.phase?.cards?.edges || [];
+        const card = edges.find((e: any) => e.node.title.toUpperCase() === code.toUpperCase());
+        if (card) return (card.node.labels || []).map((l: any) => l.name);
+        return null;
+      } catch { return null; }
+    })
+  );
+  // Retornar o primeiro resultado encontrado
+  return results.find((r) => r !== null) || [];
+}
 
-    for (const edges of results) {
-      for (const edge of edges) {
-        const title = edge.node.title?.toUpperCase();
-        if (title && !tagsMap.has(title)) {
-          tagsMap.set(title, (edge.node.labels || []).map((l: any) => l.name));
-        }
-      }
+// Buscar tags para múltiplos códigos em paralelo (3 de cada vez)
+async function getTagsForCodes(codes: string[]): Promise<Map<string, string[]>> {
+  const tagsMap = new Map<string, string[]>();
+  for (let i = 0; i < codes.length; i += 3) {
+    const batch = codes.slice(i, i + 3);
+    const results = await Promise.all(
+      batch.map(async (code) => ({ code, tags: await getTagsFromPipe0(code) }))
+    );
+    for (const { code, tags } of results) {
+      tagsMap.set(code.toUpperCase(), tags);
     }
   }
-
   return tagsMap;
 }
 
@@ -93,33 +97,35 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    // Buscar cards da Fase 5 e tags do Pipe 0 em paralelo
-    const [allCards, pipe0Tags] = await Promise.all([
-      fetchAllCardsFromPhase(PHASE_5_ID),
-      buildPipe0TagsMap(),
-    ]);
+    const allCards = await fetchAllCardsFromPhase(PHASE_5_ID);
 
-    const results = [];
+    // Filtrar cards com enxoval pendente primeiro
+    const pendentes = [];
     for (const c of allCards) {
       const lastComment = (c.comments || [])[0]?.text || "";
       const status = getEnxovalStatus(lastComment);
+      if (status === "pendente") pendentes.push({ ...c, lastComment });
+    }
 
-      if (status !== "pendente") continue;
+    // Buscar tags do Pipe 0 só para os cards pendentes (em paralelo, 3 de cada vez)
+    const codes = pendentes.map((c) => c.title);
+    const pipe0Tags = await getTagsForCodes(codes);
 
+    const results = pendentes.map((c) => {
       const tags = pipe0Tags.get(c.title?.toUpperCase()) || [];
       const hasEnxovalComprado = tags.some((t) => t.toUpperCase() === "ENXOVAL COMPRADO");
       const hasCompraPropria = tags.some((t) => t.toUpperCase().includes("ENXOVAL COMPRA PR") || t.toUpperCase().includes("COMPRA PRÓPRIA"));
 
-      results.push({
+      return {
         id: c.id,
         title: c.title,
-        lastComment,
+        lastComment: c.lastComment,
         tags,
         hasEnxovalComprado,
         hasCompraPropria,
         enxovalType: hasCompraPropria ? "propria" : hasEnxovalComprado ? "comprado" : "pendente",
-      });
-    }
+      };
+    });
 
     return NextResponse.json({
       success: true,
