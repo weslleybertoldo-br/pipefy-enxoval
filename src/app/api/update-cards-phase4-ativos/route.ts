@@ -58,38 +58,55 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Parseia secoes do comentario entre emojis
+// Filtra itens: remove os que começam com ✅ (delimitados por ";")
+function filterPendingItems(rawContent: string): string {
+  // Juntar tudo em uma string e separar por ";"
+  const fullText = rawContent.trim();
+  if (!fullText) return "";
+
+  const items = fullText.split(";").map((item) => item.trim()).filter(Boolean);
+  const pending = items.filter((item) => !item.startsWith("✅") && !item.startsWith("✔️"));
+  if (pending.length === 0) return "";
+  return pending.join(";\n") + ";";
+}
+
+// Parseia seções do comentário entre emojis
 function parseSections(text: string): {
-  enxoval: { status: string; content: string };
+  enxoval: { status: string; content: string; titleLine: string };
   itens: { status: string; content: string };
   manutencao: { status: string; content: string };
 } {
   const lines = text.split("\n");
 
-  const findSection = (keyword: string): { status: string; content: string } => {
+  const findSection = (keyword: string): { status: string; content: string; titleLine: string } => {
     let startIdx = -1;
     let status = "";
+    let titleLine = "";
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
       if (line.match(new RegExp(`^[❌✔️✅]\\s*${keyword}`, "i"))) {
         startIdx = i;
         status = line.startsWith("❌") ? "❌" : "✔️";
+        titleLine = line;
         break;
       }
     }
-    if (startIdx === -1) return { status: "", content: "" };
+    if (startIdx === -1) return { status: "", content: "", titleLine: "" };
 
-    // Coletar linhas ate o proximo emoji de secao ou fim
+    // Coletar linhas até o próximo emoji de seção ou fim
     const contentLines: string[] = [];
     for (let i = startIdx + 1; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (line.match(/^[❌✔️✅]\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN)/i)) break;
+      if (line.match(/^[❌✔️✅]\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i)) break;
       contentLines.push(lines[i]);
     }
 
+    const rawContent = contentLines.join("\n").trim();
+
     return {
       status,
-      content: contentLines.join("\n").trim(),
+      content: status === "❌" ? filterPendingItems(rawContent) : "",
+      titleLine,
     };
   };
 
@@ -166,12 +183,15 @@ export async function POST(req: NextRequest) {
     const comments = card.comments || [];
     const lastComment = comments[0];
 
-    // 2. Parsear secoes do ultimo comentario
-    const sections = lastComment?.text ? parseSections(lastComment.text) : null;
-
-    // 3. Calcular nova data (+3 dias uteis a partir de hoje)
+    // 2. Calcular nova data (+3 dias uteis a partir de hoje)
     const newDueDate = getNextBusinessDayAt22(3);
     const newDueDateBR = formatDateBR(newDueDate);
+
+    // 3. Determinar o comentário final (editado ou gerado)
+    const commentToSend = customComment || (lastComment?.text ? buildNewComment(lastComment.text, newDueDateBR) : null);
+
+    // Parsear seções do comentário NOVO (editado), não do original
+    const sections = commentToSend ? parseSections(commentToSend) : null;
 
     // 4. Adicionar tag "Imóvel Ativo" mantendo as existentes
     const currentLabels = (card.labels || []).map((l: any) => l.id);
@@ -187,8 +207,7 @@ export async function POST(req: NextRequest) {
     await updateDueDate(validId, newDueDate);
     actions.push(`Vencimento → ${newDueDateBR} 22:00`);
 
-    // 6. Adicionar comentário (customizado do editor ou gerado)
-    const commentToSend = customComment || (lastComment?.text ? buildNewComment(lastComment.text, newDueDateBR) : null);
+    // 6. Adicionar comentário
     if (commentToSend) {
       await createComment(validId, commentToSend);
       actions.push("Comentário adicionado");
@@ -207,8 +226,7 @@ export async function POST(req: NextRequest) {
     // 9. Preencher campos (após mover para Fase 5, pois são campos dessa fase)
     if (sections) {
       if (sections.enxoval.status === "❌") {
-        const enxovalLine = lastComment.text.split("\n").find((l: string) => l.trim().match(/^❌\s*ENXOVAL/i)) || "";
-        const escaped = JSON.stringify(enxovalLine.trim()).slice(1, -1);
+        const escaped = JSON.stringify(sections.enxoval.titleLine).slice(1, -1);
         await pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "${escaped}" }) { success } }`);
         actions.push("Campo enxoval: pendente");
       } else if (sections.enxoval.status === "✔️") {
