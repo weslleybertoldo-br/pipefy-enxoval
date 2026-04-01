@@ -204,8 +204,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Card sem comentário — não é possível atualizar" }, { status: 400 });
     }
 
-    // 2. Calcular nova data (+3 dias uteis a partir de hoje)
-    const newDueDate = getNextBusinessDayAt22(3 + extraDays);
+    // 2. Calcular nova data (+3 dias uteis a partir de hoje, ou hoje se extraDays === -99)
+    const newDueDate = extraDays === -99 ? getNextBusinessDayAt22(0) : getNextBusinessDayAt22(3 + extraDays);
     const newDueDateBR = formatDateBR(newDueDate);
 
     // 3. Determinar o comentário final (editado ou gerado)

@@ -831,6 +831,10 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                     <span className="text-[10px] text-gray-600">+{d}</span>
                   </label>
                 ))}
+                <label className="flex items-center gap-1 cursor-pointer border-t border-gray-300 pt-0.5">
+                  <input type="checkbox" checked={extraDaysAtivos === -99} onChange={() => setExtraDaysAtivos(extraDaysAtivos === -99 ? 0 : -99)} className="w-3 h-3 accent-red-600" />
+                  <span className="text-[10px] text-gray-600">0</span>
+                </label>
               </div>
               <div className="flex flex-col gap-1">
                 <CopyScriptUnicoItem />
