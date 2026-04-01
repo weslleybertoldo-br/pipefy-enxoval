@@ -458,14 +458,15 @@ const COPY_TEMPLATES: Record<string, (fup: string) => string> = {
   fase5: (fup) => `✅ Imóvel ativo\n\n🚨 Aguardando o envio dos registros pendentes\n\n⏭️ Fup: ${fup}\n\n....................................................................................................`,
 };
 
-function CopyFupButton({ days, template = "fase4" }: { days: number; template?: string }) {
+function CopyFupButton({ days, template = "fase4", extraDays = 0 }: { days: number; template?: string; extraDays?: number }) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
+    const totalDays = days + extraDays;
     const now = new Date();
     let added = 0;
     const next = new Date(now);
-    while (added < days) {
+    while (added < totalDays) {
       next.setDate(next.getDate() + 1);
       if (next.getDay() !== 0 && next.getDay() !== 6) added++;
     }
@@ -859,7 +860,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
             ))}
           </div>
 
-          {showCopyButton && <CopyFupButton days={2} />}
+          {showCopyButton && <CopyFupButton days={2} extraDays={extraDays} />}
 
           {showCopyButton && (
             <>
@@ -1445,7 +1446,7 @@ function TabPhase5() {
               {loading ? "Carregando..." : `Carregar Cards${cards.length > 0 ? ` (${cards.length})` : ""}`}
             </button>
           </WithHelp>
-          <CopyFupButton days={3} template="fase5" />
+          <CopyFupButton days={3} template="fase5" extraDays={extraDays} />
           <CopyFinalizarSults />
           <div className="flex flex-col gap-0.5 bg-gray-100 rounded-md px-2 py-1">
             {[1, 2, 3].map((d) => (
