@@ -558,6 +558,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
   const [extraDays, setExtraDays] = useState(0);
+  const [extraDaysAtivos, setExtraDaysAtivos] = useState(0);
 
   // Estados para Fase 4 Ativos
   const [ativosCards, setAtivosCards] = useState<{ id: string; title: string; due_date: string | null; dueFormatted: string; assignees: string[]; labels: string[]; lastComment: string; lastCommentAuthor: string; lastCommentDate: string }[]>([]);
@@ -623,7 +624,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
       const res = await fetch("/api/update-cards-phase4-ativos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId, customComment: ativoCommentText }),
+        body: JSON.stringify({ cardId, customComment: ativoCommentText, extraDays: extraDaysAtivos }),
       });
       const data = await res.json();
       if (data.success && data.action === "updated") {
@@ -767,65 +768,74 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
           </div>
         </div>
 
-        <div className="flex gap-3">
-          <WithHelp help="Busca os cards da fase com vencimento para hoje.~Cards com tags 'Adequação Complexa' ou 'Revisão de Pendências Finalizada' são ignorados">
-            <button
-              onClick={loadCards}
-              disabled={loading || processing}
-              className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
-            >
-              {loading ? "Carregando..." : "Carregar Cards"}
-            </button>
-          </WithHelp>
-
-          {cards.length > 0 && (
-            <WithHelp help="Para cada card, executa:~1. Atualiza vencimento para próximo dia útil às 22:00~2. Muda responsável para Weslley (se não for)~3. Busca último comentário e substitui a data do FUP~4. Adiciona comentário atualizado no card~Processa um por um, sequencialmente">
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2 items-center flex-wrap">
+            <WithHelp help="Busca os cards da fase com vencimento para hoje.~Cards com tags 'Adequação Complexa' ou 'Revisão de Pendências Finalizada' são ignorados">
               <button
-                onClick={processAll}
-                disabled={processing || loading}
-                className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                onClick={loadCards}
+                disabled={loading || processing}
+                className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
               >
-                {processing ? "Processando..." : `Atualizar ${phaseInfo?.toUpdate || 0} Cards`}
+                {loading ? "Carregando..." : "Carregar Cards"}
               </button>
             </WithHelp>
-          )}
 
-          {processing && (
-            <WithHelp help="Interrompe a atualização em lote dos cards">
-              <button
-                onClick={() => { abortRef.current = true; }}
-                className="bg-red-500 text-white px-6 py-3 rounded-md font-medium hover:bg-red-600 transition-colors"
-              >
-                Parar
-              </button>
-            </WithHelp>
-          )}
+            {cards.length > 0 && (
+              <WithHelp help="Para cada card, executa:~1. Atualiza vencimento para próximo dia útil às 22:00~2. Muda responsável para Weslley (se não for)~3. Busca último comentário e substitui a data do FUP~4. Adiciona comentário atualizado no card~Processa um por um, sequencialmente">
+                <button
+                  onClick={processAll}
+                  disabled={processing || loading}
+                  className="bg-blue-600 text-white px-6 py-3 rounded-md font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {processing ? "Processando..." : `Atualizar ${phaseInfo?.toUpdate || 0} Cards`}
+                </button>
+              </WithHelp>
+            )}
 
-          <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
-            <span className="text-[10px] text-gray-500 mr-1">Dias extra:</span>
-            {[1, 2, 3].map((d) => (
-              <label key={d} className="flex items-center gap-0.5 cursor-pointer">
-                <input type="checkbox" checked={extraDays === d} onChange={() => setExtraDays(extraDays === d ? 0 : d)} className="w-3 h-3 accent-blue-600" />
-                <span className="text-[10px] text-gray-600">+{d}</span>
-              </label>
-            ))}
+            {processing && (
+              <WithHelp help="Interrompe a atualização em lote dos cards">
+                <button
+                  onClick={() => { abortRef.current = true; }}
+                  className="bg-red-500 text-white px-6 py-3 rounded-md font-medium hover:bg-red-600 transition-colors"
+                >
+                  Parar
+                </button>
+              </WithHelp>
+            )}
+
+            <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
+              <span className="text-[10px] text-gray-500 mr-1">Dias extra:</span>
+              {[1, 2, 3].map((d) => (
+                <label key={d} className="flex items-center gap-0.5 cursor-pointer">
+                  <input type="checkbox" checked={extraDays === d} onChange={() => setExtraDays(extraDays === d ? 0 : d)} className="w-3 h-3 accent-blue-600" />
+                  <span className="text-[10px] text-gray-600">+{d}</span>
+                </label>
+              ))}
+            </div>
+
+            {showCopyButton && <CopyFupButton days={2} />}
           </div>
 
-          {showCopyButton && <CopyFupButton days={2} />}
-
           {showCopyButton && (
-            <WithHelp help="Busca cards da Fase 4 que já estão na Fase 9 ou 10 do Pipe 1 (imóvel ativo). Mostra com opção de atualizar comentário e campos">
-              <button
-                onClick={loadAtivos}
-                disabled={ativosLoading}
-                className="bg-green-600 text-white px-6 py-3 rounded-md font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
-              >
-                {ativosLoading ? "Buscando..." : "Fase 4 Ativos"}
-              </button>
-            </WithHelp>
-          )}
-          {showCopyButton && (
-            <div className="flex flex-col gap-1">
+            <div className="flex gap-2 items-center flex-wrap">
+              <WithHelp help="Busca cards da Fase 4 que já estão na Fase 9 ou 10 do Pipe 1 (imóvel ativo). Mostra com opção de atualizar comentário e campos">
+                <button
+                  onClick={loadAtivos}
+                  disabled={ativosLoading}
+                  className="bg-green-600 text-white px-6 py-3 rounded-md font-medium hover:bg-green-700 disabled:opacity-50 transition-colors"
+                >
+                  {ativosLoading ? "Buscando..." : "Fase 4 Ativos"}
+                </button>
+              </WithHelp>
+              <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
+                <span className="text-[10px] text-gray-500 mr-1">Dias extra (Ativos):</span>
+                {[1, 2, 3].map((d) => (
+                  <label key={d} className="flex items-center gap-0.5 cursor-pointer">
+                    <input type="checkbox" checked={extraDaysAtivos === d} onChange={() => setExtraDaysAtivos(extraDaysAtivos === d ? 0 : d)} className="w-3 h-3 accent-green-600" />
+                    <span className="text-[10px] text-gray-600">+{d}</span>
+                  </label>
+                ))}
+              </div>
               <CopyScriptUnicoItem />
               <CopyScriptPendencias />
             </div>

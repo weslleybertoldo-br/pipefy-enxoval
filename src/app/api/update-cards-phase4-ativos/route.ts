@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { cardId, customComment } = await req.json();
+    const { cardId, customComment, extraDays = 0 } = await req.json();
     const validId = validateCardId(cardId);
 
     // 1. Buscar card completo
@@ -205,7 +205,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Calcular nova data (+3 dias uteis a partir de hoje)
-    const newDueDate = getNextBusinessDayAt22(3);
+    const newDueDate = getNextBusinessDayAt22(3 + extraDays);
     const newDueDateBR = formatDateBR(newDueDate);
 
     // 3. Determinar o comentário final (editado ou gerado)
