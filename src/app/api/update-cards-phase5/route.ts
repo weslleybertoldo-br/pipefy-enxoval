@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { cardId } = await req.json();
+    const { cardId, extraDays = 0 } = await req.json();
     const validId = validateCardId(cardId);
 
     const result = await pipefyQuery(`{
@@ -236,7 +236,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Card não pertence à Fase 5" }, { status: 400 });
     }
 
-    const newDueDate = getNextBusinessDayAt22(3);
+    const newDueDate = getNextBusinessDayAt22(3 + extraDays);
     const newDueDateBR = formatDateBR(newDueDate);
     const actions: string[] = [];
 

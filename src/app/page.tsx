@@ -557,6 +557,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
   const abortRef = useRef(false);
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
+  const [extraDays, setExtraDays] = useState(0);
 
   // Estados para Fase 4 Ativos
   const [ativosCards, setAtivosCards] = useState<{ id: string; title: string; due_date: string | null; dueFormatted: string; assignees: string[]; labels: string[]; lastComment: string; lastCommentAuthor: string; lastCommentDate: string }[]>([]);
@@ -716,7 +717,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
         const res = await fetch(apiRoute, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cardId: toProcess[i].id }),
+          body: JSON.stringify({ cardId: toProcess[i].id, extraDays }),
         });
         const data = await res.json();
 
@@ -799,6 +800,16 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
               </button>
             </WithHelp>
           )}
+
+          <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
+            <span className="text-[10px] text-gray-500 mr-1">Dias extra:</span>
+            {[1, 2, 3].map((d) => (
+              <label key={d} className="flex items-center gap-0.5 cursor-pointer">
+                <input type="checkbox" checked={extraDays === d} onChange={() => setExtraDays(extraDays === d ? 0 : d)} className="w-3 h-3 accent-blue-600" />
+                <span className="text-[10px] text-gray-600">+{d}</span>
+              </label>
+            ))}
+          </div>
 
           {showCopyButton && <CopyFupButton days={2} />}
 
@@ -1216,6 +1227,7 @@ function TabPhase5() {
   const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
+  const [extraDays, setExtraDays] = useState(0);
 
   const searchCard = async () => {
     if (!searchCode.trim()) return;
@@ -1262,7 +1274,7 @@ function TabPhase5() {
       const res = await fetch("/api/update-cards-phase5", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId }),
+        body: JSON.stringify({ cardId, extraDays }),
       });
       const data = await res.json();
       if (data.success && data.action === "updated") {
@@ -1329,6 +1341,15 @@ function TabPhase5() {
           </WithHelp>
           <CopyFupButton days={3} template="fase5" />
           <CopyFinalizarSults />
+          <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
+            <span className="text-[10px] text-gray-500 mr-1">Dias extra:</span>
+            {[1, 2, 3].map((d) => (
+              <label key={d} className="flex items-center gap-0.5 cursor-pointer">
+                <input type="checkbox" checked={extraDays === d} onChange={() => setExtraDays(extraDays === d ? 0 : d)} className="w-3 h-3 accent-blue-600" />
+                <span className="text-[10px] text-gray-600">+{d}</span>
+              </label>
+            ))}
+          </div>
         </div>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </section>
@@ -1547,6 +1568,7 @@ function TabRevisao() {
   const [summary, setSummary] = useState<{ complexaCount: number; revisaoCount: number } | null>(null);
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
+  const [extraDays, setExtraDays] = useState(0);
 
   const getCardOpts = (id: string) => cardOptions[id] || { complexa: false, itens: false, manut: false, pin: false };
   const setCardOpt = (id: string, key: "complexa" | "itens" | "manut" | "pin", val: boolean) => {
@@ -1616,7 +1638,7 @@ function TabRevisao() {
       const res = await fetch("/api/update-cards-revisao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId, type: "complexa" }),
+        body: JSON.stringify({ cardId, type: "complexa", extraDays }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1648,6 +1670,7 @@ function TabRevisao() {
           addItensPequenos: opts.itens,
           addManutencoesPequenas: opts.manut,
           addPin: opts.pin,
+          extraDays,
         }),
       });
       const data = await res.json();
@@ -1689,7 +1712,7 @@ function TabRevisao() {
       const res = await fetch("/api/update-cards-revisao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId: editingComment, type: "revisao", customComment: commentText, isComplexa: getCardOpts(editingComment).complexa, addItensPequenos: getCardOpts(editingComment).itens, addManutencoesPequenas: getCardOpts(editingComment).manut, addPin: getCardOpts(editingComment).pin }),
+        body: JSON.stringify({ cardId: editingComment, type: "revisao", customComment: commentText, isComplexa: getCardOpts(editingComment).complexa, addItensPequenos: getCardOpts(editingComment).itens, addManutencoesPequenas: getCardOpts(editingComment).manut, addPin: getCardOpts(editingComment).pin, extraDays }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1742,11 +1765,22 @@ function TabRevisao() {
           </WithHelp>
         </div>
 
-        <WithHelp help="Busca cards da Fase 3 com vencimento para hoje que possuem tag Adequação Complexa ou Revisão Finalizada">
-          <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
-            {loading ? "Carregando..." : "Carregar Cards"}
-          </button>
-        </WithHelp>
+        <div className="flex gap-3 items-center">
+          <WithHelp help="Busca cards da Fase 3 com vencimento para hoje que possuem tag Adequação Complexa ou Revisão Finalizada">
+            <button onClick={loadCards} disabled={loading} className="bg-gray-600 text-white px-6 py-3 rounded-md font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
+              {loading ? "Carregando..." : "Carregar Cards"}
+            </button>
+          </WithHelp>
+          <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
+            <span className="text-[10px] text-gray-500 mr-1">Dias extra:</span>
+            {[1, 2, 3].map((d) => (
+              <label key={d} className="flex items-center gap-0.5 cursor-pointer">
+                <input type="checkbox" checked={extraDays === d} onChange={() => setExtraDays(extraDays === d ? 0 : d)} className="w-3 h-3 accent-blue-600" />
+                <span className="text-[10px] text-gray-600">+{d}</span>
+              </label>
+            ))}
+          </div>
+        </div>
         {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
       </section>
 

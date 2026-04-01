@@ -22,7 +22,7 @@ function shouldSkipCard(card: any): { skip: boolean; reason: string } {
   return { skip: false, reason: "" };
 }
 
-async function processCard(card: any): Promise<{
+async function processCard(card: any, extraDays = 0): Promise<{
   cardId: string; title: string; action: "skipped" | "updated" | "error"; details: string;
 }> {
   try {
@@ -31,7 +31,7 @@ async function processCard(card: any): Promise<{
       return { cardId: card.id, title: card.title, action: "skipped", details: skipCheck.reason };
     }
 
-    const newDueDate = getNextBusinessDayAt22(2);
+    const newDueDate = getNextBusinessDayAt22(2 + extraDays);
     const newDueDateBR = formatDateBR(newDueDate);
     const actions: string[] = [];
 
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { cardId } = await req.json();
+    const { cardId, extraDays = 0 } = await req.json();
     const validId = validateCardId(cardId);
 
     const result = await pipefyQuery(`{
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
     const card = result?.data?.card;
     if (!card) return NextResponse.json({ error: "Card não encontrado" }, { status: 404 });
 
-    const processResult = await processCard(card);
+    const processResult = await processCard(card, extraDays);
     return NextResponse.json({ success: true, ...processResult });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });

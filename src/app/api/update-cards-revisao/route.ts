@@ -108,11 +108,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { cardId, type, customComment, isComplexa, addItensPequenos, addManutencoesPequenas, addPin } = await req.json();
+    const { cardId, type, customComment, isComplexa, addItensPequenos, addManutencoesPequenas, addPin, extraDays = 0 } = await req.json();
     const validId = validateCardId(cardId);
 
     if (type === "complexa") {
-      const newDueDate = getNextBusinessDayAt22(1);
+      const newDueDate = getNextBusinessDayAt22(1 + extraDays);
       const newDueDateBR = formatDateBR(newDueDate);
       const actions: string[] = [];
 
@@ -147,7 +147,7 @@ export async function POST(req: NextRequest) {
 
       if (isComplexa) {
         // Manter complexa: +1 dia, atualizar tags conforme checkboxes
-        const newDueDate = getNextBusinessDayAt22(1);
+        const newDueDate = getNextBusinessDayAt22(1 + extraDays);
         const newDueDateBR = formatDateBR(newDueDate);
         await updateDueDate(validId, newDueDate);
         actions.push(`Vencimento → ${newDueDateBR} 22:00`);
@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
         actions.push("Tags atualizadas");
       } else {
         // Desmarcar complexa: +2 dias, remover tag complexa, mover fase 4
-        const newDueDate = getNextBusinessDayAt22(2);
+        const newDueDate = getNextBusinessDayAt22(2 + extraDays);
         const newDueDateBR = formatDateBR(newDueDate);
         await updateDueDate(validId, newDueDate);
         actions.push(`Vencimento → ${newDueDateBR} 22:00`);
@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
 
       if (isComplexa) {
         // Complexa: +1 dia, tag adequação complexa, não muda de fase
-        const newDueDate = getNextBusinessDayAt22(1);
+        const newDueDate = getNextBusinessDayAt22(1 + extraDays);
         const newDueDateBR = formatDateBR(newDueDate);
 
         await updateDueDate(validId, newDueDate);
@@ -253,7 +253,7 @@ export async function POST(req: NextRequest) {
         }
       } else {
         // Normal: +2 dias, mover para fase 4
-        const newDueDate = getNextBusinessDayAt22(2);
+        const newDueDate = getNextBusinessDayAt22(2 + extraDays);
         const newDueDateBR = formatDateBR(newDueDate);
 
         await updateDueDate(validId, newDueDate);
