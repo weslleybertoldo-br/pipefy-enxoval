@@ -2987,11 +2987,227 @@ function GlobalSearch() {
 // MAIN APP
 // =====================
 
+function getNextBusinessDays(count: number): { date: string; label: string; weekday: string }[] {
+  const days: { date: string; label: string; weekday: string }[] = [];
+  const weekdays = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+  const d = new Date();
+  while (days.length < count) {
+    d.setDate(d.getDate() + 1);
+    if (d.getDay() !== 0 && d.getDay() !== 6) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      days.push({
+        date: `${yyyy}-${mm}-${dd}`,
+        label: `${dd}/${mm}`,
+        weekday: weekdays[d.getDay()],
+      });
+    }
+  }
+  return days;
+}
+
 function TabCardsAll() {
+  const [filterDate, setFilterDate] = useState(() => {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  });
+  const [cards, setCards] = useState<{ id: string; title: string; phase: string; dueFormatted: string; assignees: string[]; labels: string[] }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  // Alteração em lote
+  const [batchDate, setBatchDate] = useState("");
+  const [batchProcessing, setBatchProcessing] = useState(false);
+  const [batchResults, setBatchResults] = useState<{ cardId: string; title: string; status: "pending" | "processing" | "updated" | "error"; message: string }[]>([]);
+
+  // Alteração individual
+  const [individualDates, setIndividualDates] = useState<Record<string, string>>({});
+  const [individualUpdating, setIndividualUpdating] = useState<string | null>(null);
+  const [individualStatuses, setIndividualStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
+
+  const loadCards = async () => {
+    setLoading(true);
+    setError("");
+    setCards([]);
+    setBatchResults([]);
+    setIndividualStatuses({});
+    try {
+      const res = await fetch(`/api/cards-by-date?date=${filterDate}`);
+      const data = await res.json();
+      if (data.success) {
+        setCards(data.cards);
+      } else {
+        setError(data.error || "Erro");
+      }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const changeBatchDate = async () => {
+    if (!batchDate || cards.length === 0) return;
+    setBatchProcessing(true);
+    const initial = cards.map((c) => ({ cardId: c.id, title: c.title, status: "pending" as const, message: "" }));
+    setBatchResults(initial);
+
+    for (let i = 0; i < cards.length; i++) {
+      setBatchResults((prev) => prev.map((r, idx) => idx === i ? { ...r, status: "processing", message: "Processando..." } : r));
+      try {
+        const res = await fetch("/api/cards-by-date", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cardId: cards[i].id, newDate: batchDate }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setBatchResults((prev) => prev.map((r, idx) => idx === i ? { ...r, status: "updated", message: data.details } : r));
+        } else {
+          setBatchResults((prev) => prev.map((r, idx) => idx === i ? { ...r, status: "error", message: data.error || "Erro" } : r));
+        }
+      } catch {
+        setBatchResults((prev) => prev.map((r, idx) => idx === i ? { ...r, status: "error", message: "Erro de conexão" } : r));
+      }
+    }
+    setBatchProcessing(false);
+  };
+
+  const changeIndividualDate = async (cardId: string) => {
+    const newDate = individualDates[cardId];
+    if (!newDate) return;
+    setIndividualUpdating(cardId);
+    try {
+      const res = await fetch("/api/cards-by-date", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId, newDate }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setIndividualStatuses((prev) => ({ ...prev, [cardId]: { status: "updated", message: data.details } }));
+      } else {
+        setIndividualStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: data.error || "Erro" } }));
+      }
+    } catch {
+      setIndividualStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setIndividualUpdating(null);
+    }
+  };
+
+  const phaseColor: Record<string, string> = { "Fase 3": "bg-blue-100 text-blue-700", "Fase 4": "bg-orange-100 text-orange-700", "Fase 5": "bg-green-100 text-green-700" };
+
   return (
-    <section className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-lg font-semibold mb-2">Cards All / Por dia</h2>
-      <p className="text-sm text-gray-500">Em breve.</p>
+    <section className="space-y-4">
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold mb-2">Cards All / Por dia</h2>
+        <p className="text-sm text-gray-500 mb-4">Visualize e altere o vencimento de cards das Fases 3, 4 e 5</p>
+
+        <div className="flex gap-2 items-center flex-wrap">
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <button
+            onClick={loadCards}
+            disabled={loading}
+            className="bg-gray-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? "Carregando..." : "Buscar Cards"}
+          </button>
+
+          {cards.length > 0 && (
+            <>
+              <div className="h-6 w-px bg-gray-300 mx-1" />
+              <input
+                type="date"
+                value={batchDate}
+                onChange={(e) => setBatchDate(e.target.value)}
+                className="border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+              <button
+                onClick={changeBatchDate}
+                disabled={batchProcessing || !batchDate}
+                className="bg-red-600 text-white px-4 py-2.5 rounded-md text-sm font-medium hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {batchProcessing ? "Alterando..." : `Alterar todos (${cards.length}) para nova data`}
+              </button>
+            </>
+          )}
+        </div>
+        {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
+      </div>
+
+      {/* Resultados do lote */}
+      {batchResults.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-semibold mb-3">Resultado da alteração em lote</h3>
+          <div className="space-y-1">
+            {batchResults.map((r) => (
+              <div key={r.cardId} className="flex items-center justify-between px-3 py-2 rounded-md border border-gray-200 bg-gray-50">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{r.status === "updated" ? "✅" : r.status === "error" ? "❌" : r.status === "processing" ? "⏳" : "⏸️"}</span>
+                  <span className="text-sm font-mono font-bold">{r.title}</span>
+                </div>
+                <span className={`text-xs ${r.status === "updated" ? "text-green-600" : r.status === "error" ? "text-red-600" : "text-gray-500"}`}>
+                  {r.message}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Lista de cards */}
+      {cards.length > 0 && batchResults.length === 0 && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <h3 className="text-sm font-semibold mb-3">{cards.length} cards com vencimento em {filterDate.split("-").reverse().join("/")}</h3>
+          <div className="space-y-1">
+            {cards.map((c) => (
+              <div key={c.id} className="flex items-center justify-between px-3 py-2 rounded-md border border-gray-200 bg-gray-50 gap-2">
+                <div className="flex items-center gap-2 flex-1 min-w-0">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${phaseColor[c.phase] || "bg-gray-100 text-gray-600"}`}>{c.phase}</span>
+                  <CopyableCode code={c.title} className="text-sm" />
+                  <span className="text-[10px] text-gray-400 truncate">{c.assignees.join(", ")}</span>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {individualStatuses[c.id] ? (
+                    <span className={`text-xs ${individualStatuses[c.id].status === "updated" ? "text-green-600" : "text-red-600"}`}>
+                      {individualStatuses[c.id].message}
+                    </span>
+                  ) : (
+                    <>
+                      <input
+                        type="date"
+                        value={individualDates[c.id] || ""}
+                        onChange={(e) => setIndividualDates((prev) => ({ ...prev, [c.id]: e.target.value }))}
+                        className="border border-gray-300 rounded px-1.5 py-1 text-xs w-32 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <button
+                        onClick={() => changeIndividualDate(c.id)}
+                        disabled={individualUpdating === c.id || !individualDates[c.id]}
+                        className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium hover:bg-blue-600 disabled:opacity-50 transition-colors"
+                      >
+                        {individualUpdating === c.id ? "..." : "Alterar"}
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {cards.length === 0 && !loading && !error && (
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-sm text-gray-400 text-center">Selecione uma data e clique em "Buscar Cards"</p>
+        </div>
+      )}
     </section>
   );
 }
@@ -3095,6 +3311,33 @@ function TabCardsGerais() {
   );
 }
 
+function DaySummary() {
+  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [loading, setLoading] = useState(true);
+  const days = getNextBusinessDays(3);
+
+  useEffect(() => {
+    const dates = days.map((d) => d.date).join(",");
+    fetch(`/api/cards-by-date?countOnly=true&dates=${dates}`)
+      .then((r) => r.json())
+      .then((data) => { if (data.success) setCounts(data.counts); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  return (
+    <div className="flex gap-2">
+      {days.map((d) => (
+        <div key={d.date} className="text-center bg-gray-50 rounded-md px-3 py-1.5 border border-gray-200 min-w-[70px]">
+          <div className="text-[10px] font-medium text-gray-500 uppercase">{d.weekday}</div>
+          <div className="text-xs text-gray-700">{d.label}</div>
+          <div className="text-lg font-bold text-gray-900">{loading ? "..." : counts[d.date] ?? 0}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"fase3" | "fase4" | "revisao" | "fase5" | "processamento" | "ocorrencia" | "enxovalcso" | "complexa" | "cardsall" | "slackhistory" | "cardsgerais">("fase3");
@@ -3129,18 +3372,21 @@ export default function Home() {
   // Dashboard
   return (
     <div className="max-w-4xl mx-auto p-6">
-      <header className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Pipefy Enxoval</h1>
-          <p className="text-gray-500 mt-1">Automação de registro de enxoval — Seazone</p>
-        </div>
-        <div className="flex items-center gap-4">
-          <GlobalSearch />
-          <WithHelp help="Faz logout e volta para a tela de login">
-            <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
-              Sair
-            </button>
-          </WithHelp>
+      <header className="mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Pipefy Enxoval</h1>
+            <p className="text-gray-500 mt-1">Automação de registro de enxoval — Seazone</p>
+          </div>
+          <div className="flex items-center gap-4">
+            <DaySummary />
+            <GlobalSearch />
+            <WithHelp help="Faz logout e volta para a tela de login">
+              <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700 transition-colors">
+                Sair
+              </button>
+            </WithHelp>
+          </div>
         </div>
       </header>
 
