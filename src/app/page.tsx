@@ -803,10 +803,9 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
               </WithHelp>
             )}
 
-            <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
-              <span className="text-[10px] text-gray-500 mr-1">Dias extra:</span>
+            <div className="flex flex-col gap-0.5 bg-gray-100 rounded-md px-2 py-1">
               {[1, 2, 3].map((d) => (
-                <label key={d} className="flex items-center gap-0.5 cursor-pointer">
+                <label key={d} className="flex items-center gap-1 cursor-pointer">
                   <input type="checkbox" checked={extraDays === d} onChange={() => setExtraDays(extraDays === d ? 0 : d)} className="w-3 h-3 accent-blue-600" />
                   <span className="text-[10px] text-gray-600">+{d}</span>
                 </label>
@@ -827,10 +826,9 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                   {ativosLoading ? "Buscando..." : "Fase 4 Ativos"}
                 </button>
               </WithHelp>
-              <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
-                <span className="text-[10px] text-gray-500 mr-1">Dias extra (Ativos):</span>
+              <div className="flex flex-col gap-0.5 bg-gray-100 rounded-md px-2 py-1">
                 {[1, 2, 3].map((d) => (
-                  <label key={d} className="flex items-center gap-0.5 cursor-pointer">
+                  <label key={d} className="flex items-center gap-1 cursor-pointer">
                     <input type="checkbox" checked={extraDaysAtivos === d} onChange={() => setExtraDaysAtivos(extraDaysAtivos === d ? 0 : d)} className="w-3 h-3 accent-green-600" />
                     <span className="text-[10px] text-gray-600">+{d}</span>
                   </label>
@@ -1351,10 +1349,9 @@ function TabPhase5() {
           </WithHelp>
           <CopyFupButton days={3} template="fase5" />
           <CopyFinalizarSults />
-          <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
-            <span className="text-[10px] text-gray-500 mr-1">Dias extra:</span>
+          <div className="flex flex-col gap-0.5 bg-gray-100 rounded-md px-2 py-1">
             {[1, 2, 3].map((d) => (
-              <label key={d} className="flex items-center gap-0.5 cursor-pointer">
+              <label key={d} className="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" checked={extraDays === d} onChange={() => setExtraDays(extraDays === d ? 0 : d)} className="w-3 h-3 accent-blue-600" />
                 <span className="text-[10px] text-gray-600">+{d}</span>
               </label>
@@ -1781,10 +1778,9 @@ function TabRevisao() {
               {loading ? "Carregando..." : "Carregar Cards"}
             </button>
           </WithHelp>
-          <div className="flex items-center gap-1 bg-gray-100 rounded-md px-2 py-1.5">
-            <span className="text-[10px] text-gray-500 mr-1">Dias extra:</span>
+          <div className="flex flex-col gap-0.5 bg-gray-100 rounded-md px-2 py-1">
             {[1, 2, 3].map((d) => (
-              <label key={d} className="flex items-center gap-0.5 cursor-pointer">
+              <label key={d} className="flex items-center gap-1 cursor-pointer">
                 <input type="checkbox" checked={extraDays === d} onChange={() => setExtraDays(extraDays === d ? 0 : d)} className="w-3 h-3 accent-blue-600" />
                 <span className="text-[10px] text-gray-600">+{d}</span>
               </label>
