@@ -591,7 +591,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
     const card = ativosCards.find((c) => c.id === cardId);
     if (!card?.lastComment) return;
 
-    const days = 3;
+    const days = extraDaysAtivos === -99 ? 0 : 3 + extraDaysAtivos;
     const now = new Date();
     let added = 0;
     const next = new Date(now);
@@ -1700,7 +1700,7 @@ function TabRevisao() {
 
   const openRevisaoEditor = (cardId: string) => {
     const opts = getCardOpts(cardId);
-    const days = opts.complexa ? 1 : 2;
+    const days = (opts.complexa ? 1 : 2) + extraDays;
     const now = new Date();
     let added = 0;
     const next = new Date(now);
@@ -1842,7 +1842,7 @@ function TabRevisao() {
                                 setEditingComplexaComment(null);
                               } else {
                                 const opts = getCardOpts(c.id);
-                                const days = opts.complexa ? 1 : 2;
+                                const days = (opts.complexa ? 1 : 2) + extraDays;
                                 const now = new Date();
                                 let added = 0;
                                 const next = new Date(now);
