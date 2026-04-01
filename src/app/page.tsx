@@ -2987,9 +2987,107 @@ function GlobalSearch() {
 // MAIN APP
 // =====================
 
+function TabCardsAll() {
+  return (
+    <section className="bg-white rounded-lg shadow p-6">
+      <h2 className="text-lg font-semibold mb-2">Cards All / Por dia</h2>
+      <p className="text-sm text-gray-500">Em breve.</p>
+    </section>
+  );
+}
+
+function TabSlackHistory() {
+  const [messages, setMessages] = useState<{ ts: string; text: string; date: string; botMessage: boolean }[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const loadMessages = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/slack-history?limit=30");
+      const data = await res.json();
+      if (data.success) setMessages(data.messages);
+    } catch {}
+    setLoading(false);
+  };
+
+  const deleteMessage = async (ts: string) => {
+    if (!confirm("Apagar esta mensagem do Slack?")) return;
+    setDeleting(ts);
+    try {
+      const res = await fetch("/api/slack-history", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ts }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMessages((prev) => prev.filter((m) => m.ts !== ts));
+      }
+    } catch {}
+    setDeleting(null);
+  };
+
+  const formatDate = (iso: string) => {
+    const d = new Date(iso);
+    return d.toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  };
+
+  return (
+    <section className="bg-white rounded-lg shadow p-6">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold">Histórico Pedidos Slack</h2>
+          <p className="text-sm text-gray-500">Mensagens do canal #despesas-implantação</p>
+        </div>
+        <button
+          onClick={loadMessages}
+          disabled={loading}
+          className="bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+        >
+          {loading ? "Carregando..." : "Carregar Mensagens"}
+        </button>
+      </div>
+
+      {messages.length > 0 && (
+        <div className="space-y-2">
+          {messages.map((m) => (
+            <div key={m.ts} className="flex items-start justify-between p-3 rounded-md border border-gray-200 bg-gray-50 gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-400 mb-1">{formatDate(m.date)}</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{m.text}</p>
+              </div>
+              <button
+                onClick={() => deleteMessage(m.ts)}
+                disabled={deleting === m.ts}
+                className="flex-shrink-0 text-red-400 hover:text-red-600 disabled:opacity-50 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
+              >
+                {deleting === m.ts ? "..." : "Excluir"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {messages.length === 0 && !loading && (
+        <p className="text-sm text-gray-400 text-center py-4">Clique em "Carregar Mensagens" para ver o histórico</p>
+      )}
+    </section>
+  );
+}
+
+function TabCardsGerais() {
+  return (
+    <section className="bg-white rounded-lg shadow p-6">
+      <h2 className="text-lg font-semibold mb-2">Cards Gerais da Fase 3 a 5</h2>
+      <p className="text-sm text-gray-500">Em breve.</p>
+    </section>
+  );
+}
+
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [activeTab, setActiveTab] = useState<"fase3" | "fase4" | "revisao" | "fase5" | "processamento" | "ocorrencia" | "enxovalcso" | "complexa">("fase3");
+  const [activeTab, setActiveTab] = useState<"fase3" | "fase4" | "revisao" | "fase5" | "processamento" | "ocorrencia" | "enxovalcso" | "complexa" | "cardsall" | "slackhistory" | "cardsgerais">("fase3");
 
   // Verificar auth ao carregar
   useEffect(() => {
@@ -3077,6 +3175,25 @@ export default function Home() {
             </WithHelp>
           ))}
         </div>
+        <hr className="border-gray-200" />
+        <div className="flex gap-1">
+          {([
+            { id: "cardsall", label: "Cards All / Por dia", help: "Visão geral de todos os cards por dia" },
+            { id: "slackhistory", label: "Histórico Pedidos Slack", help: "Mensagens enviadas no canal #despesas-implantação — com opção de excluir" },
+            { id: "cardsgerais", label: "Cards Gerais da Fase 3 a 5", help: "Visão geral de cards das fases 3 a 5" },
+          ] as { id: typeof activeTab; label: string; help: string }[]).map((tab) => (
+            <WithHelp key={tab.id} help={tab.help} className="relative flex-1">
+              <button
+                onClick={() => setActiveTab(tab.id)}
+                className={`w-full py-1.5 px-4 rounded-md text-xs font-medium transition-colors ${
+                  activeTab === tab.id ? "bg-gray-700 text-white shadow-sm" : "text-gray-400 hover:text-gray-600"
+                }`}
+              >
+                {tab.label}
+              </button>
+            </WithHelp>
+          ))}
+        </div>
       </div>
 
       {/* Tab content */}
@@ -3088,6 +3205,9 @@ export default function Home() {
       {activeTab === "ocorrencia" && <TabOcorrenciaSuporte />}
       {activeTab === "enxovalcso" && <TabEnxovalCso />}
       {activeTab === "complexa" && <TabComplexa />}
+      {activeTab === "cardsall" && <TabCardsAll />}
+      {activeTab === "slackhistory" && <TabSlackHistory />}
+      {activeTab === "cardsgerais" && <TabCardsGerais />}
     </div>
   );
 }
