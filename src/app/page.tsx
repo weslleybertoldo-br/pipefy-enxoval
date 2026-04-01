@@ -3314,10 +3314,16 @@ function TabCardsGerais() {
 function DaySummary() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
-  const days = getNextBusinessDays(3);
+  const weekdays = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+  const now = new Date();
+  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  const todayLabel = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}`;
+  const todayWeekday = weekdays[now.getDay()];
+  const nextDays = getNextBusinessDays(3);
+  const allDays = [{ date: todayDate, label: todayLabel, weekday: todayWeekday, isToday: true }, ...nextDays.map((d) => ({ ...d, isToday: false }))];
 
   useEffect(() => {
-    const dates = days.map((d) => d.date).join(",");
+    const dates = allDays.map((d) => d.date).join(",");
     fetch(`/api/cards-by-date?countOnly=true&dates=${dates}`)
       .then((r) => r.json())
       .then((data) => { if (data.success) setCounts(data.counts); })
@@ -3326,12 +3332,12 @@ function DaySummary() {
   }, []);
 
   return (
-    <div className="flex gap-2">
-      {days.map((d) => (
-        <div key={d.date} className="text-center bg-gray-50 rounded-md px-3 py-1.5 border border-gray-200 min-w-[70px]">
-          <div className="text-[10px] font-medium text-gray-500 uppercase">{d.weekday}</div>
-          <div className="text-xs text-gray-700">{d.label}</div>
-          <div className="text-lg font-bold text-gray-900">{loading ? "..." : counts[d.date] ?? 0}</div>
+    <div className="flex gap-1">
+      {allDays.map((d) => (
+        <div key={d.date} className={`text-center rounded-md px-2 py-1 min-w-[58px] border ${d.isToday ? "bg-blue-50 border-blue-300" : "bg-gray-50 border-gray-200"}`}>
+          <div className={`text-[9px] font-medium uppercase ${d.isToday ? "text-blue-600" : "text-gray-500"}`}>{d.isToday ? "Hoje" : d.weekday}</div>
+          <div className={`text-[10px] ${d.isToday ? "text-blue-700" : "text-gray-700"}`}>{d.label}</div>
+          <div className={`text-base font-bold ${d.isToday ? "text-blue-900" : "text-gray-900"}`}>{loading ? "..." : counts[d.date] ?? 0}</div>
         </div>
       ))}
     </div>
@@ -3376,7 +3382,7 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Pipefy Enxoval</h1>
-            <p className="text-gray-500 mt-1">Automação de registro de enxoval — Seazone</p>
+            <p className="text-gray-500 text-xs mt-1">Automação enxoval — Seazone</p>
           </div>
           <div className="flex items-center gap-4">
             <DaySummary />
