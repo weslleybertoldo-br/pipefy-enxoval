@@ -3623,7 +3623,7 @@ function DaySummary() {
   const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const todayLabel = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}`;
   const todayWeekday = weekdays[now.getDay()];
-  const nextDays = getNextBusinessDays(3);
+  const nextDays = getNextBusinessDays(4);
   const allDays = [{ date: todayDate, label: todayLabel, weekday: todayWeekday, isToday: true }, ...nextDays.map((d) => ({ ...d, isToday: false }))];
 
   useEffect(() => {
