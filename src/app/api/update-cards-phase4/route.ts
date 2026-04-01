@@ -5,6 +5,21 @@ import {
   replaceCommentFupDate, requireAuth, PHASE_4_ID, WESLLEY_USER_ID,
 } from "@/lib/pipefy";
 
+const TAG_ITENS_PEQUENOS = "310938809";
+const TAG_MANUT_PEQUENAS = "310938821";
+const TAG_PIN = "312148103";
+
+function getSectionStatus(text: string, keyword: string): "❌" | "✔️" | "" {
+  const lines = text.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (/^[❌✔✅]/.test(trimmed) && trimmed.toUpperCase().includes(keyword.toUpperCase())) {
+      return trimmed.startsWith("❌") ? "❌" : "✔️";
+    }
+  }
+  return "";
+}
+
 function shouldSkipCard(card: any): { skip: boolean; reason: string } {
   const assignees = card.assignees || [];
   const isWeslley = assignees.some((a: any) =>
@@ -54,6 +69,47 @@ async function processCard(card: any, extraDays = 0, customComment?: string): Pr
     }
 
     if (customComment) {
+      // Atualizar tags baseado no comentário editado
+      const itensStatus = getSectionStatus(customComment, "ITENS");
+      const manutStatus = getSectionStatus(customComment, "MANUTEN");
+      let currentLabels: string[] = (card.labels || []).map((l: any) => l.id);
+      let labelsChanged = false;
+
+      // ITENS: ❌ adiciona tag, ✔️ remove
+      if (itensStatus === "❌" && !currentLabels.includes(TAG_ITENS_PEQUENOS)) {
+        currentLabels.push(TAG_ITENS_PEQUENOS);
+        labelsChanged = true;
+        actions.push("Tag Itens pequenos adicionada");
+      } else if (itensStatus === "✔️" && currentLabels.includes(TAG_ITENS_PEQUENOS)) {
+        currentLabels = currentLabels.filter((id) => id !== TAG_ITENS_PEQUENOS);
+        labelsChanged = true;
+        actions.push("Tag Itens pequenos removida");
+      }
+
+      // MANUTENÇÃO: ❌ adiciona tag, ✔️ remove
+      if (manutStatus === "❌" && !currentLabels.includes(TAG_MANUT_PEQUENAS)) {
+        currentLabels.push(TAG_MANUT_PEQUENAS);
+        labelsChanged = true;
+        actions.push("Tag Manutenções pequenas adicionada");
+      } else if (manutStatus === "✔️" && currentLabels.includes(TAG_MANUT_PEQUENAS)) {
+        currentLabels = currentLabels.filter((id) => id !== TAG_MANUT_PEQUENAS);
+        labelsChanged = true;
+        actions.push("Tag Manutenções pequenas removida");
+      }
+
+      // PIN: sempre remover
+      if (currentLabels.includes(TAG_PIN)) {
+        currentLabels = currentLabels.filter((id) => id !== TAG_PIN);
+        labelsChanged = true;
+        actions.push("Tag PIN removida");
+      }
+
+      if (labelsChanged) {
+        const uniqueLabels = [...new Set(currentLabels)];
+        const labelArray = uniqueLabels.map((id) => `"${id}"`).join(", ");
+        await pipefyQuery(`mutation { updateCard(input: { id: ${card.id}, label_ids: [${labelArray}] }) { card { id } } }`);
+      }
+
       await createComment(card.id, customComment);
       actions.push("Comentário editado enviado");
     } else {
