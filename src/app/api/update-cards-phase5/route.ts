@@ -74,8 +74,20 @@ function formatPhone(raw: string): string {
     return `+${digits}`;
   }
 
-  // Número sem código de país — assumir Brasil
+  // Número sem + mas pode começar com 55 (Brasil)
   const digits = cleaned.replace(/\D/g, "");
+  if (digits.startsWith("55") && digits.length >= 12) {
+    const ddd = digits.slice(2, 4);
+    if (BRAZIL_DDDS.has(ddd)) {
+      const rest = digits.slice(4);
+      if (rest.length === 9) {
+        return `(${ddd}) ${rest[0]} ${rest.slice(1, 5)} ${rest.slice(5)}`;
+      } else if (rest.length === 8) {
+        return `(${ddd}) ${rest.slice(0, 4)} ${rest.slice(4)}`;
+      }
+      return `(${ddd}) ${rest}`;
+    }
+  }
   if (digits.length === 11) {
     const ddd = digits.slice(0, 2);
     const rest = digits.slice(2);
