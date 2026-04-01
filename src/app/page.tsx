@@ -832,8 +832,10 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                   </label>
                 ))}
               </div>
-              <CopyScriptUnicoItem />
-              <CopyScriptPendencias />
+              <div className="flex flex-col gap-1">
+                <CopyScriptUnicoItem />
+                <CopyScriptPendencias />
+              </div>
             </>
           )}
         </div>
