@@ -41,14 +41,16 @@ async function processCard(card: any, extraDays = 0, customComment?: string): Pr
     await updateDueDate(card.id, newDueDate);
     actions.push(`Vencimento → ${newDueDateBR} 22:00`);
 
-    // Atualizar responsável para Weslley
-    const assignees = card.assignees || [];
-    const isWeslley = assignees.some((a: any) =>
-      a.id === WESLLEY_USER_ID || a.name?.toLowerCase().includes("weslley")
-    );
-    if (!isWeslley) {
-      await updateAssignee(card.id, WESLLEY_USER_ID);
-      actions.push("Responsável → Weslley Bertoldo");
+    // Atualizar responsável para Weslley (só no envio manual)
+    if (customComment) {
+      const assignees = card.assignees || [];
+      const isWeslley = assignees.some((a: any) =>
+        a.id === WESLLEY_USER_ID || a.name?.toLowerCase().includes("weslley")
+      );
+      if (!isWeslley) {
+        await updateAssignee(card.id, WESLLEY_USER_ID);
+        actions.push("Responsável → Weslley Bertoldo");
+      }
     }
 
     if (customComment) {
