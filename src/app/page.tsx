@@ -1543,13 +1543,13 @@ function TabRevisao() {
   const [editingComplexaComment, setEditingComplexaComment] = useState<string | null>(null);
   const [commentText, setCommentText] = useState("");
   const [complexaCommentText, setComplexaCommentText] = useState("");
-  const [cardOptions, setCardOptions] = useState<Record<string, { complexa: boolean; itens: boolean; manut: boolean }>>({});
+  const [cardOptions, setCardOptions] = useState<Record<string, { complexa: boolean; itens: boolean; manut: boolean; pin: boolean }>>({});
   const [summary, setSummary] = useState<{ complexaCount: number; revisaoCount: number } | null>(null);
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
 
-  const getCardOpts = (id: string) => cardOptions[id] || { complexa: false, itens: false, manut: false };
-  const setCardOpt = (id: string, key: "complexa" | "itens" | "manut", val: boolean) => {
+  const getCardOpts = (id: string) => cardOptions[id] || { complexa: false, itens: false, manut: false, pin: false };
+  const setCardOpt = (id: string, key: "complexa" | "itens" | "manut" | "pin", val: boolean) => {
     setCardOptions((prev) => ({ ...prev, [id]: { ...getCardOpts(id), [key]: val } }));
   };
 
@@ -1557,12 +1557,13 @@ function TabRevisao() {
     const filtered = data.cards.filter((c: RevisaoCard) => c.type !== "none");
     setCards(filtered);
     setSummary({ complexaCount: data.complexaCount, revisaoCount: data.revisaoCount });
-    const opts: Record<string, { complexa: boolean; itens: boolean; manut: boolean }> = {};
+    const opts: Record<string, { complexa: boolean; itens: boolean; manut: boolean; pin: boolean }> = {};
     for (const c of filtered) {
       opts[c.id] = {
         complexa: (c.labelIds || []).includes("314328534"),
         itens: (c.labelIds || []).includes("310938809"),
         manut: (c.labelIds || []).includes("310938821"),
+        pin: (c.labelIds || []).includes("312148103"),
       };
     }
     setCardOptions(opts);
@@ -1646,6 +1647,7 @@ function TabRevisao() {
           isComplexa: opts.complexa,
           addItensPequenos: opts.itens,
           addManutencoesPequenas: opts.manut,
+          addPin: opts.pin,
         }),
       });
       const data = await res.json();
@@ -1687,7 +1689,7 @@ function TabRevisao() {
       const res = await fetch("/api/update-cards-revisao", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cardId: editingComment, type: "revisao", customComment: commentText, isComplexa: getCardOpts(editingComment).complexa, addItensPequenos: getCardOpts(editingComment).itens, addManutencoesPequenas: getCardOpts(editingComment).manut }),
+        body: JSON.stringify({ cardId: editingComment, type: "revisao", customComment: commentText, isComplexa: getCardOpts(editingComment).complexa, addItensPequenos: getCardOpts(editingComment).itens, addManutencoesPequenas: getCardOpts(editingComment).manut, addPin: getCardOpts(editingComment).pin }),
       });
       const data = await res.json();
       if (data.success) {
@@ -1828,6 +1830,10 @@ function TabRevisao() {
                               <input type="checkbox" checked={getCardOpts(c.id).manut} onChange={(e) => setCardOpt(c.id, "manut", e.target.checked)} className="w-3 h-3 accent-blue-600" />
                               <span className="text-[10px] text-gray-500">Manut. peq.</span>
                             </label>
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" checked={getCardOpts(c.id).pin} onChange={(e) => setCardOpt(c.id, "pin", e.target.checked)} className="w-3 h-3 accent-red-600" />
+                              <span className="text-[10px] text-gray-500">PIN</span>
+                            </label>
                           </div>
                         </>
                       )}
@@ -1919,6 +1925,10 @@ function TabRevisao() {
                             <label className="flex items-center gap-1 cursor-pointer">
                               <input type="checkbox" checked={getCardOpts(c.id).manut} onChange={(e) => setCardOpt(c.id, "manut", e.target.checked)} className="w-3 h-3 accent-blue-600" />
                               <span className="text-[10px] text-gray-500">Manut. peq.</span>
+                            </label>
+                            <label className="flex items-center gap-1 cursor-pointer">
+                              <input type="checkbox" checked={getCardOpts(c.id).pin} onChange={(e) => setCardOpt(c.id, "pin", e.target.checked)} className="w-3 h-3 accent-red-600" />
+                              <span className="text-[10px] text-gray-500">PIN</span>
                             </label>
                           </div>
                         </>

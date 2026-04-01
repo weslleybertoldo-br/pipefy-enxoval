@@ -31,6 +31,7 @@ async function sendSlackDM(userId: string, text: string) {
 const TAG_ADEQUACAO_COMPLEXA = "314328534";
 const TAG_ITENS_PEQUENOS = "310938809";
 const TAG_MANUTENCOES_PEQUENAS = "310938821";
+const TAG_PIN = "312148103";
 
 function normalize(str: string): string {
   return str.toUpperCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -107,7 +108,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { cardId, type, customComment, isComplexa, addItensPequenos, addManutencoesPequenas } = await req.json();
+    const { cardId, type, customComment, isComplexa, addItensPequenos, addManutencoesPequenas, addPin } = await req.json();
     const validId = validateCardId(cardId);
 
     if (type === "complexa") {
@@ -151,11 +152,12 @@ export async function POST(req: NextRequest) {
         await updateDueDate(validId, newDueDate);
         actions.push(`Vencimento → ${newDueDateBR} 22:00`);
 
-        // Garantir tag complexa + adicionar/remover itens/manut
-        const newLabels = currentLabels.filter((id) => id !== TAG_ITENS_PEQUENOS && id !== TAG_MANUTENCOES_PEQUENAS);
+        // Garantir tag complexa + adicionar/remover itens/manut/pin
+        const newLabels = currentLabels.filter((id) => id !== TAG_ITENS_PEQUENOS && id !== TAG_MANUTENCOES_PEQUENAS && id !== TAG_PIN);
         if (!newLabels.includes(TAG_ADEQUACAO_COMPLEXA)) newLabels.push(TAG_ADEQUACAO_COMPLEXA);
         if (addItensPequenos) newLabels.push(TAG_ITENS_PEQUENOS);
         if (addManutencoesPequenas) newLabels.push(TAG_MANUTENCOES_PEQUENAS);
+        if (addPin) newLabels.push(TAG_PIN);
         const labelArray = [...new Set(newLabels)].map((id) => `"${id}"`).join(", ");
         await pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
         actions.push("Tags atualizadas");
@@ -166,10 +168,11 @@ export async function POST(req: NextRequest) {
         await updateDueDate(validId, newDueDate);
         actions.push(`Vencimento → ${newDueDateBR} 22:00`);
 
-        // Remover tag complexa + adicionar/remover itens/manut
-        const newLabels = currentLabels.filter((id) => id !== TAG_ADEQUACAO_COMPLEXA && id !== TAG_ITENS_PEQUENOS && id !== TAG_MANUTENCOES_PEQUENAS);
+        // Remover tag complexa + adicionar/remover itens/manut/pin
+        const newLabels = currentLabels.filter((id) => id !== TAG_ADEQUACAO_COMPLEXA && id !== TAG_ITENS_PEQUENOS && id !== TAG_MANUTENCOES_PEQUENAS && id !== TAG_PIN);
         if (addItensPequenos) newLabels.push(TAG_ITENS_PEQUENOS);
         if (addManutencoesPequenas) newLabels.push(TAG_MANUTENCOES_PEQUENAS);
+        if (addPin) newLabels.push(TAG_PIN);
         const labelArray = [...new Set(newLabels)].map((id) => `"${id}"`).join(", ");
         await pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
         actions.push("Tag Complexa removida");
@@ -228,9 +231,11 @@ export async function POST(req: NextRequest) {
         actions.push(`Vencimento → ${newDueDateBR} 22:00`);
 
         // Adicionar tags
-        const newLabels = [...new Set([...currentLabels, TAG_ADEQUACAO_COMPLEXA])];
+        const newLabels = currentLabels.filter((id) => id !== TAG_ITENS_PEQUENOS && id !== TAG_MANUTENCOES_PEQUENAS && id !== TAG_PIN);
+        if (!newLabels.includes(TAG_ADEQUACAO_COMPLEXA)) newLabels.push(TAG_ADEQUACAO_COMPLEXA);
         if (addItensPequenos) newLabels.push(TAG_ITENS_PEQUENOS);
         if (addManutencoesPequenas) newLabels.push(TAG_MANUTENCOES_PEQUENAS);
+        if (addPin) newLabels.push(TAG_PIN);
         const uniqueLabels = [...new Set(newLabels)];
         const labelArray = uniqueLabels.map((id) => `"${id}"`).join(", ");
         await pipefyQuery(`mutation {
@@ -239,6 +244,7 @@ export async function POST(req: NextRequest) {
         actions.push("Tag Adequação Complexa adicionada");
         if (addItensPequenos) actions.push("Tag Itens pequenos");
         if (addManutencoesPequenas) actions.push("Tag Manutenções pequenas");
+        if (addPin) actions.push("Tag PIN");
 
         // Comentário com FUP do dia seguinte
         if (customComment) {
@@ -253,17 +259,18 @@ export async function POST(req: NextRequest) {
         await updateDueDate(validId, newDueDate);
         actions.push(`Vencimento → ${newDueDateBR} 22:00`);
 
-        // Adicionar tags se marcadas
-        const newLabels = [...currentLabels];
-        if (addItensPequenos && !newLabels.includes(TAG_ITENS_PEQUENOS)) newLabels.push(TAG_ITENS_PEQUENOS);
-        if (addManutencoesPequenas && !newLabels.includes(TAG_MANUTENCOES_PEQUENAS)) newLabels.push(TAG_MANUTENCOES_PEQUENAS);
-        if (newLabels.length !== currentLabels.length) {
-          const labelArray = newLabels.map((id) => `"${id}"`).join(", ");
+        // Adicionar/remover tags conforme checkboxes
+        const newLabels = currentLabels.filter((id) => id !== TAG_ITENS_PEQUENOS && id !== TAG_MANUTENCOES_PEQUENAS && id !== TAG_PIN);
+        if (addItensPequenos) newLabels.push(TAG_ITENS_PEQUENOS);
+        if (addManutencoesPequenas) newLabels.push(TAG_MANUTENCOES_PEQUENAS);
+        if (addPin) newLabels.push(TAG_PIN);
+        const uniqueLabels = [...new Set(newLabels)];
+        if (uniqueLabels.length !== currentLabels.length || !uniqueLabels.every((id) => currentLabels.includes(id))) {
+          const labelArray = uniqueLabels.map((id) => `"${id}"`).join(", ");
           await pipefyQuery(`mutation {
             updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } }
           }`);
-          if (addItensPequenos) actions.push("Tag Itens pequenos");
-          if (addManutencoesPequenas) actions.push("Tag Manutenções pequenas");
+          actions.push("Tags atualizadas");
         }
 
         // Comentário customizado

@@ -71,6 +71,62 @@ function isMatinali(enxovalLine: string): boolean {
   return (upper.includes("COMPRADO") && upper.includes("PP CSO")) || upper.includes("MATINALI");
 }
 
+// Filtra itens pendentes: remove linhas com ✅/✔️ no início ou texto após ";"
+function filterPendingItems(rawContent: string): string {
+  const fullText = rawContent.trim();
+  if (!fullText) return "";
+  const lines = fullText.split("\n").map((l) => l.trim()).filter(Boolean);
+  const pending: string[] = [];
+  for (const line of lines) {
+    if (/^[✅✔]/.test(line) || line.startsWith("✔️")) continue;
+    const semiIdx = line.indexOf(";");
+    if (semiIdx >= 0) {
+      const afterSemi = line.slice(semiIdx + 1).trim();
+      if (afterSemi.length > 0) continue;
+    }
+    pending.push(line);
+  }
+  if (pending.length === 0) return "";
+  return pending.join("\n");
+}
+
+// Parseia seções do comentário (ENXOVAL, ITENS, MANUTENÇÃO)
+function parseSections(text: string): {
+  enxoval: { status: string; content: string; titleLine: string };
+  itens: { status: string; content: string };
+  manutencao: { status: string; content: string };
+} {
+  const lines = text.split("\n");
+  const findSection = (keyword: string): { status: string; content: string; titleLine: string } => {
+    let startIdx = -1;
+    let status = "";
+    let titleLine = "";
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.match(/^[❌✔✅]/) && line.toUpperCase().includes(keyword.toUpperCase())) {
+        startIdx = i;
+        status = line.startsWith("❌") ? "❌" : "✔️";
+        titleLine = line;
+        break;
+      }
+    }
+    if (startIdx === -1) return { status: "", content: "", titleLine: "" };
+    const contentLines: string[] = [];
+    for (let i = startIdx + 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.match(/^[❌✔✅]\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i) || line.match(/^✔️\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i)) break;
+      contentLines.push(lines[i]);
+    }
+    const rawContent = contentLines.join("\n").trim();
+    return { status, content: status === "❌" ? filterPendingItems(rawContent) : "", titleLine };
+  };
+  return {
+    enxoval: findSection("ENXOVAL"),
+    itens: findSection("ITENS"),
+    manutencao: findSection("MANUTEN"),
+  };
+}
+
 // POST: Atualizar comentário editado
 export async function POST(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {
@@ -82,8 +138,81 @@ export async function POST(req: NextRequest) {
 
     if (action === "update_comment") {
       if (!commentText) return NextResponse.json({ error: "Comentário obrigatório" }, { status: 400 });
-      await createComment(validId, commentText);
-      return NextResponse.json({ success: true, details: "Comentário atualizado" });
+
+      const actions: string[] = [];
+      const errors: string[] = [];
+      async function step(name: string, fn: () => Promise<void>) {
+        try { await fn(); actions.push(name); } catch (e: unknown) { errors.push(`${name}: ${e instanceof Error ? e.message : "erro"}`); }
+      }
+
+      // Parsear seções do comentário editado
+      const sections = parseSections(commentText);
+
+      // 1. Buscar card para labels atuais
+      const cardResult = await pipefyQuery(`{
+        card(id: ${validId}) { id labels { id } }
+      }`);
+      const card = cardResult?.data?.card;
+      let updatedLabels = (card?.labels || []).map((l: any) => l.id) as string[];
+
+      // 2. Atualizar campos baseado no comentário
+      if (sections.enxoval.status) {
+        if (sections.enxoval.status === "❌") {
+          const escaped = JSON.stringify(sections.enxoval.titleLine).slice(1, -1);
+          await step("Campo enxoval: pendente", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "${escaped}" }) { success } }`)
+          );
+          if (!updatedLabels.includes(TAG_VALIDAR_ENXOVAL)) updatedLabels.push(TAG_VALIDAR_ENXOVAL);
+        } else {
+          await step("Campo enxoval: ok", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "valida_o_enxoval", new_value: "ok" }) { success } }`)
+          );
+          updatedLabels = updatedLabels.filter((id) => id !== TAG_COMPRAR_ENXOVAL && id !== TAG_ENTREGAR_ENXOVAL && id !== TAG_VALIDAR_ENXOVAL);
+        }
+      }
+      if (sections.itens.status) {
+        if (sections.itens.status === "❌") {
+          const pending = sections.itens.content;
+          const escaped = JSON.stringify(pending || "pendente").slice(1, -1);
+          await step("Campo itens: pendentes", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "${escaped}" }) { success } }`)
+          );
+          if (!updatedLabels.includes(TAG_ITENS_PEQUENOS)) updatedLabels.push(TAG_ITENS_PEQUENOS);
+        } else {
+          await step("Campo itens: ok", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "itens_faltantes_atualmente", new_value: "ok" }) { success } }`)
+          );
+          updatedLabels = updatedLabels.filter((id) => id !== TAG_ITENS_PEQUENOS);
+        }
+      }
+      if (sections.manutencao.status) {
+        if (sections.manutencao.status === "❌") {
+          const pending = sections.manutencao.content;
+          const escaped = JSON.stringify(pending || "pendente").slice(1, -1);
+          await step("Campo manutenção: pendentes", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "${escaped}" }) { success } }`)
+          );
+          if (!updatedLabels.includes(TAG_MANUT_PEQUENAS)) updatedLabels.push(TAG_MANUT_PEQUENAS);
+        } else {
+          await step("Campo manutenção: ok", () =>
+            pipefyQuery(`mutation { updateCardField(input: { card_id: ${validId}, field_id: "manuten_es_pendentes_atualmente", new_value: "ok" }) { success } }`)
+          );
+          updatedLabels = updatedLabels.filter((id) => id !== TAG_MANUT_PEQUENAS);
+        }
+      }
+
+      // 3. Atualizar tags
+      const uniqueLabels = [...new Set(updatedLabels)];
+      await step("Tags atualizadas", () => {
+        const labelArray = uniqueLabels.map((id) => `"${id}"`).join(", ");
+        return pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
+      });
+
+      // 4. Adicionar comentário
+      await step("Comentário adicionado", () => createComment(validId, commentText));
+
+      const allDetails = [...actions, ...errors.map((e) => `❌ ${e}`)].join(" | ");
+      return NextResponse.json({ success: errors.length === 0, details: allDetails });
     }
 
     if (action === "finalizar") {

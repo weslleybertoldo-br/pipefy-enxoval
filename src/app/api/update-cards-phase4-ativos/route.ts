@@ -65,16 +65,26 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Filtra itens: remove os que começam com ✅ (delimitados por ";")
+// Filtra itens pendentes: remove linhas que começam com ✅/✔️ ou que têm texto após ";" na mesma linha
 function filterPendingItems(rawContent: string): string {
-  // Juntar tudo em uma string e separar por ";"
   const fullText = rawContent.trim();
   if (!fullText) return "";
 
-  const items = fullText.split(";").map((item) => item.trim()).filter(Boolean);
-  const pending = items.filter((item) => !item.startsWith("✅") && !item.startsWith("✔️") && !item.startsWith("✔"));
+  const lines = fullText.split("\n").map((l) => l.trim()).filter(Boolean);
+  const pending: string[] = [];
+  for (const line of lines) {
+    // Linha com ✅ ou ✔️ no início → resolvida
+    if (/^[✅✔]/.test(line) || line.startsWith("✔️")) continue;
+    // Linha com texto após ";" → justificativa/exceção → resolvida
+    const semiIdx = line.indexOf(";");
+    if (semiIdx >= 0) {
+      const afterSemi = line.slice(semiIdx + 1).trim();
+      if (afterSemi.length > 0) continue;
+    }
+    pending.push(line);
+  }
   if (pending.length === 0) return "";
-  return pending.join(";\n") + ";";
+  return pending.join("\n");
 }
 
 // Parseia seções do comentário entre emojis
