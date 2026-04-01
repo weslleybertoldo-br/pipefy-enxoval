@@ -3303,10 +3303,314 @@ function TabSlackHistory() {
 }
 
 function TabCardsGerais() {
+  const [searchCode, setSearchCode] = useState("");
+  const [searching, setSearching] = useState(false);
+  const [cards, setCards] = useState<any[]>([]);
+  const [error, setError] = useState("");
+  const [editingCard, setEditingCard] = useState<string | null>(null);
+  const [editComment, setEditComment] = useState("");
+  const [editLabels, setEditLabels] = useState<{ id: string; name: string }[]>([]);
+  const [editDueDate, setEditDueDate] = useState("");
+  const [editAssigneeId, setEditAssigneeId] = useState("");
+  const [editMovePhase, setEditMovePhase] = useState("");
+  const [updating, setUpdating] = useState(false);
+  const [updateResults, setUpdateResults] = useState<{ action: string; status: string; message: string }[]>([]);
+
+  const ALL_PHASES = [
+    { id: "323529355", name: "Fase 0" },
+    { id: "323315791", name: "Fase 1" },
+    { id: "323529394", name: "Fase 2" },
+    { id: "323529403", name: "Fase 3" },
+    { id: "333848207", name: "Fase 4" },
+    { id: "333848127", name: "Fase 5" },
+    { id: "323315793", name: "Concluído" },
+    { id: "323691490", name: "CHURN" },
+    { id: "329664300", name: "Excluídos" },
+  ];
+
+  const ALL_TAGS = [
+    { id: "310425316", name: "Comprar enxoval" },
+    { id: "310938829", name: "Entregar enxoval" },
+    { id: "310959732", name: "Validar enxoval" },
+    { id: "310938809", name: "Itens pequenos" },
+    { id: "310938821", name: "Manutenções pequenas" },
+    { id: "310425321", name: "Itens grandes" },
+    { id: "310425328", name: "Manutenções grandes" },
+    { id: "314328534", name: "Adequação complexa" },
+    { id: "312148103", name: "📌 PIN" },
+    { id: "314401573", name: "Revisão Finalizada" },
+    { id: "314317045", name: "Imóvel Ativo" },
+    { id: "315919223", name: "OCORRÊNCIA REGISTRADA" },
+    { id: "314342772", name: "🚨 POSSÍVEL CHURN" },
+    { id: "314377384", name: "⚠️ prioridade!" },
+  ];
+
+  const searchCard = async () => {
+    if (!searchCode.trim()) return;
+    setSearching(true);
+    setError("");
+    setCards([]);
+    setEditingCard(null);
+    setUpdateResults([]);
+    try {
+      const res = await fetch(`/api/cards-gerais?q=${encodeURIComponent(searchCode.trim())}`);
+      const data = await res.json();
+      if (data.success) {
+        setCards(data.cards);
+        if (data.cards.length === 0) setError("Nenhum card encontrado");
+      } else {
+        setError(data.error || "Erro");
+      }
+    } catch {
+      setError("Erro de conexão");
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const openEditor = (card: any) => {
+    setEditingCard(card.id);
+    setEditComment(card.lastComment || "");
+    setEditLabels([...card.labels]);
+    setEditDueDate(card.due_date ? card.due_date.split("T")[0] : "");
+    setEditAssigneeId("");
+    setEditMovePhase("");
+    setUpdateResults([]);
+  };
+
+  const removeLabel = (labelId: string) => {
+    setEditLabels((prev) => prev.filter((l) => l.id !== labelId));
+  };
+
+  const addLabel = (tag: { id: string; name: string }) => {
+    if (!editLabels.some((l) => l.id === tag.id)) {
+      setEditLabels((prev) => [...prev, tag]);
+    }
+  };
+
+  const sendUpdate = async (cardId: string) => {
+    setUpdating(true);
+    setUpdateResults([]);
+    try {
+      const actions: any = {};
+      if (editComment.trim()) actions.comment = editComment;
+      actions.labelIds = editLabels.map((l) => l.id);
+      if (editDueDate) actions.dueDate = editDueDate;
+      if (editAssigneeId) actions.assigneeId = editAssigneeId;
+      if (editMovePhase) actions.moveToPhaseId = editMovePhase;
+
+      const res = await fetch("/api/cards-gerais", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId, actions }),
+      });
+      const data = await res.json();
+      setUpdateResults(data.results || []);
+    } catch {
+      setUpdateResults([{ action: "Geral", status: "error", message: "Erro de conexão" }]);
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const phaseColor: Record<string, string> = {
+    "Fase 0": "bg-gray-100 text-gray-600",
+    "Fase 1": "bg-gray-100 text-gray-600",
+    "Fase 2": "bg-purple-100 text-purple-700",
+    "Fase 3": "bg-blue-100 text-blue-700",
+    "Fase 4": "bg-orange-100 text-orange-700",
+    "Fase 5": "bg-green-100 text-green-700",
+    "Concluído": "bg-emerald-100 text-emerald-700",
+    "CHURN": "bg-red-100 text-red-700",
+    "Excluídos": "bg-red-100 text-red-700",
+  };
+
+  const getReturnPhases = (currentPhaseId: string) => {
+    const idx = ALL_PHASES.findIndex((p) => p.id === currentPhaseId);
+    if (idx <= 0) return [];
+    return ALL_PHASES.slice(0, idx);
+  };
+
+  const getAdvancePhases = (currentPhaseId: string) => {
+    const advanceIds = ["323529403", "333848207", "333848127"];
+    if (!advanceIds.includes(currentPhaseId)) return [];
+    const idx = ALL_PHASES.findIndex((p) => p.id === currentPhaseId);
+    if (idx < 0 || idx >= ALL_PHASES.length - 1) return [];
+    return [ALL_PHASES[idx + 1]];
+  };
+
   return (
-    <section className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-lg font-semibold mb-2">Cards Gerais da Fase 3 a 5</h2>
-      <p className="text-sm text-gray-500">Em breve.</p>
+    <section className="space-y-4">
+      <div className="bg-white rounded-lg shadow p-6">
+        <h2 className="text-lg font-semibold mb-2">Cards Gerais — Pesquisa no Pipe inteiro</h2>
+        <p className="text-sm text-gray-500 mb-4">Busca em todas as fases (0 a 5, Concluído, CHURN, Excluídos)</p>
+        <div className="flex gap-2 items-center">
+          <input
+            type="text"
+            value={searchCode}
+            onChange={(e) => setSearchCode(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && searchCard()}
+            placeholder="Código do card..."
+            className="border border-gray-300 rounded-md px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48"
+          />
+          <button
+            onClick={searchCard}
+            disabled={searching || !searchCode.trim()}
+            className="bg-gray-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
+          >
+            {searching ? "Buscando..." : "Pesquisar"}
+          </button>
+        </div>
+        {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
+      </div>
+
+      {cards.map((c) => (
+        <div key={c.id} className="bg-white rounded-lg shadow p-5 border-l-4 border-l-gray-400">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${phaseColor[c.phase] || "bg-gray-100 text-gray-600"}`}>{c.phase}</span>
+              <CopyableCode code={c.title} className="text-base" />
+              <span className="text-xs text-gray-500">Venc: {c.due_date ? c.due_date.split("T")[0].split("-").reverse().join("/") : "—"}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500">{c.assignees.map((a: any) => a.name).join(", ") || "Sem responsável"}</span>
+              {editingCard !== c.id && (
+                <button
+                  onClick={() => openEditor(c)}
+                  className="bg-yellow-500 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-yellow-600 transition-colors"
+                >
+                  Editar
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Editor */}
+          {editingCard === c.id && (
+            <div className="bg-gray-50 rounded-md p-4 border border-gray-200 space-y-3">
+              {/* Tags como badges com ✕ */}
+              <div>
+                <p className="text-xs font-medium text-gray-600 mb-1">Tags:</p>
+                <div className="flex flex-wrap gap-1 items-center">
+                  {editLabels.map((l) => (
+                    <span key={l.id} className="inline-flex items-center gap-1 text-[10px] bg-gray-200 px-2 py-0.5 rounded-full">
+                      {l.name}
+                      <button onClick={() => removeLabel(l.id)} className="text-red-400 hover:text-red-600 font-bold">✕</button>
+                    </span>
+                  ))}
+                  <div className="relative group">
+                    <button className="text-[10px] bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full hover:bg-blue-200">+ Tag</button>
+                    <div className="absolute left-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-xl z-50 w-48 max-h-48 overflow-y-auto hidden group-hover:block">
+                      {ALL_TAGS.filter((t) => !editLabels.some((l) => l.id === t.id)).map((t) => (
+                        <button key={t.id} onClick={() => addLabel(t)} className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-100 transition-colors">
+                          {t.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Comentário */}
+              <div>
+                <p className="text-xs font-medium text-gray-600 mb-1">Comentário:</p>
+                <textarea
+                  value={editComment}
+                  onChange={(e) => setEditComment(e.target.value)}
+                  rows={10}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              {/* Vencimento + Responsável */}
+              <div className="flex gap-3 flex-wrap">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-1">Vencimento:</p>
+                  <input
+                    type="date"
+                    value={editDueDate}
+                    onChange={(e) => setEditDueDate(e.target.value)}
+                    className="border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-1">Responsável:</p>
+                  <select
+                    value={editAssigneeId}
+                    onChange={(e) => setEditAssigneeId(e.target.value)}
+                    className="border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Não alterar</option>
+                    <option value="305932218">Weslley Bertoldo</option>
+                  </select>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-1">Mudar fase:</p>
+                  <select
+                    value={editMovePhase}
+                    onChange={(e) => setEditMovePhase(e.target.value)}
+                    className="border border-gray-300 rounded-md px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="">Não alterar</option>
+                    {getReturnPhases(c.phaseId).length > 0 && (
+                      <optgroup label="↩ Retornar">
+                        {getReturnPhases(c.phaseId).map((p) => (
+                          <option key={p.id} value={p.id}>← {p.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {getAdvancePhases(c.phaseId).length > 0 && (
+                      <optgroup label="→ Avançar">
+                        {getAdvancePhases(c.phaseId).map((p) => (
+                          <option key={p.id} value={p.id}>→ {p.name}</option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+              </div>
+
+              {/* Botões */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => sendUpdate(c.id)}
+                  disabled={updating}
+                  className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                >
+                  {updating ? "Enviando..." : "Enviar alterações"}
+                </button>
+                <button
+                  onClick={() => { setEditingCard(null); setUpdateResults([]); }}
+                  className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors"
+                >
+                  Cancelar
+                </button>
+              </div>
+
+              {/* Resultados */}
+              {updateResults.length > 0 && (
+                <div className="space-y-1 mt-2">
+                  {updateResults.map((r, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span>{r.status === "ok" ? "✅" : "❌"}</span>
+                      <span className="font-medium">{r.action}:</span>
+                      <span className={r.status === "ok" ? "text-green-600" : "text-red-600"}>{r.message}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Último comentário (quando não editando) */}
+          {editingCard !== c.id && c.lastComment && (
+            <div className="bg-gray-50 rounded-md p-3 border border-gray-200 mt-2">
+              <p className="text-xs text-gray-400 mb-1">{c.lastCommentAuthor}</p>
+              <p className="text-xs text-gray-600 whitespace-pre-wrap max-h-32 overflow-y-auto">{c.lastComment}</p>
+            </div>
+          )}
+        </div>
+      ))}
     </section>
   );
 }
