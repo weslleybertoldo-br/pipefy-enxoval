@@ -22,13 +22,16 @@ function shouldSkipCard(card: any): { skip: boolean; reason: string } {
   return { skip: false, reason: "" };
 }
 
-async function processCard(card: any, extraDays = 0): Promise<{
+async function processCard(card: any, extraDays = 0, customComment?: string): Promise<{
   cardId: string; title: string; action: "skipped" | "updated" | "error"; details: string;
 }> {
   try {
-    const skipCheck = shouldSkipCard(card);
-    if (skipCheck.skip) {
-      return { cardId: card.id, title: card.title, action: "skipped", details: skipCheck.reason };
+    // Se tem customComment, não pula (é envio manual)
+    if (!customComment) {
+      const skipCheck = shouldSkipCard(card);
+      if (skipCheck.skip) {
+        return { cardId: card.id, title: card.title, action: "skipped", details: skipCheck.reason };
+      }
     }
 
     const newDueDate = getNextBusinessDayAt22(2 + extraDays);
@@ -38,14 +41,19 @@ async function processCard(card: any, extraDays = 0): Promise<{
     await updateDueDate(card.id, newDueDate);
     actions.push(`Vencimento → ${newDueDateBR} 22:00`);
 
-    const comments = card.comments || [];
-    const lastComment = comments[0];
-    if (lastComment?.text) {
-      const newText = replaceCommentFupDate(lastComment.text, newDueDateBR);
-      await createComment(card.id, newText);
-      actions.push("Comentário adicionado");
+    if (customComment) {
+      await createComment(card.id, customComment);
+      actions.push("Comentário editado enviado");
     } else {
-      actions.push("Sem comentário anterior");
+      const comments = card.comments || [];
+      const lastComment = comments[0];
+      if (lastComment?.text) {
+        const newText = replaceCommentFupDate(lastComment.text, newDueDateBR);
+        await createComment(card.id, newText);
+        actions.push("Comentário adicionado");
+      } else {
+        actions.push("Sem comentário anterior");
+      }
     }
 
     return { cardId: card.id, title: card.title, action: "updated", details: actions.join(" | ") };
@@ -85,15 +93,20 @@ export async function GET(req: NextRequest) {
       toUpdate: skipMap.filter((s) => !s.skip).length,
       toSkip: skipMap.filter((s) => s.skip).length,
       cards: skipMap
-        .map((s) => ({
-          id: s.card.id,
-          title: s.card.title,
-          labels: (s.card.labels || []).map((l: any) => l.name),
-          assignees: (s.card.assignees || []).map((a: any) => a.name),
-          due_date: s.card.due_date,
-          skip: s.skip,
-          skipReason: s.reason,
-        }))
+        .map((s) => {
+          const lastComment = (s.card.comments || [])[0];
+          return {
+            id: s.card.id,
+            title: s.card.title,
+            labels: (s.card.labels || []).map((l: any) => l.name),
+            assignees: (s.card.assignees || []).map((a: any) => a.name),
+            due_date: s.card.due_date,
+            skip: s.skip,
+            skipReason: s.reason,
+            lastComment: lastComment?.text || "",
+            lastCommentAuthor: lastComment?.author_name || "",
+          };
+        })
         .sort((a, b) => {
           // Cards com outro responsável (não Weslley) primeiro
           const aIsWeslley = a.assignees.some((n: string) => n.toLowerCase().includes("weslley"));
@@ -112,7 +125,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { cardId, extraDays = 0 } = await req.json();
+    const { cardId, extraDays = 0, customComment } = await req.json();
     const validId = validateCardId(cardId);
 
     const result = await pipefyQuery(`{
@@ -127,7 +140,7 @@ export async function POST(req: NextRequest) {
     const card = result?.data?.card;
     if (!card) return NextResponse.json({ error: "Card não encontrado" }, { status: 404 });
 
-    const processResult = await processCard(card, extraDays);
+    const processResult = await processCard(card, extraDays, customComment);
     return NextResponse.json({ success: true, ...processResult });
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : String(err) }, { status: 500 });

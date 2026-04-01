@@ -172,6 +172,8 @@ interface UpdateCardInfo {
   skipReason: string;
   assignees: string[];
   due_date: string | null;
+  lastComment?: string;
+  lastCommentAuthor?: string;
 }
 
 interface UpdateResult {
@@ -559,6 +561,10 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
   const [searching, setSearching] = useState(false);
   const [extraDays, setExtraDays] = useState(0);
   const [extraDaysAtivos, setExtraDaysAtivos] = useState(0);
+  const [editingManualCard, setEditingManualCard] = useState<string | null>(null);
+  const [manualCommentText, setManualCommentText] = useState("");
+  const [manualUpdating, setManualUpdating] = useState<string | null>(null);
+  const [manualStatuses, setManualStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
 
   // Estados para Fase 4 Ativos
   const [ativosCards, setAtivosCards] = useState<{ id: string; title: string; due_date: string | null; dueFormatted: string; assignees: string[]; labels: string[]; lastComment: string; lastCommentAuthor: string; lastCommentDate: string }[]>([]);
@@ -567,6 +573,47 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
   const [ativosStatuses, setAtivosStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
   const [editingAtivo, setEditingAtivo] = useState<string | null>(null);
   const [ativoCommentText, setAtivoCommentText] = useState("");
+
+  const openManualEditor = (cardId: string, lastComment: string) => {
+    const days = 2 + extraDays;
+    const now = new Date();
+    let added = 0;
+    const next = new Date(now);
+    while (added < days) {
+      next.setDate(next.getDate() + 1);
+      if (next.getDay() !== 0 && next.getDay() !== 6) added++;
+    }
+    const dd = String(next.getDate()).padStart(2, "0");
+    const mm = String(next.getMonth() + 1).padStart(2, "0");
+    const fupDate = `${dd}/${mm}`;
+    const updatedComment = lastComment ? lastComment.replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`) : `⏭️ Fup: ${fupDate}`;
+    setEditingManualCard(cardId);
+    setManualCommentText(updatedComment);
+  };
+
+  const sendManualComment = async () => {
+    if (!editingManualCard || !manualCommentText.trim()) return;
+    const cardId = editingManualCard;
+    setManualUpdating(cardId);
+    try {
+      const res = await fetch(apiRoute, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId, extraDays, customComment: manualCommentText }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setManualStatuses((prev) => ({ ...prev, [cardId]: { status: "updated", message: data.details } }));
+      } else {
+        setManualStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: data.error || "Erro" } }));
+      }
+    } catch {
+      setManualStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setManualUpdating(null);
+      setEditingManualCard(null);
+    }
+  };
 
   const loadAtivos = async () => {
     setAtivosLoading(true);
@@ -908,24 +955,70 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
           <h2 className="text-lg font-semibold mb-3">Cards na {phaseName}</h2>
           <div className="space-y-2">
             {cards.map((c) => (
-              <div key={c.id} className={`flex items-center justify-between px-4 py-3 rounded-md border ${c.skip ? "bg-yellow-50 border-yellow-200 opacity-60" : "bg-gray-50 border-gray-200"}`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">{c.skip ? "⏭️" : "📋"}</span>
-                  <div>
-                    <CopyableCode code={c.title} className="text-sm" />
-                    {c.labels.length > 0 && (
-                      <div className="flex gap-1 mt-1">
-                        {c.labels.map((l) => (
-                          <span key={l} className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{l}</span>
-                        ))}
-                      </div>
+              <div key={c.id} className={`px-4 py-3 rounded-md border ${c.skip ? "bg-yellow-50 border-yellow-200" : "bg-gray-50 border-gray-200"}`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{c.skip ? "⏭️" : "📋"}</span>
+                    <div>
+                      <CopyableCode code={c.title} className="text-sm" />
+                      {c.labels.length > 0 && (
+                        <div className="flex gap-1 mt-1">
+                          {c.labels.map((l) => (
+                            <span key={l} className="text-[10px] bg-gray-200 px-1.5 py-0.5 rounded">{l}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {c.skip && c.skipReason?.includes("Weslley") && c.lastComment && !manualStatuses[c.id] && (
+                      <button
+                        onClick={() => openManualEditor(c.id, c.lastComment || "")}
+                        disabled={manualUpdating !== null}
+                        className="bg-yellow-500 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-yellow-600 disabled:opacity-50 transition-colors whitespace-nowrap"
+                      >
+                        Editar comentário
+                      </button>
                     )}
+                    {manualStatuses[c.id] && (
+                      <span className={`text-xs ${manualStatuses[c.id].status === "updated" ? "text-green-600" : "text-red-600"}`}>
+                        {manualStatuses[c.id].message}
+                      </span>
+                    )}
+                    <div className="text-right">
+                      <div className="text-xs text-gray-500">{c.assignees.join(", ") || "Sem responsável"}</div>
+                      {c.skip && <div className="text-xs text-yellow-600 mt-0.5">{c.skipReason || "Ignorado"}</div>}
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="text-xs text-gray-500">{c.assignees.join(", ") || "Sem responsável"}</div>
-                  {c.skip && <div className="text-xs text-yellow-600 mt-0.5">{c.skipReason || "Ignorado"}</div>}
-                </div>
+
+                {/* Editor de comentário manual */}
+                {editingManualCard === c.id && (
+                  <div className="mt-3 bg-yellow-50 rounded-md p-4 border border-yellow-200">
+                    <p className="text-xs font-medium text-yellow-700 mb-2">Edite o comentário antes de enviar:</p>
+                    <textarea
+                      value={manualCommentText}
+                      onChange={(e) => setManualCommentText(e.target.value)}
+                      rows={15}
+                      className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500"
+                    />
+                    <div className="flex gap-2 mt-3">
+                      <button
+                        onClick={sendManualComment}
+                        disabled={manualUpdating !== null}
+                        className="bg-yellow-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors"
+                      >
+                        {manualUpdating === c.id ? "Enviando..." : "Enviar comentário"}
+                      </button>
+                      <button
+                        onClick={() => setEditingManualCard(null)}
+                        className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
