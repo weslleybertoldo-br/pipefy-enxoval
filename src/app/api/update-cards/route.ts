@@ -101,7 +101,9 @@ export async function GET(req: NextRequest) {
       toUpdate: skipMap.filter((s) => !s.skip).length,
       toSkip: skipMap.filter((s) => s.skip).length,
       cards: skipMap.map((s) => {
-        const lastComment = (s.card.comments || [])[0];
+        const comments = s.card.comments || [];
+        const lastComment = comments[0];
+        const firstComment = comments[comments.length - 1];
         return {
           id: s.card.id,
           title: s.card.title,
@@ -112,6 +114,7 @@ export async function GET(req: NextRequest) {
           skipReason: s.reason,
           lastComment: lastComment?.text || "",
           lastCommentAuthor: lastComment?.author_name || "",
+          firstComment: firstComment?.text || "",
         };
       }),
     });

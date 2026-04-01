@@ -174,6 +174,7 @@ interface UpdateCardInfo {
   due_date: string | null;
   lastComment?: string;
   lastCommentAuthor?: string;
+  firstComment?: string;
 }
 
 interface UpdateResult {
@@ -574,7 +575,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
   const [editingAtivo, setEditingAtivo] = useState<string | null>(null);
   const [ativoCommentText, setAtivoCommentText] = useState("");
 
-  const openManualEditor = (cardId: string, lastComment: string) => {
+  const openManualEditor = (cardId: string, firstComment: string) => {
     const days = 2 + extraDays;
     const now = new Date();
     let added = 0;
@@ -586,7 +587,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
     const dd = String(next.getDate()).padStart(2, "0");
     const mm = String(next.getMonth() + 1).padStart(2, "0");
     const fupDate = `${dd}/${mm}`;
-    const updatedComment = lastComment ? lastComment.replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`) : `⏭️ Fup: ${fupDate}`;
+    const updatedComment = firstComment ? firstComment.replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`) : `⏭️ Fup: ${fupDate}`;
     setEditingManualCard(cardId);
     setManualCommentText(updatedComment);
   };
@@ -971,9 +972,9 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    {c.skip && c.skipReason?.includes("Weslley") && c.lastComment && !manualStatuses[c.id] && (
+                    {c.skip && c.skipReason?.includes("Weslley") && c.firstComment && !manualStatuses[c.id] && (
                       <button
-                        onClick={() => openManualEditor(c.id, c.lastComment || "")}
+                        onClick={() => openManualEditor(c.id, c.firstComment || "")}
                         disabled={manualUpdating !== null}
                         className="bg-yellow-500 text-white px-3 py-1.5 rounded-md text-xs font-medium hover:bg-yellow-600 disabled:opacity-50 transition-colors whitespace-nowrap"
                       >
