@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
             channel: channelId,
             ts: threadTs,
             blocks: blocksWithoutButton,
-            text: "Lançamento de despesa - finalizado",
+            text: (payload.message?.text || "Lançamento de despesa") + " ✅ Despesa lançada",
           }),
         });
         const updateData = await updateRes.json();
