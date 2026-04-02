@@ -494,6 +494,44 @@ function CopyFupButton({ days, template = "fase4", extraDays = 0 }: { days: numb
   );
 }
 
+function CopyScriptEsqueleto() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    const text = `✅ Imóvel ativo
+
+🚨 Aguardando o envio dos registros pendentes
+
+⏭️ Fup: 03/04
+
+....................................................................................................
+
+❌ ENXOVAL
+
+✔️ ITENS MÍNIMOS
+
+✔️ MANUTENÇÃO
+
+✔️ INTERNET
+
+✔️PIN`;
+
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copied ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"}`}
+    >
+      {copied ? "Copiado!" : "Esqueleto"}
+    </button>
+  );
+}
+
 function CopyScriptUnicoItem() {
   const [copied, setCopied] = useState(false);
 
@@ -886,6 +924,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                 </label>
               </div>
               <div className="flex flex-col gap-1">
+                <CopyScriptEsqueleto />
                 <CopyScriptUnicoItem />
                 <CopyScriptPendencias />
               </div>
@@ -1085,6 +1124,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                         </button>
                       </div>
                       <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200">
+                        <CopyScriptEsqueleto />
                         <CopyScriptUnicoItem />
                         <CopyScriptPendencias />
                       </div>
