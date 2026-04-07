@@ -494,6 +494,149 @@ function CopyFupButton({ days, template = "fase4", extraDays = 0 }: { days: numb
   );
 }
 
+function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; lastComment: string }) {
+  const [copiedFirst, setCopiedFirst] = useState(false);
+  const [copiedSecond, setCopiedSecond] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const franquiaRef = useRef<string>("");
+  const fetchedRef = useRef(false);
+
+  const getGreeting = () => {
+    const hours = new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false });
+    const h = parseInt(hours);
+    return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  };
+
+  const parsePendingSections = (comment: string) => {
+    const lines = comment.split("\n");
+    const sectionDefs = [
+      { keyword: "ITENS", label: "ITENS MÍNIMOS" },
+      { keyword: "MANUTEN", label: "MANUTENÇÃO" },
+      { keyword: "ENXOVAL", label: "ENXOVAL" },
+    ];
+    const sections: { name: string; items: string[] }[] = [];
+
+    for (const { keyword, label } of sectionDefs) {
+      let startIdx = -1;
+      let status = "";
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if ((line.match(/^[❌✔✅]/) || line.startsWith("✔️")) && line.toUpperCase().includes(keyword.toUpperCase())) {
+          startIdx = i;
+          status = line.startsWith("❌") ? "❌" : "✔️";
+          break;
+        }
+      }
+      if (startIdx === -1 || status !== "❌") continue;
+
+      // ENXOVAL sempre usa texto fixo
+      if (keyword === "ENXOVAL") {
+        sections.push({ name: label, items: ["(CONFIRMAÇÃO) Entrega e validação do enxoval."] });
+        continue;
+      }
+
+      // Coletar linhas de conteúdo até próxima seção
+      const contentLines: string[] = [];
+      for (let i = startIdx + 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (line.match(/^[❌✔✅]\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i) ||
+            line.match(/^✔️\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i)) break;
+        contentLines.push(line);
+      }
+
+      // Filtrar itens pendentes (mesma lógica do filterPendingItems)
+      const pending: string[] = [];
+      for (const line of contentLines) {
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        if (/^[✅✔]/.test(trimmed) || trimmed.startsWith("✔️")) continue;
+        const semiIdx = trimmed.indexOf(";");
+        if (semiIdx >= 0) {
+          const afterSemi = trimmed.slice(semiIdx + 1).trim();
+          if (afterSemi.length > 0) continue;
+        }
+        pending.push(trimmed);
+      }
+
+      if (pending.length > 0) {
+        sections.push({ name: label, items: pending });
+      }
+    }
+    return sections;
+  };
+
+  const handleCopy = async (type: "first" | "second") => {
+    setLoading(true);
+    try {
+      // Busca franquia apenas na primeira vez
+      if (!fetchedRef.current) {
+        try {
+          const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+          const data = await res.json();
+          franquiaRef.current = data.franqueado || "";
+        } catch { /* silencioso */ }
+        fetchedRef.current = true;
+      }
+
+      const firstName = franquiaRef.current.split(" ")[0] || "";
+      const greeting = getGreeting();
+      const sections = parsePendingSections(lastComment);
+
+      const messageIntro = type === "first"
+        ? "Temos atualizações sobre os registros pendentes?"
+        : "Consegue nos ajudar com as adequações pendentes?";
+
+      let sectionsPlain = "";
+      let sectionsHtml = "";
+
+      for (const section of sections) {
+        sectionsPlain += `\n\n\n${section.name}: \n\n${section.items.join("\n")}`;
+        sectionsHtml += `<br><br><p><b>${section.name}: </b></p><p>${section.items.join("<br>")}</p>`;
+      }
+
+      const plainText = `${greeting} ${firstName} :D\n\n\n${messageIntro}${sectionsPlain}`;
+      const html = `<p>${greeting} ${firstName} :D</p><br><br><p>${messageIntro}</p>${sectionsHtml}`;
+
+      const blob = new Blob([html], { type: "text/html" });
+      const blobText = new Blob([plainText], { type: "text/plain" });
+      await navigator.clipboard.write([
+        new ClipboardItem({ "text/html": blob, "text/plain": blobText }),
+      ]);
+
+      if (type === "first") {
+        setCopiedFirst(true);
+        setTimeout(() => setCopiedFirst(false), 2000);
+      } else {
+        setCopiedSecond(true);
+        setTimeout(() => setCopiedSecond(false), 2000);
+      }
+    } catch (err) {
+      console.error("Erro ao copiar cobrança:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1">
+      <button
+        onClick={() => handleCopy("first")}
+        disabled={loading}
+        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedFirst ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+      >
+        {loading && !copiedFirst ? "..." : copiedFirst ? "Copiado!" : "Primeira cobrança"}
+      </button>
+      <button
+        onClick={() => handleCopy("second")}
+        disabled={loading}
+        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedSecond ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+      >
+        {loading && !copiedSecond ? "..." : copiedSecond ? "Copiado!" : "Segunda cobrança"}
+      </button>
+    </div>
+  );
+}
+
 function CopyScriptEsqueleto() {
   const [copied, setCopied] = useState(false);
 
@@ -1534,6 +1677,7 @@ function TabPhase5() {
                       </button>
                     </WithHelp>
                     <Phase5EditButton cardId={c.id} cardTitle={c.title} lastComment={c.lastComment} />
+                    <CopyCobrancaButtons cardTitle={c.title} lastComment={c.lastComment} />
                   </div>
                 </div>
 
