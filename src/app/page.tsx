@@ -1591,7 +1591,7 @@ function TabPhase5() {
 
   return (
     <>
-      <SlackDespesa />
+      <FormAtualizarAnuncio />
 
       <section className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-2">Fase 5 — Imóvel Ativo</h2>
@@ -2522,7 +2522,7 @@ function CopyDiasTexto() {
 }
 
 function TabOcorrenciaSuporte() {
-  const [activeForm, setActiveForm] = useState<"suporte" | "ocorrencia" | "anuncio">("suporte");
+  const [activeForm, setActiveForm] = useState<"suporte" | "ocorrencia" | "anuncio" | "despesa">("suporte");
 
   return (
     <>
@@ -2553,6 +2553,14 @@ function TabOcorrenciaSuporte() {
               Atualizar Anúncio
             </button>
           </WithHelp>
+          <WithHelp help="Envia mensagem de lançamento de despesa no canal #despesas-implantação do Slack">
+            <button
+              onClick={() => setActiveForm("despesa")}
+              className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "despesa" ? "bg-green-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+            >
+              Lançar despesas
+            </button>
+          </WithHelp>
         </div>
         {activeForm === "ocorrencia" && <CopyDiasTexto />}
       </section>
@@ -2560,6 +2568,7 @@ function TabOcorrenciaSuporte() {
       {activeForm === "suporte" && <FormSuporte />}
       {activeForm === "ocorrencia" && <FormOcorrencia />}
       {activeForm === "anuncio" && <FormAtualizarAnuncio />}
+      {activeForm === "despesa" && <SlackDespesa />}
     </>
   );
 }
