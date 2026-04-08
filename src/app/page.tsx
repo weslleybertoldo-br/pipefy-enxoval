@@ -983,7 +983,11 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
     const dd = String(next.getDate()).padStart(2, "0");
     const mm = String(next.getMonth() + 1).padStart(2, "0");
     const fupDate = `${dd}/${mm}`;
-    const updatedComment = firstComment ? firstComment.replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`) : `⏭️ Fup: ${fupDate}`;
+    let updatedComment = firstComment ? firstComment.replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`) : `⏭️ Fup: ${fupDate}`;
+    // Remove "- " do início dos itens pendentes
+    updatedComment = updatedComment.replace(/^- /gm, "");
+    // ❌ PIN → ✔️ PIN
+    updatedComment = updatedComment.replace(/❌\s*PIN/g, "✔️ PIN");
     setEditingManualCard(cardId);
     setManualCommentText(updatedComment);
   };
