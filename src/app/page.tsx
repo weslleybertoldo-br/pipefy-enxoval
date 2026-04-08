@@ -1391,6 +1391,13 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                   </div>
                 </div>
 
+                {/* Último comentário (cards disponíveis para atualizar) */}
+                {!c.skip && c.lastComment && editingManualCard !== c.id && (
+                  <div className="mt-2 bg-gray-50 rounded-md p-3 border border-gray-200">
+                    <pre className="text-xs text-gray-600 whitespace-pre-wrap font-sans leading-relaxed max-h-40 overflow-y-auto">{c.lastComment}</pre>
+                  </div>
+                )}
+
                 {/* Editor de comentário manual */}
                 {editingManualCard === c.id && (
                   <div className="mt-3 bg-yellow-50 rounded-md p-4 border border-yellow-200">
