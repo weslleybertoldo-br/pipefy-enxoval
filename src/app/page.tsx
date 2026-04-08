@@ -3521,7 +3521,10 @@ function TabCardsAll() {
       {/* Resultados do lote */}
       {batchResults.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-sm font-semibold mb-3">Resultado da alteração em lote</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">Resultado da alteração em lote</h3>
+            <button onClick={() => setBatchResults([])} className="text-xs text-blue-600 hover:text-blue-800">Voltar à lista</button>
+          </div>
           <div className="space-y-1">
             {batchResults.map((r) => (
               <div key={r.cardId} className="flex items-center justify-between px-3 py-2 rounded-md border border-gray-200 bg-gray-50">
@@ -3681,7 +3684,7 @@ function TabSlackHistory() {
 function TabCardsGerais() {
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
-  const [cards, setCards] = useState<any[]>([]);
+  const [cards, setCards] = useState<{ id: string; title: string; phase: string; phaseId: string; dueFormatted: string; due_date: string; assignees: string[]; labels: { id: string; name: string }[]; lastComment: string; lastCommentAuthor: string }[]>([]);
   const [error, setError] = useState("");
   const [editingCard, setEditingCard] = useState<string | null>(null);
   const [editComment, setEditComment] = useState("");
@@ -3995,12 +3998,14 @@ function DaySummary() {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const weekdays = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
-  const now = new Date();
-  const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const todayLabel = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}`;
-  const todayWeekday = weekdays[now.getDay()];
-  const nextDays = getNextBusinessDays(4);
-  const allDays = [{ date: todayDate, label: todayLabel, weekday: todayWeekday, isToday: true }, ...nextDays.map((d) => ({ ...d, isToday: false }))];
+  const [allDays] = useState(() => {
+    const now = new Date();
+    const todayDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const todayLabel = `${String(now.getDate()).padStart(2, "0")}/${String(now.getMonth() + 1).padStart(2, "0")}`;
+    const todayWeekday = weekdays[now.getDay()];
+    const nextDays = getNextBusinessDays(4);
+    return [{ date: todayDate, label: todayLabel, weekday: todayWeekday, isToday: true }, ...nextDays.map((d) => ({ ...d, isToday: false }))];
+  });
 
   useEffect(() => {
     const dates = allDays.map((d) => d.date).join(",");
@@ -4009,7 +4014,7 @@ function DaySummary() {
       .then((data) => { if (data.success) setCounts(data.counts); })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [allDays]);
 
   return (
     <div className="flex gap-1">
