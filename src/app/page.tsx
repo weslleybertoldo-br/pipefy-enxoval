@@ -592,12 +592,12 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
       let sectionsHtml = "";
 
       for (const section of sections) {
-        sectionsPlain += `\n\n\n${section.name}: \n\n${section.items.join("\n")}`;
-        sectionsHtml += `<br><br><p><b>${section.name}: </b></p><p>${section.items.join("<br>")}</p>`;
+        sectionsPlain += `\n\n${section.name}:\n${section.items.join("\n")}`;
+        sectionsHtml += `<br><p><b>${section.name}:</b><br>${section.items.join("<br>")}</p>`;
       }
 
-      const plainText = `${greeting} ${firstName} :D\n\n\n${messageIntro}${sectionsPlain}`;
-      const html = `<p>${greeting} ${firstName} :D</p><br><br><p>${messageIntro}</p>${sectionsHtml}`;
+      const plainText = `${greeting} ${firstName} :D\n\n${messageIntro}${sectionsPlain}`;
+      const html = `<p>${greeting} ${firstName} :D</p><br><p>${messageIntro}</p>${sectionsHtml}`;
 
       const blob = new Blob([html], { type: "text/html" });
       const blobText = new Blob([plainText], { type: "text/plain" });
