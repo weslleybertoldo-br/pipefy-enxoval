@@ -701,11 +701,92 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
   );
 }
 
-function CopyScriptEsqueleto() {
-  const [copied, setCopied] = useState(false);
+function parsePendingSectionsFromComment(comment: string) {
+  const lines = comment.split("\n");
+  const sectionDefs = [
+    { keyword: "ITENS", label: "ITENS MÍNIMOS" },
+    { keyword: "MANUTEN", label: "MANUTENÇÃO" },
+    { keyword: "ENXOVAL", label: "ENXOVAL" },
+  ];
+  const sections: { name: string; items: string[] }[] = [];
 
-  const handleCopy = () => {
-    const text = `✅ Imóvel ativo
+  for (const { keyword, label } of sectionDefs) {
+    let startIdx = -1;
+    let status = "";
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if ((line.match(/^[❌✔✅]/) || line.startsWith("✔️")) && line.toUpperCase().includes(keyword.toUpperCase())) {
+        startIdx = i;
+        status = line.startsWith("❌") ? "❌" : "✔️";
+        break;
+      }
+    }
+    if (startIdx === -1 || status !== "❌") continue;
+
+    if (keyword === "ENXOVAL") {
+      sections.push({ name: label, items: ["(CONFIRMAÇÃO) Entrega e validação do enxoval."] });
+      continue;
+    }
+
+    const contentLines: string[] = [];
+    for (let i = startIdx + 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (line.match(/^[❌✔✅]\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i) ||
+          line.match(/^✔️\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i)) break;
+      contentLines.push(line);
+    }
+
+    const pending: string[] = [];
+    for (const line of contentLines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      if (/^[✅✔]/.test(trimmed) || trimmed.startsWith("✔️")) continue;
+      const semiIdx = trimmed.indexOf(";");
+      if (semiIdx >= 0) {
+        const afterSemi = trimmed.slice(semiIdx + 1).trim();
+        if (afterSemi.length > 0) continue;
+      }
+      pending.push(trimmed);
+    }
+
+    if (pending.length > 0) {
+      sections.push({ name: label, items: pending });
+    }
+  }
+  return sections;
+}
+
+function CopyScriptEsqueleto({ cardTitle, lastComment }: { cardTitle?: string; lastComment?: string }) {
+  const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const franquiaRef = useRef<string>("");
+  const fetchedRef = useRef<string>("");
+
+  const handleCopy = async () => {
+    setLoading(true);
+    try {
+      if (cardTitle && fetchedRef.current !== cardTitle) {
+        try {
+          const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+          const data = await res.json();
+          franquiaRef.current = data.franqueado || "";
+        } catch { /* silencioso */ }
+        fetchedRef.current = cardTitle;
+      }
+
+      const sections = lastComment ? parsePendingSectionsFromComment(lastComment) : [];
+      const sectionLines = ["ENXOVAL", "ITENS MÍNIMOS", "MANUTENÇÃO"].map((name) => {
+        const found = sections.find((s) => s.name === name);
+        return found ? `❌ ${name}\n${found.items.join("\n")}` : `✔️ ${name}`;
+      });
+
+      const firstName = franquiaRef.current.split(" ")[0] || "";
+      const greeting = (() => {
+        const h = parseInt(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }));
+        return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+      })();
+
+      const text = `✅ Imóvel ativo
 
 🚨 Aguardando o envio dos registros pendentes
 
@@ -713,84 +794,139 @@ function CopyScriptEsqueleto() {
 
 ....................................................................................................
 
-❌ ENXOVAL
-
-✔️ ITENS MÍNIMOS
-
-✔️ MANUTENÇÃO
+${sectionLines.join("\n\n")}
 
 ✔️ INTERNET
 
 ✔️PIN`;
 
-    navigator.clipboard.writeText(text).then(() => {
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <button
       onClick={handleCopy}
-      className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copied ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"}`}
+      disabled={loading}
+      className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copied ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
     >
-      {copied ? "Copiado!" : "Esqueleto"}
+      {loading ? "..." : copied ? "Copiado!" : "Esqueleto"}
     </button>
   );
 }
 
-function CopyScriptUnicoItem() {
+function CopyScriptUnicoItem({ cardTitle }: { cardTitle?: string }) {
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const franquiaRef = useRef<string>("");
+  const fetchedRef = useRef<string>("");
 
-  const handleCopy = () => {
-    const text = `Vi que ainda ficou um item pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio do registro? :D`;
+  const handleCopy = async () => {
+    setLoading(true);
+    try {
+      if (cardTitle && fetchedRef.current !== cardTitle) {
+        try {
+          const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+          const data = await res.json();
+          franquiaRef.current = data.franqueado || "";
+        } catch { /* silencioso */ }
+        fetchedRef.current = cardTitle;
+      }
 
-    navigator.clipboard.writeText(text).then(() => {
+      const firstName = franquiaRef.current.split(" ")[0] || "";
+      const greeting = (() => {
+        const h = parseInt(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }));
+        return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+      })();
+
+      const text = `${greeting} ${firstName} :D\n\nVi que ainda ficou um item pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio do registro? :D`;
+
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <button
       onClick={handleCopy}
-      className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copied ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"}`}
+      disabled={loading}
+      className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copied ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
     >
-      {copied ? "Copiado!" : "Único item"}
+      {loading ? "..." : copied ? "Copiado!" : "Único item"}
     </button>
   );
 }
 
-function CopyScriptPendencias() {
+function CopyScriptPendencias({ cardTitle, lastComment }: { cardTitle?: string; lastComment?: string }) {
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const franquiaRef = useRef<string>("");
+  const fetchedRef = useRef<string>("");
 
-  const handleCopy = () => {
-    const now = new Date();
-    const hours = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false });
-    const h = parseInt(hours);
-    const saudacao = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  const handleCopy = async () => {
+    setLoading(true);
+    try {
+      if (cardTitle && fetchedRef.current !== cardTitle) {
+        try {
+          const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+          const data = await res.json();
+          franquiaRef.current = data.franqueado || "";
+        } catch { /* silencioso */ }
+        fetchedRef.current = cardTitle;
+      }
 
-    const plainText = `${saudacao}, tudo bem?\n\n\nVi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D\n\n\nREGISTROS PENDENTES\n\n\nITENS MÍNIMOS:\nTábua de corte;\n\n\nMANUTENÇÃO:\nFerro de passar;\n\n\nENXOVAL:\n(CONFIRMAÇÃO) Entrega e validação do enxoval.`;
+      const firstName = franquiaRef.current.split(" ")[0] || "";
+      const greeting = (() => {
+        const h = parseInt(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }));
+        return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+      })();
 
-    const html = `<p>${saudacao}, tudo bem?</p><br><p>Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D</p><br><p><b>REGISTROS PENDENTES</b></p><br><p><b>ITENS MÍNIMOS:</b><br>Tábua de corte;</p><br><p><b>MANUTENÇÃO:</b><br>Ferro de passar;</p><br><p><b>ENXOVAL:</b><br>(CONFIRMAÇÃO) Entrega e validação do enxoval.</p>`;
+      const sections = lastComment ? parsePendingSectionsFromComment(lastComment) : [];
 
-    const blob = new Blob([html], { type: "text/html" });
-    const blobText = new Blob([plainText], { type: "text/plain" });
-    navigator.clipboard.write([
-      new ClipboardItem({ "text/html": blob, "text/plain": blobText }),
-    ]).then(() => {
+      let sectionsPlain = "";
+      let sectionsHtml = "";
+
+      if (sections.length > 0) {
+        for (const section of sections) {
+          sectionsPlain += `\n\n\n${section.name}:\n${section.items.join("\n")}`;
+          sectionsHtml += `<br><br><p><b>${section.name}:</b><br>${section.items.join("<br>")}</p>`;
+        }
+      } else {
+        sectionsPlain = "\n\n\nITENS MÍNIMOS:\nTábua de corte;\n\n\nMANUTENÇÃO:\nFerro de passar;\n\n\nENXOVAL:\n(CONFIRMAÇÃO) Entrega e validação do enxoval.";
+        sectionsHtml = `<br><br><p><b>ITENS MÍNIMOS:</b><br>Tábua de corte;</p><br><p><b>MANUTENÇÃO:</b><br>Ferro de passar;</p><br><p><b>ENXOVAL:</b><br>(CONFIRMAÇÃO) Entrega e validação do enxoval.</p>`;
+      }
+
+      const plainText = `${greeting} ${firstName} :D\n\n\nVi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D\n\n\nREGISTROS PENDENTES${sectionsPlain}`;
+
+      const html = `<p>${greeting} ${firstName} :D</p><br><br><p>Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D</p><br><p><b>REGISTROS PENDENTES</b></p>${sectionsHtml}`;
+
+      const blob = new Blob([html], { type: "text/html" });
+      const blobText = new Blob([plainText], { type: "text/plain" });
+      await navigator.clipboard.write([
+        new ClipboardItem({ "text/html": blob, "text/plain": blobText }),
+      ]);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <WithHelp help="Copia texto de cobrança de pendências com saudação automática (Bom dia/Boa tarde/Boa noite conforme horário de Brasília)">
+    <WithHelp help="Copia texto de cobrança de pendências com nome da franquia e pendências reais do card (Bom dia/Boa tarde/Boa noite automático)">
       <button
         onClick={handleCopy}
-        className={`px-6 py-3 rounded-md font-medium transition-colors ${copied ? "bg-green-600 text-white" : "bg-orange-500 text-white hover:bg-orange-600"}`}
+        disabled={loading}
+        className={`px-6 py-3 rounded-md font-medium transition-colors ${copied ? "bg-green-600 text-white" : "bg-orange-500 text-white hover:bg-orange-600"} disabled:opacity-50`}
       >
-        {copied ? "Copiado!" : "Script Pendências"}
+        {loading ? "..." : copied ? "Copiado!" : "Script Pendências"}
       </button>
     </WithHelp>
   );
@@ -1331,9 +1467,9 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                         </button>
                       </div>
                       <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200">
-                        <CopyScriptEsqueleto />
-                        <CopyScriptUnicoItem />
-                        <CopyScriptPendencias />
+                        <CopyScriptEsqueleto cardTitle={c.title} lastComment={c.lastComment} />
+                        <CopyScriptUnicoItem cardTitle={c.title} />
+                        <CopyScriptPendencias cardTitle={c.title} lastComment={c.lastComment} />
                       </div>
                     </div>
                   </div>
