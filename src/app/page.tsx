@@ -1558,6 +1558,11 @@ interface Phase5Card {
 function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; cardTitle: string; lastComment: string }) {
   const [showEditor, setShowEditor] = useState(false);
   const [editText, setEditText] = useState(lastComment);
+  const lastCommentRef = useRef(lastComment);
+  if (lastComment !== lastCommentRef.current) {
+    lastCommentRef.current = lastComment;
+    setEditText(lastComment);
+  }
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
   const [showFinalizar, setShowFinalizar] = useState(false);
@@ -3739,7 +3744,7 @@ function TabSlackHistory() {
 function TabCardsGerais() {
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
-  const [cards, setCards] = useState<{ id: string; title: string; phase: string; phaseId: string; dueFormatted: string; due_date: string; assignees: string[]; labels: { id: string; name: string }[]; lastComment: string; lastCommentAuthor: string }[]>([]);
+  const [cards, setCards] = useState<{ id: string; title: string; phase: string; phaseId: string; dueFormatted: string; due_date: string; assignees: { id: string; name: string }[]; labels: { id: string; name: string }[]; lastComment: string; lastCommentAuthor: string }[]>([]);
   const [error, setError] = useState("");
   const [editingCard, setEditingCard] = useState<string | null>(null);
   const [editComment, setEditComment] = useState("");
@@ -3907,7 +3912,7 @@ function TabCardsGerais() {
               <span className="text-xs text-gray-500">Venc: {c.due_date ? c.due_date.split("T")[0].split("-").reverse().join("/") : "—"}</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500">{c.assignees.map((a: any) => a.name).join(", ") || "Sem responsável"}</span>
+              <span className="text-xs text-gray-500">{c.assignees.map((a) => a.name).join(", ") || "Sem responsável"}</span>
               {editingCard !== c.id && (
                 <button
                   onClick={() => openEditor(c)}
