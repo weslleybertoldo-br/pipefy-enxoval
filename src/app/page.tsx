@@ -819,47 +819,23 @@ ${sectionLines.join("\n\n")}
   );
 }
 
-function CopyScriptUnicoItem({ cardTitle }: { cardTitle?: string }) {
+function CopyScriptUnicoItem() {
   const [copied, setCopied] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const franquiaRef = useRef<string>("");
-  const fetchedRef = useRef<string>("");
 
-  const handleCopy = async () => {
-    setLoading(true);
-    try {
-      if (cardTitle && fetchedRef.current !== cardTitle) {
-        try {
-          const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
-          const data = await res.json();
-          franquiaRef.current = data.franqueado || "";
-        } catch { /* silencioso */ }
-        fetchedRef.current = cardTitle;
-      }
-
-      const firstName = franquiaRef.current.split(" ")[0] || "";
-      const greeting = (() => {
-        const h = parseInt(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }));
-        return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
-      })();
-
-      const text = `${greeting} ${firstName} :D\n\nVi que ainda ficou um item pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio do registro? :D`;
-
-      await navigator.clipboard.writeText(text);
+  const handleCopy = () => {
+    const text = `Vi que ainda ficou um item pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio do registro? :D`;
+    navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   return (
     <button
       onClick={handleCopy}
-      disabled={loading}
-      className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copied ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+      className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copied ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"}`}
     >
-      {loading ? "..." : copied ? "Copiado!" : "Único item"}
+      {copied ? "Copiado!" : "Único item"}
     </button>
   );
 }
@@ -1468,7 +1444,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                       </div>
                       <div className="flex gap-2 mt-3 pt-3 border-t border-gray-200">
                         <CopyScriptEsqueleto cardTitle={c.title} lastComment={c.lastComment} />
-                        <CopyScriptUnicoItem cardTitle={c.title} />
+                        <CopyScriptUnicoItem />
                         <CopyScriptPendencias cardTitle={c.title} lastComment={c.lastComment} />
                       </div>
                     </div>
