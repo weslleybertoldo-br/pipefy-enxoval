@@ -872,6 +872,14 @@ function CopyScriptPendencias({ cardTitle, lastComment }: { cardTitle?: string; 
 
       const sections = lastComment ? parsePendingSectionsFromComment(lastComment) : [];
 
+      // Contar total de itens pendentes: cada seção ❌ conta seus itens (ENXOVAL = 1 fixo)
+      const totalPendingItems = sections.reduce((acc, s) => acc + s.items.length, 0);
+      const isSingular = totalPendingItems <= 1;
+
+      const messageIntro = isSingular
+        ? "Vi que ainda ficou um item pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio do registro? :D"
+        : "Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D";
+
       let sectionsPlain = "";
       let sectionsHtml = "";
 
@@ -881,13 +889,13 @@ function CopyScriptPendencias({ cardTitle, lastComment }: { cardTitle?: string; 
           sectionsHtml += `<br><p><b>${section.name}:</b><br>${section.items.join("<br>")}</p>`;
         }
       } else {
-        sectionsPlain = "\n\n\nITENS MÍNIMOS:\nTábua de corte;\n\n\nMANUTENÇÃO:\nFerro de passar;\n\n\nENXOVAL:\n(CONFIRMAÇÃO) Entrega e validação do enxoval.";
-        sectionsHtml = `<br><br><p><b>ITENS MÍNIMOS:</b><br>Tábua de corte;</p><br><p><b>MANUTENÇÃO:</b><br>Ferro de passar;</p><br><p><b>ENXOVAL:</b><br>(CONFIRMAÇÃO) Entrega e validação do enxoval.</p>`;
+        sectionsPlain = "\n\nITENS MÍNIMOS:\nTábua de corte;\n\nMANUTENÇÃO:\nFerro de passar;\n\nENXOVAL:\n(CONFIRMAÇÃO) Entrega e validação do enxoval.";
+        sectionsHtml = `<br><p><b>ITENS MÍNIMOS:</b><br>Tábua de corte;</p><br><p><b>MANUTENÇÃO:</b><br>Ferro de passar;</p><br><p><b>ENXOVAL:</b><br>(CONFIRMAÇÃO) Entrega e validação do enxoval.</p>`;
       }
 
-      const plainText = `${greeting} ${firstName} :D\n\nVi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D\n\nREGISTROS PENDENTES${sectionsPlain}`;
+      const plainText = `${greeting} ${firstName} :D\n\n${messageIntro}\n\nREGISTROS PENDENTES${sectionsPlain}`;
 
-      const html = `<p>${greeting} ${firstName} :D</p><br><p>Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D</p><br><p><b>REGISTROS PENDENTES</b></p>${sectionsHtml}`;
+      const html = `<p>${greeting} ${firstName} :D</p><br><p>${messageIntro}</p><br><p><b>REGISTROS PENDENTES</b></p>${sectionsHtml}`;
 
       const blob = new Blob([html], { type: "text/html" });
       const blobText = new Blob([plainText], { type: "text/plain" });
@@ -911,6 +919,53 @@ function CopyScriptPendencias({ cardTitle, lastComment }: { cardTitle?: string; 
         {loading ? "..." : copied ? "Copiado!" : "Script Pendências"}
       </button>
     </WithHelp>
+  );
+}
+
+function CopyScriptSoEnxoval({ cardTitle }: { cardTitle?: string }) {
+  const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const franquiaRef = useRef<string>("");
+  const fetchedRef = useRef<string>("");
+
+  const handleCopy = async () => {
+    setLoading(true);
+    try {
+      if (cardTitle && fetchedRef.current !== cardTitle) {
+        try {
+          const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+          const data = await res.json();
+          franquiaRef.current = data.franqueado || "";
+        } catch { /* silencioso */ }
+        fetchedRef.current = cardTitle;
+      }
+
+      const firstName = franquiaRef.current.split(" ")[0] || "";
+      const greeting = (() => {
+        const h = parseInt(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }));
+        return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+      })();
+
+      const plainText = `${greeting} ${firstName} :D\n\n\nFicamos pendentes somente o enxoval desse imóvel.`;
+      const html = `<p>${greeting} ${firstName} :D</p><br><br><p>Ficamos pendentes somente o enxoval desse imóvel.</p>`;
+      const blob = new Blob([html], { type: "text/html" });
+      const blobText = new Blob([plainText], { type: "text/plain" });
+      await navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": blobText })]);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleCopy}
+      disabled={loading}
+      className={`px-6 py-3 rounded-md font-medium transition-colors ${copied ? "bg-green-600 text-white" : "bg-purple-500 text-white hover:bg-purple-600"} disabled:opacity-50`}
+    >
+      {loading ? "..." : copied ? "Copiado!" : "Só enxoval"}
+    </button>
   );
 }
 
@@ -1252,6 +1307,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                 <CopyScriptEsqueleto />
                 <CopyScriptUnicoItem />
                 <CopyScriptPendencias />
+                <CopyScriptSoEnxoval />
               </div>
             </>
           )}
@@ -1452,6 +1508,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                         <CopyScriptEsqueleto cardTitle={c.title} lastComment={c.lastComment} />
                         <CopyScriptUnicoItem />
                         <CopyScriptPendencias cardTitle={c.title} lastComment={c.lastComment} />
+                        <CopyScriptSoEnxoval cardTitle={c.title} />
                       </div>
                     </div>
                   </div>
