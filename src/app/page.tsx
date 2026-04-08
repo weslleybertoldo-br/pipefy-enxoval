@@ -497,6 +497,8 @@ function CopyFupButton({ days, template = "fase4", extraDays = 0 }: { days: numb
 function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; lastComment: string }) {
   const [copiedFirst, setCopiedFirst] = useState(false);
   const [copiedSecond, setCopiedSecond] = useState(false);
+  const [copiedFinalizar, setCopiedFinalizar] = useState(false);
+  const [copiedPendente, setCopiedPendente] = useState(false);
   const [loading, setLoading] = useState(false);
   const franquiaRef = useRef<string>("");
   const fetchedRef = useRef(false);
@@ -632,6 +634,68 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
         className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedSecond ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
       >
         {loading && !copiedSecond ? "..." : copiedSecond ? "Copiado!" : "Segunda cobrança"}
+      </button>
+      <button
+        onClick={async () => {
+          setLoading(true);
+          try {
+            if (!fetchedRef.current) {
+              try {
+                const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+                const data = await res.json();
+                franquiaRef.current = data.franqueado || "";
+              } catch { /* silencioso */ }
+              fetchedRef.current = true;
+            }
+            const firstName = franquiaRef.current.split(" ")[0] || "";
+            const plainText = `Olá ${firstName},\n\n\nTodas as pendências desta unidade foram finalizadas.\n\n\nCom isso, finalizamos a implantação deste imóvel!\n\n\nMuito obrigado por toda colaboração e boas reservas!`;
+            const html = `<p>Olá ${firstName},</p><br><br><p>Todas as pendências desta unidade foram finalizadas.</p><br><br><p>Com isso, finalizamos a implantação deste imóvel!</p><br><br><p>Muito obrigado por toda colaboração e boas reservas!</p>`;
+            const blob = new Blob([html], { type: "text/html" });
+            const blobText = new Blob([plainText], { type: "text/plain" });
+            await navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": blobText })]);
+            setCopiedFinalizar(true);
+            setTimeout(() => setCopiedFinalizar(false), 2000);
+          } catch (err) {
+            console.error("Erro ao copiar finalizar sults:", err);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        disabled={loading}
+        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedFinalizar ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+      >
+        {loading && !copiedFinalizar ? "..." : copiedFinalizar ? "Copiado!" : "Finalizar Sults"}
+      </button>
+      <button
+        onClick={async () => {
+          setLoading(true);
+          try {
+            if (!fetchedRef.current) {
+              try {
+                const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+                const data = await res.json();
+                franquiaRef.current = data.franqueado || "";
+              } catch { /* silencioso */ }
+              fetchedRef.current = true;
+            }
+            const firstName = franquiaRef.current.split(" ")[0] || "";
+            const plainText = `Boa tarde ${firstName} :D\n\n\n\nFicamos pendentes somente a entrega do enxoval!`;
+            const html = `<p>Boa tarde ${firstName} :D</p><br><br><br><p>Ficamos pendentes somente a entrega do enxoval!</p>`;
+            const blob = new Blob([html], { type: "text/html" });
+            const blobText = new Blob([plainText], { type: "text/plain" });
+            await navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": blobText })]);
+            setCopiedPendente(true);
+            setTimeout(() => setCopiedPendente(false), 2000);
+          } catch (err) {
+            console.error("Erro ao copiar pendente enxoval:", err);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        disabled={loading}
+        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedPendente ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+      >
+        {loading && !copiedPendente ? "..." : copiedPendente ? "Copiado!" : "Pendente enxoval"}
       </button>
     </div>
   );
@@ -2537,13 +2601,15 @@ function TabOcorrenciaSuporte() {
               Suporte Franquias
             </button>
           </WithHelp>
-          <WithHelp help="Mostra formulário para criar Ocorrência no Pipefy e textos para copiar">
-            <button
-              onClick={() => setActiveForm("ocorrencia")}
-              className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "ocorrencia" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
+          <WithHelp help="Abre a Central de Ocorrências e Multas em nova aba">
+            <a
+              href="https://preview--centraldeocorrenciasemultas.lovable.app/adm/funil-ocorrencias"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-5 py-2.5 rounded-md text-sm font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 inline-block"
             >
               Ocorrência
-            </button>
+            </a>
           </WithHelp>
           <WithHelp help="Mostra formulário para criar card de atualização de anúncio no Pipefy">
             <button
