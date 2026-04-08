@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect, type ReactNode } from "react";
+import { useState, useRef, useEffect, type ReactNode } from "react";
 
 // =====================
 // COMPONENTE: Tooltip expandível ao passar o mouse
@@ -509,63 +509,6 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
     return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
   };
 
-  const parsePendingSections = (comment: string) => {
-    const lines = comment.split("\n");
-    const sectionDefs = [
-      { keyword: "ITENS", label: "ITENS MÍNIMOS" },
-      { keyword: "MANUTEN", label: "MANUTENÇÃO" },
-      { keyword: "ENXOVAL", label: "ENXOVAL" },
-    ];
-    const sections: { name: string; items: string[] }[] = [];
-
-    for (const { keyword, label } of sectionDefs) {
-      let startIdx = -1;
-      let status = "";
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if ((line.match(/^[❌✔✅]/) || line.startsWith("✔️")) && line.toUpperCase().includes(keyword.toUpperCase())) {
-          startIdx = i;
-          status = line.startsWith("❌") ? "❌" : "✔️";
-          break;
-        }
-      }
-      if (startIdx === -1 || status !== "❌") continue;
-
-      // ENXOVAL sempre usa texto fixo
-      if (keyword === "ENXOVAL") {
-        sections.push({ name: label, items: ["(CONFIRMAÇÃO) Entrega e validação do enxoval."] });
-        continue;
-      }
-
-      // Coletar linhas de conteúdo até próxima seção
-      const contentLines: string[] = [];
-      for (let i = startIdx + 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (line.match(/^[❌✔✅]\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i) ||
-            line.match(/^✔️\s*(ENXOVAL|ITENS|MANUTENÇÃO|MANUTEN|INTERNET|PIN)/i)) break;
-        contentLines.push(line);
-      }
-
-      // Filtrar itens pendentes (mesma lógica do filterPendingItems)
-      const pending: string[] = [];
-      for (const line of contentLines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        if (/^[✅✔]/.test(trimmed) || trimmed.startsWith("✔️")) continue;
-        const semiIdx = trimmed.indexOf(";");
-        if (semiIdx >= 0) {
-          const afterSemi = trimmed.slice(semiIdx + 1).trim();
-          if (afterSemi.length > 0) continue;
-        }
-        pending.push(trimmed);
-      }
-
-      if (pending.length > 0) {
-        sections.push({ name: label, items: pending });
-      }
-    }
-    return sections;
-  };
 
   const handleCopy = async (type: "first" | "second") => {
     setLoading(true);
@@ -582,7 +525,7 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
 
       const firstName = franquiaRef.current.split(" ")[0] || "";
       const greeting = getGreeting();
-      const sections = parsePendingSections(lastComment);
+      const sections = parsePendingSectionsFromComment(lastComment);
 
       const messageIntro = type === "first"
         ? "Temos atualizações sobre os registros pendentes?"
@@ -679,8 +622,9 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
               fetchedRef.current = true;
             }
             const firstName = franquiaRef.current.split(" ")[0] || "";
-            const plainText = `Boa tarde ${firstName} :D\n\n\n\nFicamos pendentes somente a entrega do enxoval!`;
-            const html = `<p>Boa tarde ${firstName} :D</p><br><br><br><p>Ficamos pendentes somente a entrega do enxoval!</p>`;
+            const greet = getGreeting();
+            const plainText = `${greet} ${firstName} :D\n\n\n\nFicamos pendentes somente a entrega do enxoval!`;
+            const html = `<p>${greet} ${firstName} :D</p><br><br><br><p>Ficamos pendentes somente a entrega do enxoval!</p>`;
             const blob = new Blob([html], { type: "text/html" });
             const blobText = new Blob([plainText], { type: "text/plain" });
             await navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": blobText })]);
@@ -2761,7 +2705,7 @@ function CopyDiasTexto() {
 }
 
 function TabOcorrenciaSuporte() {
-  const [activeForm, setActiveForm] = useState<"suporte" | "ocorrencia" | "anuncio" | "despesa">("suporte");
+  const [activeForm, setActiveForm] = useState<"suporte" | "anuncio" | "despesa">("suporte");
 
   return (
     <>
@@ -2803,11 +2747,9 @@ function TabOcorrenciaSuporte() {
             </button>
           </WithHelp>
         </div>
-        {activeForm === "ocorrencia" && <CopyDiasTexto />}
       </section>
 
       {activeForm === "suporte" && <FormSuporte />}
-      {activeForm === "ocorrencia" && <FormOcorrencia />}
       {activeForm === "anuncio" && <FormAtualizarAnuncio />}
       {activeForm === "despesa" && <SlackDespesa />}
     </>
@@ -4180,7 +4122,7 @@ export default function Home() {
           {([
             { id: "cardsall", label: "Cards All / Por dia", help: "Visão geral de todos os cards por dia" },
             { id: "slackhistory", label: "Histórico Pedidos Slack", help: "Mensagens enviadas no canal #despesas-implantação — com opção de excluir" },
-            { id: "cardsgerais", label: "Cards Gerais da Fase 3 a 5", help: "Visão geral de cards das fases 3 a 5" },
+            { id: "cardsgerais", label: "Cards Gerais", help: "Pesquisa e edição de cards em todas as fases do pipe" },
           ] as { id: typeof activeTab; label: string; help: string }[]).map((tab) => (
             <WithHelp key={tab.id} help={tab.help} className="relative flex-1">
               <button
