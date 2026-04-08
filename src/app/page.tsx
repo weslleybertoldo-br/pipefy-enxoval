@@ -983,11 +983,18 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
     const dd = String(next.getDate()).padStart(2, "0");
     const mm = String(next.getMonth() + 1).padStart(2, "0");
     const fupDate = `${dd}/${mm}`;
-    let updatedComment = firstComment ? firstComment.replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`) : `⏭️ Fup: ${fupDate}`;
+    let updatedComment = firstComment || "";
     // Remove "- " do início dos itens pendentes
     updatedComment = updatedComment.replace(/^- /gm, "");
     // ❌ PIN → ✔️ PIN
     updatedComment = updatedComment.replace(/❌\s*PIN/g, "✔️ PIN");
+    // Adicionar cabeçalho se não existir
+    const header = `🟡 Imóvel em ativação\n\n🚨 Aguardando ativação do imóvel\n\n⏭️ Fup: ${fupDate}\n\n....................................................................................................\n\n`;
+    if (!updatedComment.includes("⏭️")) {
+      updatedComment = header + updatedComment;
+    } else {
+      updatedComment = updatedComment.replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`);
+    }
     setEditingManualCard(cardId);
     setManualCommentText(updatedComment);
   };
