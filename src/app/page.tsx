@@ -499,6 +499,7 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
   const [copiedSecond, setCopiedSecond] = useState(false);
   const [copiedFinalizar, setCopiedFinalizar] = useState(false);
   const [copiedPendente, setCopiedPendente] = useState(false);
+  const [copiedExcecao, setCopiedExcecao] = useState(false);
   const [loading, setLoading] = useState(false);
   const franquiaRef = useRef<string>("");
   const fetchedRef = useRef(false);
@@ -640,6 +641,38 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
         className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedPendente ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
       >
         {loading && !copiedPendente ? "..." : copiedPendente ? "Copiado!" : "Pendente enxoval"}
+      </button>
+      <button
+        onClick={async () => {
+          setLoading(true);
+          try {
+            if (!fetchedRef.current) {
+              try {
+                const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+                const data = await res.json();
+                franquiaRef.current = data.franqueado || "";
+              } catch { /* silencioso */ }
+              fetchedRef.current = true;
+            }
+            const firstName = franquiaRef.current.split(" ")[0] || "";
+            const greet = getGreeting();
+            const plainText = `${greet} ${firstName} :D\n\n\nNosso time validou e seguiremos com exceção das pendências restantes.`;
+            const html = `<p>${greet} ${firstName} :D</p><br><br><p>Nosso time validou e seguiremos com exceção das pendências restantes.</p>`;
+            const blob = new Blob([html], { type: "text/html" });
+            const blobText = new Blob([plainText], { type: "text/plain" });
+            await navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": blobText })]);
+            setCopiedExcecao(true);
+            setTimeout(() => setCopiedExcecao(false), 2000);
+          } catch (err) {
+            console.error("Erro ao copiar exceção:", err);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        disabled={loading}
+        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedExcecao ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+      >
+        {loading && !copiedExcecao ? "..." : copiedExcecao ? "Copiado!" : "Exceção pendências"}
       </button>
     </div>
   );
@@ -1836,16 +1869,20 @@ function TabPhase5() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-3">
                   <div>
-                    <CopyableCode code={c.title} className="text-base" />
-                    <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
-                    {c.assignees.length > 0 && (
-                      <span className="text-xs text-gray-400 ml-3">{c.assignees.join(", ")}</span>
-                    )}
-                    {c.hasRecord ? (
-                      <span className="text-xs text-green-600 ml-2">Registro #{c.recordId}</span>
-                    ) : (
-                      <span className="text-xs text-red-500 ml-2">Sem registro</span>
-                    )}
+                    <div>
+                      <CopyableCode code={c.title} className="text-base" />
+                      <span className="text-xs text-gray-500 ml-3">Vencimento: {c.dueFormatted}</span>
+                    </div>
+                    <div className="mt-0.5">
+                      {c.assignees.length > 0 && (
+                        <span className="text-xs text-gray-400">{c.assignees.join(", ")}</span>
+                      )}
+                      {c.hasRecord ? (
+                        <span className="text-xs text-green-600 ml-2">Registro #{c.recordId}</span>
+                      ) : (
+                        <span className="text-xs text-red-500 ml-2">Sem registro</span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
