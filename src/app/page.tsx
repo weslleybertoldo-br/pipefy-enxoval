@@ -780,17 +780,23 @@ function CopyScriptEsqueleto({ cardTitle, lastComment }: { cardTitle?: string; l
         return found ? `❌ ${name}\n${found.items.join("\n")}` : `✔️ ${name}`;
       });
 
-      const firstName = franquiaRef.current.split(" ")[0] || "";
-      const greeting = (() => {
-        const h = parseInt(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false }));
-        return h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
-      })();
+      // Calcular FUP +3 dias úteis a partir de hoje (horário de Brasília)
+      const now = new Date();
+      const brDateStr = now.toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+      const fupDate = new Date(brDateStr + "T12:00:00");
+      let added = 0;
+      while (added < 3) {
+        fupDate.setDate(fupDate.getDate() + 1);
+        const dow = fupDate.getDay();
+        if (dow !== 0 && dow !== 6) added++;
+      }
+      const fupStr = `${String(fupDate.getDate()).padStart(2, "0")}/${String(fupDate.getMonth() + 1).padStart(2, "0")}`;
 
       const text = `✅ Imóvel ativo
 
 🚨 Aguardando o envio dos registros pendentes
 
-⏭️ Fup: 03/04
+⏭️ Fup: ${fupStr}
 
 ....................................................................................................
 
@@ -871,17 +877,17 @@ function CopyScriptPendencias({ cardTitle, lastComment }: { cardTitle?: string; 
 
       if (sections.length > 0) {
         for (const section of sections) {
-          sectionsPlain += `\n\n\n${section.name}:\n${section.items.join("\n")}`;
-          sectionsHtml += `<br><br><p><b>${section.name}:</b><br>${section.items.join("<br>")}</p>`;
+          sectionsPlain += `\n\n${section.name}:\n${section.items.join("\n")}`;
+          sectionsHtml += `<br><p><b>${section.name}:</b><br>${section.items.join("<br>")}</p>`;
         }
       } else {
         sectionsPlain = "\n\n\nITENS MÍNIMOS:\nTábua de corte;\n\n\nMANUTENÇÃO:\nFerro de passar;\n\n\nENXOVAL:\n(CONFIRMAÇÃO) Entrega e validação do enxoval.";
         sectionsHtml = `<br><br><p><b>ITENS MÍNIMOS:</b><br>Tábua de corte;</p><br><p><b>MANUTENÇÃO:</b><br>Ferro de passar;</p><br><p><b>ENXOVAL:</b><br>(CONFIRMAÇÃO) Entrega e validação do enxoval.</p>`;
       }
 
-      const plainText = `${greeting} ${firstName} :D\n\n\nVi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D\n\n\nREGISTROS PENDENTES${sectionsPlain}`;
+      const plainText = `${greeting} ${firstName} :D\n\nVi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D\n\nREGISTROS PENDENTES${sectionsPlain}`;
 
-      const html = `<p>${greeting} ${firstName} :D</p><br><br><p>Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D</p><br><p><b>REGISTROS PENDENTES</b></p>${sectionsHtml}`;
+      const html = `<p>${greeting} ${firstName} :D</p><br><p>Vi que ainda ficaram alguns itens pendente para finalizarmos as adequações desse imóvel, consegue nos ajudar com o envio desses registros? :D</p><br><p><b>REGISTROS PENDENTES</b></p>${sectionsHtml}`;
 
       const blob = new Blob([html], { type: "text/html" });
       const blobText = new Blob([plainText], { type: "text/plain" });
