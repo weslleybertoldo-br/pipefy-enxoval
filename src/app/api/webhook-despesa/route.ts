@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { timingSafeEqual } from "crypto";
 import { pipefyQuery, validateCardId, toBrazilDate } from "@/lib/pipefy";
 
 const SLACK_TOKEN = process.env.SLACK_BOT_TOKEN || "";
@@ -27,8 +28,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "WEBHOOK_SECRET não configurado" }, { status: 500 });
     }
     const authHeader = req.headers.get("authorization")?.replace("Bearer ", "");
+    // Query param fallback — less secure (secret may appear in logs/URLs); prefer Authorization header
     const querySecret = new URL(req.url).searchParams.get("secret");
-    if (authHeader !== webhookSecret && querySecret !== webhookSecret) {
+
+    const secretBuf = Buffer.from(webhookSecret);
+    const headerMatch = authHeader
+      ? authHeader.length === webhookSecret.length &&
+        timingSafeEqual(Buffer.from(authHeader), secretBuf)
+      : false;
+    const queryMatch = querySecret
+      ? querySecret.length === webhookSecret.length &&
+        timingSafeEqual(Buffer.from(querySecret), secretBuf)
+      : false;
+
+    if (!headerMatch && !queryMatch) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
