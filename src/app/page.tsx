@@ -1950,22 +1950,24 @@ function TabPhase5() {
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
-                    {cardStatus?.status === "error" && <span className="text-red-600 text-xs">{cardStatus.message}</span>}
-                    <div className="flex items-start gap-2">
-                      <div className="grid grid-cols-2 gap-1">
-                        <WithHelp help="1. Atualiza vencimento +3 dias úteis às 22:00~2. Busca o último comentário do card~3. Substitui a data do FUP~4. Adiciona o comentário atualizado">
-                          <button onClick={() => updateSingleCard(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-blue-600 text-white px-5 py-1.5 rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap">
-                            {isUpdating ? "..." : "+3 dias"}
-                          </button>
-                        </WithHelp>
-                        <Phase5EditButton cardId={c.id} cardTitle={c.title} lastComment={c.lastComment} />
-                      </div>
-                      <CopyCobrancaButtons cardTitle={c.title} lastComment={c.lastComment} />
+                  <div className="flex items-start gap-2">
+                    <div className="grid grid-cols-2 gap-1">
+                      <WithHelp help="1. Atualiza vencimento +3 dias úteis às 22:00~2. Busca o último comentário do card~3. Substitui a data do FUP~4. Adiciona o comentário atualizado">
+                        <button onClick={() => updateSingleCard(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-blue-600 text-white px-5 py-1.5 rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                          {isUpdating ? "..." : "+3 dias"}
+                        </button>
+                      </WithHelp>
+                      <Phase5EditButton cardId={c.id} cardTitle={c.title} lastComment={c.lastComment} />
                     </div>
+                    <CopyCobrancaButtons cardTitle={c.title} lastComment={c.lastComment} />
                   </div>
                 </div>
+                {cardStatus && (
+                  <div className={`relative mt-2 p-3 rounded-md text-xs ${cardStatus.status === "updated" ? "bg-green-50 text-green-700 border border-green-200" : "bg-red-50 text-red-700 border border-red-200"}`}>
+                    <button onClick={() => setCardStatuses((prev) => { const n = { ...prev }; delete n[c.id]; return n; })} className="absolute top-1 right-2 text-gray-400 hover:text-gray-600 text-base leading-none">&times;</button>
+                    <span className="pr-4 block">{cardStatus.message}</span>
+                  </div>
+                )}
 
                 {/* Proprietário */}
                 {c.owner && (c.owner.nome || c.owner.telefone || c.owner.email) && (
