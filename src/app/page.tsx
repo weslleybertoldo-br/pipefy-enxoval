@@ -2764,8 +2764,71 @@ function CopyDiasTexto() {
   );
 }
 
+function FormOcorrencia() {
+  const [dias, setDias] = useState("");
+  const [copied, setCopied] = useState<string | null>(null);
+
+  const copyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(label);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  return (
+    <section className="bg-white rounded-lg shadow p-6">
+      <div className="mb-4">
+        <a
+          href="https://preview--centraldeocorrenciasemultas.lovable.app/adm/funil-ocorrencias"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block bg-purple-600 text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-purple-700 transition-colors"
+        >
+          Abrir ocorrência
+        </a>
+      </div>
+
+      <div className="border-t border-gray-200 pt-4 mb-4">
+        <h4 className="text-sm font-semibold text-gray-700 mb-2">Texto de cobrança</h4>
+        <div className="flex gap-2 items-end">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Quantidade de dias</label>
+            <input type="number" value={dias} onChange={(e) => setDias(e.target.value)} placeholder="Ex: 5" className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-24" />
+          </div>
+          <button
+            onClick={() => copyText(`Franquia está a ${dias} dias sem dar retorno, atrasando os processos da implantação.`, "dias")}
+            disabled={!dias.trim()}
+            className="bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+          >
+            {copied === "dias" ? "Copiado!" : "Copiar texto"}
+          </button>
+        </div>
+      </div>
+
+      <RegistrarOcorrenciaCard />
+
+      <div className="border-t border-gray-200 pt-4 mt-4">
+        <h4 className="text-sm font-semibold text-gray-700 mb-2">Textos para copiar</h4>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => copyText("Ocorrência registrada - Falta de retorno", "falta")}
+            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+          >
+            {copied === "falta" ? "Copiado!" : "Ocorrência - Falta de retorno"}
+          </button>
+          <button
+            onClick={() => copyText("Ocorrência registrada - Não enviou os registros", "registros")}
+            className="bg-gray-100 text-gray-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+          >
+            {copied === "registros" ? "Copiado!" : "Ocorrência - Não enviou registros"}
+          </button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function TabOcorrenciaSuporte() {
-  const [activeForm, setActiveForm] = useState<"suporte" | "anuncio" | "despesa">("suporte");
+  const [activeForm, setActiveForm] = useState<"suporte" | "ocorrencia" | "anuncio" | "despesa">("suporte");
 
   return (
     <>
@@ -2780,15 +2843,13 @@ function TabOcorrenciaSuporte() {
               Suporte Franquias
             </button>
           </WithHelp>
-          <WithHelp help="Abre a Central de Ocorrências e Multas em nova aba">
-            <a
-              href="https://preview--centraldeocorrenciasemultas.lovable.app/adm/funil-ocorrencias"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-5 py-2.5 rounded-md text-sm font-medium transition-colors bg-gray-100 text-gray-700 hover:bg-gray-200 inline-block"
+          <WithHelp help="Abre seção de ocorrência: link externo, texto de cobrança, registrar no card e textos para copiar">
+            <button
+              onClick={() => setActiveForm("ocorrencia")}
+              className={`px-5 py-2.5 rounded-md text-sm font-medium transition-colors ${activeForm === "ocorrencia" ? "bg-purple-600 text-white" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
             >
               Ocorrência
-            </a>
+            </button>
           </WithHelp>
           <WithHelp help="Mostra formulário para criar card de atualização de anúncio no Pipefy">
             <button
@@ -2810,6 +2871,7 @@ function TabOcorrenciaSuporte() {
       </section>
 
       {activeForm === "suporte" && <FormSuporte />}
+      {activeForm === "ocorrencia" && <FormOcorrencia />}
       {activeForm === "anuncio" && <FormAtualizarAnuncio />}
       {activeForm === "despesa" && <SlackDespesa />}
     </>
@@ -3101,7 +3163,7 @@ function FormAtualizarAnuncio() {
   );
 }
 
-function FormOcorrencia() {
+function FormOcorrenciaLegacy() {
   const [codigo, setCodigo] = useState("");
   const [franquia, setFranquia] = useState("");
   const [origem, setOrigem] = useState("Implantação");
