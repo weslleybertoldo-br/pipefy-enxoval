@@ -565,20 +565,13 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
   };
 
   return (
-    <div className="flex flex-col gap-1">
+    <div className="grid grid-cols-2 gap-1">
       <button
         onClick={() => handleCopy("first")}
         disabled={loading}
         className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedFirst ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
       >
         {loading && !copiedFirst ? "..." : copiedFirst ? "Copiado!" : "Primeira cobrança"}
-      </button>
-      <button
-        onClick={() => handleCopy("second")}
-        disabled={loading}
-        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedSecond ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
-      >
-        {loading && !copiedSecond ? "..." : copiedSecond ? "Copiado!" : "Segunda cobrança"}
       </button>
       <button
         onClick={async () => {
@@ -593,23 +586,41 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
               fetchedRef.current = true;
             }
             const firstName = franquiaRef.current.split(" ")[0] || "";
-            const plainText = `Olá ${firstName},\n\n\nTodas as pendências desta unidade foram finalizadas.\n\n\nCom isso, finalizamos a implantação deste imóvel!\n\n\nMuito obrigado por toda colaboração e boas reservas!`;
-            const html = `<p>Olá ${firstName},</p><br><br><p>Todas as pendências desta unidade foram finalizadas.</p><br><br><p>Com isso, finalizamos a implantação deste imóvel!</p><br><br><p>Muito obrigado por toda colaboração e boas reservas!</p>`;
+            const sections = parsePendingSectionsFromComment(lastComment);
+
+            let sectionsPlain = "";
+            let sectionsHtml = "";
+
+            for (const section of sections) {
+              sectionsPlain += `\n\n${section.name}:\n${section.items.join("\n")}`;
+              sectionsHtml += `<br><p><b>${section.name}:</b><br>${section.items.join("<br>")}</p>`;
+            }
+
+            const plainText = `Show ${firstName} :D\n\nMuito obrigado pelo envio dos registros, ficamos pendentes os registros abaixo. Saberia informar se temos previsão para finalizar as pendencias?${sectionsPlain}`;
+            const html = `<p>Show ${firstName} :D</p><br><p>Muito obrigado pelo envio dos registros, ficamos pendentes os registros abaixo. Saberia informar se temos previsão para finalizar as pendencias?</p>${sectionsHtml}`;
+
             const blob = new Blob([html], { type: "text/html" });
             const blobText = new Blob([plainText], { type: "text/plain" });
             await navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": blobText })]);
-            setCopiedFinalizar(true);
-            setTimeout(() => setCopiedFinalizar(false), 2000);
+            setCopiedAgradecimento(true);
+            setTimeout(() => setCopiedAgradecimento(false), 2000);
           } catch (err) {
-            console.error("Erro ao copiar finalizar sults:", err);
+            console.error("Erro ao copiar agradecimento:", err);
           } finally {
             setLoading(false);
           }
         }}
         disabled={loading}
-        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedFinalizar ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedAgradecimento ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
       >
-        {loading && !copiedFinalizar ? "..." : copiedFinalizar ? "Copiado!" : "Finalizar Sults"}
+        {loading && !copiedAgradecimento ? "..." : copiedAgradecimento ? "Copiado!" : "Obrigado: faltou itens"}
+      </button>
+          <button
+        onClick={() => handleCopy("second")}
+        disabled={loading}
+        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedSecond ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+      >
+        {loading && !copiedSecond ? "..." : copiedSecond ? "Copiado!" : "Segunda cobrança"}
       </button>
       <button
         onClick={async () => {
@@ -656,6 +667,37 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
               fetchedRef.current = true;
             }
             const firstName = franquiaRef.current.split(" ")[0] || "";
+            const plainText = `Olá ${firstName},\n\n\nTodas as pendências desta unidade foram finalizadas.\n\n\nCom isso, finalizamos a implantação deste imóvel!\n\n\nMuito obrigado por toda colaboração e boas reservas!`;
+            const html = `<p>Olá ${firstName},</p><br><br><p>Todas as pendências desta unidade foram finalizadas.</p><br><br><p>Com isso, finalizamos a implantação deste imóvel!</p><br><br><p>Muito obrigado por toda colaboração e boas reservas!</p>`;
+            const blob = new Blob([html], { type: "text/html" });
+            const blobText = new Blob([plainText], { type: "text/plain" });
+            await navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": blobText })]);
+            setCopiedFinalizar(true);
+            setTimeout(() => setCopiedFinalizar(false), 2000);
+          } catch (err) {
+            console.error("Erro ao copiar finalizar sults:", err);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        disabled={loading}
+        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedFinalizar ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+      >
+        {loading && !copiedFinalizar ? "..." : copiedFinalizar ? "Copiado!" : "Finalizar Sults"}
+      </button>
+      <button
+        onClick={async () => {
+          setLoading(true);
+          try {
+            if (!fetchedRef.current) {
+              try {
+                const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+                const data = await res.json();
+                franquiaRef.current = data.franqueado || "";
+              } catch { /* silencioso */ }
+              fetchedRef.current = true;
+            }
+            const firstName = franquiaRef.current.split(" ")[0] || "";
             const greet = getGreeting();
             const plainText = `${greet} ${firstName} :D\n\n\nNosso time validou e seguiremos com exceção das pendências restantes.`;
             const html = `<p>${greet} ${firstName} :D</p><br><br><p>Nosso time validou e seguiremos com exceção das pendências restantes.</p>`;
@@ -674,48 +716,6 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
         className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedExcecao ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
       >
         {loading && !copiedExcecao ? "..." : copiedExcecao ? "Copiado!" : "Exceção pendências"}
-      </button>
-      <button
-        onClick={async () => {
-          setLoading(true);
-          try {
-            if (!fetchedRef.current) {
-              try {
-                const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
-                const data = await res.json();
-                franquiaRef.current = data.franqueado || "";
-              } catch { /* silencioso */ }
-              fetchedRef.current = true;
-            }
-            const firstName = franquiaRef.current.split(" ")[0] || "";
-            const sections = parsePendingSectionsFromComment(lastComment);
-
-            let sectionsPlain = "";
-            let sectionsHtml = "";
-
-            for (const section of sections) {
-              sectionsPlain += `\n\n${section.name}:\n${section.items.join("\n")}`;
-              sectionsHtml += `<br><p><b>${section.name}:</b><br>${section.items.join("<br>")}</p>`;
-            }
-
-            const plainText = `Show ${firstName} :D\n\nMuito obrigado pelo envio dos registros, ficamos pendentes os registros abaixo. Saberia informar se temos previsão para finalizar as pendencias?${sectionsPlain}`;
-            const html = `<p>Show ${firstName} :D</p><br><p>Muito obrigado pelo envio dos registros, ficamos pendentes os registros abaixo. Saberia informar se temos previsão para finalizar as pendencias?</p>${sectionsHtml}`;
-
-            const blob = new Blob([html], { type: "text/html" });
-            const blobText = new Blob([plainText], { type: "text/plain" });
-            await navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": blobText })]);
-            setCopiedAgradecimento(true);
-            setTimeout(() => setCopiedAgradecimento(false), 2000);
-          } catch (err) {
-            console.error("Erro ao copiar agradecimento:", err);
-          } finally {
-            setLoading(false);
-          }
-        }}
-        disabled={loading}
-        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedAgradecimento ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
-      >
-        {loading && !copiedAgradecimento ? "..." : copiedAgradecimento ? "Copiado!" : "Agradecimento"}
       </button>
     </div>
   );
@@ -1661,17 +1661,17 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
 
   return (
     <>
-      <WithHelp help="Abre editor lateral com o último comentário do card.~Após editar e clicar 'Enviar comentário', o texto será adicionado como novo comentário no card do Pipefy (não substitui o anterior)">
-        <button onClick={() => { setShowEditor(!showEditor); setShowFinalizar(false); }} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
-          Atualizar
-        </button>
-      </WithHelp>
-      <WithHelp help="Abre painel de finalização com todas as etapas que serão executadas:~1. Validação Enxoval (baseado no comentário)~2. Itens faltantes → ok~3. Manutenções pendentes → ok~4. Adequações sinalizadas → Todas finalizadas~5. Marca do enxoval (Matinali se COMPRADO PP CSO)~6. Gerar registro de enxoval (se não existir)~7. Solicitar atualização vistoria~8. Subir vistoria SAPRON~9. Enviar vistoria proprietário~10. Verificar amenites (conforme checkbox)~11. Aviso despesa → Fluxo aberto~12. Remove tags (Itens/Manutenções grandes e pequenas)~13. Atualiza vencimento para próximo dia útil às 22:00~14. Mover para Concluídos~15. Envia aviso de lançamento de despesa no Slack (busca franquia no Pipe 1 fases 1-10, data de hoje)">
-        <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
+      <WithHelp help="Abre painel de finalização com todas as etapas">
+        <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-3 py-1 rounded text-[10px] font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
           Finalizar
         </button>
       </WithHelp>
-      <label className="flex items-center gap-1 cursor-pointer" title="Verificado + avisado anúncios">
+      <WithHelp help="Abre editor lateral com o último comentário do card">
+        <button onClick={() => { setShowEditor(!showEditor); setShowFinalizar(false); }} className="bg-yellow-500 text-white px-3 py-1 rounded text-[10px] font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
+          Atualizar
+        </button>
+      </WithHelp>
+      <label className="flex items-center justify-center gap-1 cursor-pointer" title="Verificado + avisado anúncios">
         <input type="checkbox" checked={amenitesChecked} onChange={(e) => setAmenitesChecked(e.target.checked)} className="w-3 h-3 accent-green-600" />
         <span className="text-[10px] text-gray-500">Amenites</span>
       </label>
@@ -1950,20 +1950,20 @@ function TabPhase5() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-col gap-1">
                     {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
                     {cardStatus?.status === "error" && <span className="text-red-600 text-xs">{cardStatus.message}</span>}
-                    <WithHelp help="1. Atualiza vencimento +3 dias úteis às 22:00 (pulando sábado e domingo)~2. Busca o último comentário do card~3. Substitui a data do FUP pela nova data calculada~4. Adiciona o comentário atualizado no card">
-                      <button
-                        onClick={() => updateSingleCard(c.id)}
-                        disabled={isUpdating || updatingCard !== null}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-                      >
-                        {isUpdating ? "Atualizando..." : "+3 dias"}
-                      </button>
-                    </WithHelp>
-                    <Phase5EditButton cardId={c.id} cardTitle={c.title} lastComment={c.lastComment} />
-                    <CopyCobrancaButtons cardTitle={c.title} lastComment={c.lastComment} />
+                    <div className="flex items-start gap-2">
+                      <div className="grid grid-cols-2 gap-1">
+                        <WithHelp help="1. Atualiza vencimento +3 dias úteis às 22:00~2. Busca o último comentário do card~3. Substitui a data do FUP~4. Adiciona o comentário atualizado">
+                          <button onClick={() => updateSingleCard(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-blue-600 text-white px-3 py-1 rounded text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                            {isUpdating ? "..." : "+3 dias"}
+                          </button>
+                        </WithHelp>
+                        <Phase5EditButton cardId={c.id} cardTitle={c.title} lastComment={c.lastComment} />
+                      </div>
+                      <CopyCobrancaButtons cardTitle={c.title} lastComment={c.lastComment} />
+                    </div>
                   </div>
                 </div>
 
