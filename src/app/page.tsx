@@ -2851,7 +2851,24 @@ function FormOcorrencia() {
 
   return (
     <section className="bg-white rounded-lg shadow p-6">
-      <div className="mb-4 space-y-3">
+      <div className="mb-4">
+        <h4 className="text-sm font-semibold text-gray-700 mb-2">Texto de cobrança</h4>
+        <div className="flex gap-2 items-end">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Quantidade de dias</label>
+            <input type="number" value={dias} onChange={(e) => setDias(e.target.value)} placeholder="Ex: 5" className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-24" />
+          </div>
+          <button
+            onClick={() => copyText(`Franquia está a ${dias} dias sem dar retorno, atrasando os processos da implantação.`, "dias")}
+            disabled={!dias.trim()}
+            className="bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors whitespace-nowrap"
+          >
+            {copied === "dias" ? "Copiado!" : "Copiar texto"}
+          </button>
+        </div>
+      </div>
+
+      <div className="border-t border-gray-200 pt-4 mb-4 space-y-3">
         <div className="flex gap-2 items-end">
           <div>
             <label className="text-xs text-gray-500 block mb-1">Código do imóvel</label>
@@ -2896,23 +2913,6 @@ function FormOcorrencia() {
             Abrir ocorrência
           </a>
           <p className="text-xs text-gray-400 mt-1">Tampermonkey preenche: email, SIM, código, franquia, origem, subcategoria e descrição. Evidência: anexar manualmente.</p>
-        </div>
-      </div>
-
-      <div className="border-t border-gray-200 pt-4 mb-4">
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">Texto de cobrança</h4>
-        <div className="flex gap-2 items-end">
-          <div>
-            <label className="text-xs text-gray-500 block mb-1">Quantidade de dias</label>
-            <input type="number" value={dias} onChange={(e) => setDias(e.target.value)} placeholder="Ex: 5" className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-24" />
-          </div>
-          <button
-            onClick={() => copyText(`Franquia está a ${dias} dias sem dar retorno, atrasando os processos da implantação.`, "dias")}
-            disabled={!dias.trim()}
-            className="bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors whitespace-nowrap"
-          >
-            {copied === "dias" ? "Copiado!" : "Copiar texto"}
-          </button>
         </div>
       </div>
 
