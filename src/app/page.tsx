@@ -500,6 +500,7 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
   const [copiedFinalizar, setCopiedFinalizar] = useState(false);
   const [copiedPendente, setCopiedPendente] = useState(false);
   const [copiedExcecao, setCopiedExcecao] = useState(false);
+  const [copiedAgradecimento, setCopiedAgradecimento] = useState(false);
   const [loading, setLoading] = useState(false);
   const franquiaRef = useRef<string>("");
   const fetchedRef = useRef(false);
@@ -673,6 +674,48 @@ function CopyCobrancaButtons({ cardTitle, lastComment }: { cardTitle: string; la
         className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedExcecao ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
       >
         {loading && !copiedExcecao ? "..." : copiedExcecao ? "Copiado!" : "Exceção pendências"}
+      </button>
+      <button
+        onClick={async () => {
+          setLoading(true);
+          try {
+            if (!fetchedRef.current) {
+              try {
+                const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(cardTitle.trim())}`);
+                const data = await res.json();
+                franquiaRef.current = data.franqueado || "";
+              } catch { /* silencioso */ }
+              fetchedRef.current = true;
+            }
+            const firstName = franquiaRef.current.split(" ")[0] || "";
+            const sections = parsePendingSectionsFromComment(lastComment);
+
+            let sectionsPlain = "";
+            let sectionsHtml = "";
+
+            for (const section of sections) {
+              sectionsPlain += `\n\n${section.name}:\n${section.items.join("\n")}`;
+              sectionsHtml += `<br><p><b>${section.name}:</b><br>${section.items.join("<br>")}</p>`;
+            }
+
+            const plainText = `Show ${firstName} :D\n\nMuito obrigado pelo envio dos registros, ficamos pendentes os registros abaixo. Saberia informar se temos previsão para finalizar as pendencias?${sectionsPlain}`;
+            const html = `<p>Show ${firstName} :D</p><br><p>Muito obrigado pelo envio dos registros, ficamos pendentes os registros abaixo. Saberia informar se temos previsão para finalizar as pendencias?</p>${sectionsHtml}`;
+
+            const blob = new Blob([html], { type: "text/html" });
+            const blobText = new Blob([plainText], { type: "text/plain" });
+            await navigator.clipboard.write([new ClipboardItem({ "text/html": blob, "text/plain": blobText })]);
+            setCopiedAgradecimento(true);
+            setTimeout(() => setCopiedAgradecimento(false), 2000);
+          } catch (err) {
+            console.error("Erro ao copiar agradecimento:", err);
+          } finally {
+            setLoading(false);
+          }
+        }}
+        disabled={loading}
+        className={`px-3 py-1 rounded text-[10px] font-medium transition-colors ${copiedAgradecimento ? "bg-green-500 text-white" : "bg-gray-300 text-gray-700 hover:bg-gray-400"} disabled:opacity-50`}
+      >
+        {loading && !copiedAgradecimento ? "..." : copiedAgradecimento ? "Copiado!" : "Agradecimento"}
       </button>
     </div>
   );
