@@ -2956,6 +2956,7 @@ function FormSuporte() {
   const [descComplemento, setDescComplemento] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [copiedSuporte, setCopiedSuporte] = useState(false);
 
   const descBase = "Pessoal, boa tarde. Tudo bem?\nConseguem nos ajudar com o retorno da franquia?";
 
@@ -3073,6 +3074,13 @@ function FormSuporte() {
             {sending ? "Enviando..." : "Enviar Suporte"}
           </button>
         </WithHelp>
+
+        <button
+          onClick={() => { navigator.clipboard.writeText("Suporte franquias aberto"); setCopiedSuporte(true); setTimeout(() => setCopiedSuporte(false), 2000); }}
+          className="w-full mt-2 bg-gray-100 text-gray-700 py-2.5 rounded-md text-sm font-medium hover:bg-gray-200 transition-colors"
+        >
+          {copiedSuporte ? "Copiado!" : "Copiar: Suporte franquias aberto"}
+        </button>
       </div>
     </section>
   );
