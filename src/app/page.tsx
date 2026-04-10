@@ -2766,7 +2766,29 @@ function CopyDiasTexto() {
 
 function FormOcorrencia() {
   const [dias, setDias] = useState("");
+  const [codigoOcorrencia, setCodigoOcorrencia] = useState("");
+  const [franquiaOcorrencia, setFranquiaOcorrencia] = useState("");
+  const [loadingFranquia, setLoadingFranquia] = useState(false);
+  const [descricaoOcorrencia, setDescricaoOcorrencia] = useState("");
   const [copied, setCopied] = useState<string | null>(null);
+
+  const buscarFranquia = async () => {
+    if (!codigoOcorrencia.trim()) return;
+    setLoadingFranquia(true);
+    try {
+      const res = await fetch(`/api/get-franqueado?code=${encodeURIComponent(codigoOcorrencia.trim())}`);
+      const data = await res.json();
+      if (data.success && data.franqueado) {
+        setFranquiaOcorrencia(data.franqueado);
+      } else {
+        setFranquiaOcorrencia("");
+      }
+    } catch {
+      setFranquiaOcorrencia("");
+    } finally {
+      setLoadingFranquia(false);
+    }
+  };
 
   const copyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -2774,17 +2796,64 @@ function FormOcorrencia() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const buildOcorrenciaUrl = () => {
+    const base = "https://preview--centraldeocorrenciasemultas.lovable.app/adm/funil-ocorrencias";
+    const p = new URLSearchParams();
+    if (franquiaOcorrencia.trim()) p.set("franquia", franquiaOcorrencia.trim());
+    if (codigoOcorrencia.trim()) p.set("codigo", codigoOcorrencia.trim());
+    if (descricaoOcorrencia.trim()) p.set("descricao", descricaoOcorrencia.trim());
+    const qs = p.toString();
+    return qs ? `${base}?${qs}` : base;
+  };
+
   return (
     <section className="bg-white rounded-lg shadow p-6">
-      <div className="mb-4">
-        <a
-          href="https://preview--centraldeocorrenciasemultas.lovable.app/adm/funil-ocorrencias"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block bg-purple-600 text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-purple-700 transition-colors"
-        >
-          Abrir ocorrência
-        </a>
+      <div className="mb-4 space-y-3">
+        <div className="flex gap-2 items-end">
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Código do imóvel</label>
+            <input
+              type="text"
+              value={codigoOcorrencia}
+              onChange={(e) => setCodigoOcorrencia(e.target.value.toUpperCase())}
+              onBlur={buscarFranquia}
+              onKeyDown={(e) => e.key === "Enter" && buscarFranquia()}
+              placeholder="Ex: ALA0004"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-40"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 block mb-1">Franquia {loadingFranquia && "(buscando...)"}</label>
+            <input
+              type="text"
+              value={franquiaOcorrencia}
+              onChange={(e) => setFranquiaOcorrencia(e.target.value)}
+              placeholder="Preenchido automaticamente"
+              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 w-64 bg-gray-50"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Descreva o ocorrido</label>
+          <textarea
+            value={descricaoOcorrencia}
+            onChange={(e) => setDescricaoOcorrencia(e.target.value)}
+            placeholder="Descreva detalhadamente a ocorrência..."
+            rows={3}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+          />
+        </div>
+        <div>
+          <a
+            href={buildOcorrenciaUrl()}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block bg-purple-600 text-white px-5 py-2.5 rounded-md text-sm font-medium hover:bg-purple-700 transition-colors"
+          >
+            Abrir ocorrência
+          </a>
+          <p className="text-xs text-gray-400 mt-1">Tampermonkey preenche: email, SIM, código, franquia, origem, subcategoria e descrição. Evidência: anexar manualmente.</p>
+        </div>
       </div>
 
       <div className="border-t border-gray-200 pt-4 mb-4">
