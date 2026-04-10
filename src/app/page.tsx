@@ -1662,12 +1662,12 @@ function Phase5EditButton({ cardId, cardTitle, lastComment }: { cardId: string; 
   return (
     <>
       <WithHelp help="Abre painel de finalização com todas as etapas">
-        <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-3 py-1 rounded text-[10px] font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
+        <button onClick={() => { setShowFinalizar(!showFinalizar); setShowEditor(false); }} className="bg-green-600 text-white px-5 py-1.5 rounded text-xs font-medium hover:bg-green-700 transition-colors whitespace-nowrap">
           Finalizar
         </button>
       </WithHelp>
       <WithHelp help="Abre editor lateral com o último comentário do card">
-        <button onClick={() => { setShowEditor(!showEditor); setShowFinalizar(false); }} className="bg-yellow-500 text-white px-3 py-1 rounded text-[10px] font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
+        <button onClick={() => { setShowEditor(!showEditor); setShowFinalizar(false); }} className="bg-yellow-500 text-white px-5 py-1.5 rounded text-xs font-medium hover:bg-yellow-600 transition-colors whitespace-nowrap">
           Atualizar
         </button>
       </WithHelp>
@@ -1956,7 +1956,7 @@ function TabPhase5() {
                     <div className="flex items-start gap-2">
                       <div className="grid grid-cols-2 gap-1">
                         <WithHelp help="1. Atualiza vencimento +3 dias úteis às 22:00~2. Busca o último comentário do card~3. Substitui a data do FUP~4. Adiciona o comentário atualizado">
-                          <button onClick={() => updateSingleCard(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-blue-600 text-white px-3 py-1 rounded text-[10px] font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap">
+                          <button onClick={() => updateSingleCard(c.id)} disabled={isUpdating || updatingCard !== null} className="bg-blue-600 text-white px-5 py-1.5 rounded text-xs font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors whitespace-nowrap">
                             {isUpdating ? "..." : "+3 dias"}
                           </button>
                         </WithHelp>
