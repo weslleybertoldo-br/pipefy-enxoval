@@ -2919,7 +2919,7 @@ function FormOcorrencia() {
       <RegistrarOcorrenciaCard />
 
       <div className="border-t border-gray-200 pt-4 mt-4">
-        <h4 className="text-sm font-semibold text-gray-700 mb-2">Textos para copiar</h4>
+        <h4 className="text-sm font-semibold text-gray-700 mb-2">Textos copiar Sults</h4>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => copyText("Ocorrência registrada - Falta de retorno", "falta")}
