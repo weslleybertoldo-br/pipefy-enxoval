@@ -5,14 +5,14 @@ import {
   replaceCommentFupDate, requireAuth, PHASE_3_ID, PHASE_4_ID, WESLLEY_USER_ID,
 } from "@/lib/pipefy";
 
-const SLACK_TOKEN = process.env.SLACK_BOT_TOKEN || "";
+const SLACK_USER_TOKEN = process.env.SLACK_USER_TOKEN || "";
 const BRUNO_ID = "U05AKADK9EY";
 
 async function sendSlackDM(userId: string, text: string) {
   // Abrir conversa DM
   const openRes = await fetch("https://slack.com/api/conversations.open", {
     method: "POST",
-    headers: { Authorization: `Bearer ${SLACK_TOKEN}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${SLACK_USER_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ users: userId }),
   });
   const openData = await openRes.json();
@@ -21,7 +21,7 @@ async function sendSlackDM(userId: string, text: string) {
   // Enviar mensagem
   const msgRes = await fetch("https://slack.com/api/chat.postMessage", {
     method: "POST",
-    headers: { Authorization: `Bearer ${SLACK_TOKEN}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${SLACK_USER_TOKEN}`, "Content-Type": "application/json" },
     body: JSON.stringify({ channel: openData.channel.id, text }),
   });
   const msgData = await msgRes.json();
@@ -194,14 +194,14 @@ export async function POST(req: NextRequest) {
       }
 
       // Enviar DM no Slack para Bruno (somente quando Complexa desmarcado → card vai para Fase 4)
-      if (!isComplexa && SLACK_TOKEN && card?.title) {
+      if (!isComplexa && SLACK_USER_TOKEN && card?.title) {
         try {
           await sendSlackDM(BRUNO_ID, `${card.title} - Liberado ✅`);
           actions.push("Slack DM → Bruno");
         } catch (e: unknown) {
           actions.push(`Slack DM erro: ${e instanceof Error ? e.message : "erro"}`);
         }
-      } else if (!isComplexa && !SLACK_TOKEN) {
+      } else if (!isComplexa && !SLACK_USER_TOKEN) {
         actions.push("Slack DM não enviado (token não configurado)");
       }
 
