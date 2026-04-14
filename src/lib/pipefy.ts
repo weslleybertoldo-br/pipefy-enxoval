@@ -205,6 +205,10 @@ export async function fetchAllCardsFromPhase(phaseId: string): Promise<any[]> {
     pages++;
   }
 
+  if (pages >= MAX_PAGES) {
+    console.warn(`fetchAllCardsFromPhase: máximo de ${MAX_PAGES} páginas atingido para fase ${phaseId} — resultados podem estar truncados`);
+  }
+
   return allCards;
 }
 

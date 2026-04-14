@@ -12,7 +12,8 @@ export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const email = formData.get("email") as string;
-    const envolveimovel = formData.get("envolveimovel") as string || "Sim";
+    const rawEnvolve = formData.get("envolveimovel") as string || "Sim";
+    const envolveimovel = ["Sim", "Não"].includes(rawEnvolve) ? rawEnvolve : "Sim";
     const codigo = formData.get("codigo") as string;
     const franquia = formData.get("franquia") as string;
     const origem = formData.get("origem") as string;

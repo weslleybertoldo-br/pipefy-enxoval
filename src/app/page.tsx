@@ -1501,7 +1501,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                     {c.assignees.length > 0 && (
                       <span className="text-xs text-gray-400 ml-3">{c.assignees.join(", ")}</span>
                     )}
-                    <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded ml-2">Fase 10</span>
+                    {c.pipe1Phase && <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded ml-2">{c.pipe1Phase}</span>}
                   </div>
                   <div className="flex items-center gap-2">
                     {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}
@@ -4257,7 +4257,7 @@ function DaySummary() {
     fetch(`/api/cards-by-date?countOnly=true&dates=${dates}`)
       .then((r) => r.json())
       .then((data) => { if (data.success) setCounts(data.counts); })
-      .catch(() => {})
+      .catch((err) => console.error("Erro ao carregar contagens:", err))
       .finally(() => setLoading(false));
   }, [allDays]);
 

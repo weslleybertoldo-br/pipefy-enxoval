@@ -15,6 +15,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Campos obrigatórios: código, descrição" }, { status: 400 });
     }
 
+    const validTipos = ["Temporária", "Permanente"];
+    if (tipoAlteracao && !validTipos.includes(tipoAlteracao)) {
+      return NextResponse.json({ error: "tipoAlteracao inválido — use Temporária ou Permanente" }, { status: 400 });
+    }
+
     const esc = (s: string) => JSON.stringify(s).slice(1, -1);
 
     const fields = [

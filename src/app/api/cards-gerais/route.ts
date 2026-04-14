@@ -111,6 +111,9 @@ export async function POST(req: NextRequest) {
     // Tags
     if (requestedActions.labelIds) {
       try {
+        if (!Array.isArray(requestedActions.labelIds) || requestedActions.labelIds.some((id: string) => !/^\d+$/.test(id))) {
+          return NextResponse.json({ error: "labelIds inválidos — apenas IDs numéricos" }, { status: 400 });
+        }
         const labelArray = requestedActions.labelIds.map((id: string) => `"${id}"`).join(", ");
         await pipefyQuery(`mutation { updateCard(input: { id: ${validId}, label_ids: [${labelArray}] }) { card { id } } }`);
         results.push({ action: "Tags", status: "ok", message: "Atualizadas" });
@@ -143,6 +146,10 @@ export async function POST(req: NextRequest) {
     // Mudar fase
     if (requestedActions.moveToPhaseId) {
       try {
+        const validPhaseIds = ALL_PHASES.map((p) => p.id);
+        if (!/^\d+$/.test(requestedActions.moveToPhaseId) || !validPhaseIds.includes(requestedActions.moveToPhaseId)) {
+          return NextResponse.json({ error: "moveToPhaseId inválido — fase não reconhecida" }, { status: 400 });
+        }
         await pipefyQuery(`mutation { moveCardToPhase(input: { card_id: ${validId}, destination_phase_id: ${requestedActions.moveToPhaseId} }) { card { id } } }`);
         const phaseName = ALL_PHASES.find((p) => p.id === requestedActions.moveToPhaseId)?.name || requestedActions.moveToPhaseId;
         results.push({ action: "Fase", status: "ok", message: `→ ${phaseName}` });

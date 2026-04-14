@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const limit = req.nextUrl.searchParams.get("limit") || "20";
+    const rawLimit = parseInt(req.nextUrl.searchParams.get("limit") || "20", 10);
+    const limit = String(Math.min(Math.max(isNaN(rawLimit) ? 20 : rawLimit, 1), 100));
     const res = await fetch(`https://slack.com/api/conversations.history?channel=${SLACK_CHANNEL_ID}&limit=${limit}`, {
       headers: { Authorization: `Bearer ${SLACK_TOKEN}` },
     });

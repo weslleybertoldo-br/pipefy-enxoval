@@ -30,12 +30,13 @@ export async function GET(req: NextRequest) {
     // Montar map de titulo normalizado → fase do Pipe 1
     const ativosTitleToPhase = new Map<string, string>();
     for (const c of phase10Cards) {
+      if (!c.title) continue;
       ativosTitleToPhase.set(c.title.toUpperCase().trim(), "Fase 10");
     }
 
     // Filtrar cards da Fase 4 que existem na fase 10
     const matched = phase4Cards.filter((c: any) =>
-      ativosTitleToPhase.has(c.title.toUpperCase().trim())
+      c.title && ativosTitleToPhase.has(c.title.toUpperCase().trim())
     );
 
     const cards = matched.map((c: any) => {
@@ -180,8 +181,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { cardId, customComment, extraDays = 0 } = await req.json();
-    const validId = validateCardId(cardId);
+    const body = await req.json();
+    const validId = validateCardId(body.cardId);
+    const rawExtra = typeof body.extraDays === "number" && !isNaN(body.extraDays) ? body.extraDays : 0;
+    const extraDays = Math.min(Math.max(rawExtra, -99), 10);
+    const customComment: string | undefined = body.customComment;
 
     // 1. Buscar card completo
     const result = await pipefyQuery(`{

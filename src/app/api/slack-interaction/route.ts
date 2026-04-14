@@ -90,6 +90,6 @@ export async function POST(req: NextRequest) {
     return new NextResponse("", { status: 200 });
   } catch (err) {
     console.error("Slack interaction error:", err);
-    return new NextResponse("", { status: 200 });
+    return new NextResponse("Internal error", { status: 500 });
   }
 }

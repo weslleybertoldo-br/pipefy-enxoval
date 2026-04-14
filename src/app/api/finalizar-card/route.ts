@@ -272,7 +272,8 @@ export async function POST(req: NextRequest) {
       const hasRecord = enxovalField?.value && enxovalField.value !== "[]" && enxovalField.value !== "";
       if (!hasRecord) {
         await step("Registro enxoval", async () => {
-          const processRes = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || "https://pipefy-enxoval-git-master-weslleybertoldo-brs-projects.vercel.app"}/api/process-card`, {
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000";
+          const processRes = await fetch(`${baseUrl}/api/process-card`, {
             method: "POST", headers: { "Content-Type": "application/json", Cookie: `auth_token=${req.cookies.get("auth_token")?.value}` }, body: JSON.stringify({ code: card.title }),
           });
           const processData = await processRes.json();

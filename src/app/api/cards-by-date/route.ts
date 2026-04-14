@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
 
     // Se countOnly, buscar contagem para múltiplas datas
     if (countOnly) {
-      const dates = req.nextUrl.searchParams.get("dates")?.split(",") || [];
+      const rawDates = req.nextUrl.searchParams.get("dates")?.split(",") || [];
+      const dates = rawDates.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d));
       const allCards: { due_date: string }[] = [];
 
       for (const phase of phases) {
