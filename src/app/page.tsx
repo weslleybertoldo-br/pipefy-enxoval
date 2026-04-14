@@ -1007,7 +1007,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
   const [manualStatuses, setManualStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
 
   // Estados para Fase 4 Ativos
-  const [ativosCards, setAtivosCards] = useState<{ id: string; title: string; due_date: string | null; dueFormatted: string; assignees: string[]; labels: string[]; lastComment: string; lastCommentAuthor: string; lastCommentDate: string }[]>([]);
+  const [ativosCards, setAtivosCards] = useState<{ id: string; title: string; due_date: string | null; dueFormatted: string; assignees: string[]; labels: string[]; pipe1Phase: string; lastComment: string; lastCommentAuthor: string; lastCommentDate: string }[]>([]);
   const [ativosLoading, setAtivosLoading] = useState(false);
   const [ativosUpdating, setAtivosUpdating] = useState<string | null>(null);
   const [ativosStatuses, setAtivosStatuses] = useState<Record<string, { status: "updated" | "error"; message: string }>>({});
@@ -1313,7 +1313,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
 
           {showCopyButton && (
             <>
-              <WithHelp help="Busca cards da Fase 4 que já estão na Fase 9 ou 10 do Pipe 1 (imóvel ativo). Mostra com opção de atualizar comentário e campos">
+              <WithHelp help="Busca cards da Fase 4 que já estão na Fase 10 do Pipe 1 (imóvel ativo). Mostra com opção de atualizar comentário e campos">
                 <button
                   onClick={loadAtivos}
                   disabled={ativosLoading}
@@ -1501,6 +1501,7 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                     {c.assignees.length > 0 && (
                       <span className="text-xs text-gray-400 ml-3">{c.assignees.join(", ")}</span>
                     )}
+                    <span className="text-xs font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded ml-2">Fase 10</span>
                   </div>
                   <div className="flex items-center gap-2">
                     {cardStatus?.status === "updated" && <span className="text-green-600 text-xs">{cardStatus.message}</span>}

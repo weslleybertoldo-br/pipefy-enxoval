@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac } from "crypto";
+import { createHmac, timingSafeEqual } from "crypto";
 
 const VALID_EMAIL = process.env.AUTH_EMAIL || "";
 const VALID_PASSWORD = process.env.AUTH_PASSWORD || "";
@@ -20,7 +20,10 @@ function verifyToken(token: string): boolean {
     const signature = parts.pop()!;
     const payload = parts.join(":");
     const expected = createHmac("sha256", TOKEN_SECRET).update(payload).digest("hex");
-    if (signature !== expected) return false;
+    const sigBuf = Buffer.from(signature, "utf-8");
+    const expBuf = Buffer.from(expected, "utf-8");
+    if (sigBuf.length !== expBuf.length) return false;
+    if (!timingSafeEqual(sigBuf, expBuf)) return false;
     // Verificar expiração (24h)
     const timestamp = parseInt(parts[1]);
     if (isNaN(timestamp) || Date.now() - timestamp > 24 * 60 * 60 * 1000) return false;

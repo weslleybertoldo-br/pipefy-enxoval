@@ -5,7 +5,6 @@ import {
   formatDateBR, toBrazilDate, requireAuth, PHASE_4_ID, PHASE_5_ID,
 } from "@/lib/pipefy";
 
-const PIPE_1_PHASE_9 = "323044836";
 const PIPE_1_PHASE_10 = "326702699";
 const IMOVEL_ATIVO_TAG = "314317045";
 
@@ -16,28 +15,27 @@ const TAG_VALIDAR_ENXOVAL = "310959732";
 const TAG_ITENS_PEQUENOS = "310938809";
 const TAG_MANUT_PEQUENAS = "310938821";
 
-// GET: Lista cards da Fase 4 que tambem existem na Fase 9 ou 10 do Pipe 1
+// GET: Lista cards da Fase 4 que tambem existem na Fase 10 do Pipe 1
 export async function GET(req: NextRequest) {
   if (!requireAuth(req.cookies.get("auth_token")?.value)) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    // Buscar todos os cards das fases 9 e 10 do Pipe 1 (para cruzamento por titulo)
-    const [phase9Cards, phase10Cards, phase4Cards] = await Promise.all([
-      fetchAllCardsFromPhase(PIPE_1_PHASE_9),
+    // Buscar cards da fase 10 do Pipe 1 e da Fase 4 do Pipe de Enxoval
+    const [phase10Cards, phase4Cards] = await Promise.all([
       fetchAllCardsFromPhase(PIPE_1_PHASE_10),
       fetchAllCardsFromPhase(PHASE_4_ID),
     ]);
 
-    // Montar set de titulos normalizados das fases 9 e 10
-    const ativosTitles = new Set<string>();
-    for (const c of [...phase9Cards, ...phase10Cards]) {
-      ativosTitles.add(c.title.toUpperCase().trim());
+    // Montar map de titulo normalizado → fase do Pipe 1
+    const ativosTitleToPhase = new Map<string, string>();
+    for (const c of phase10Cards) {
+      ativosTitleToPhase.set(c.title.toUpperCase().trim(), "Fase 10");
     }
 
-    // Filtrar cards da Fase 4 que existem nas fases 9/10
+    // Filtrar cards da Fase 4 que existem na fase 10
     const matched = phase4Cards.filter((c: any) =>
-      ativosTitles.has(c.title.toUpperCase().trim())
+      ativosTitleToPhase.has(c.title.toUpperCase().trim())
     );
 
     const cards = matched.map((c: any) => {
@@ -53,6 +51,7 @@ export async function GET(req: NextRequest) {
         dueFormatted,
         assignees: (c.assignees || []).map((a: any) => a.name),
         labels: (c.labels || []).map((l: any) => l.name),
+        pipe1Phase: ativosTitleToPhase.get(c.title.toUpperCase().trim()) || "",
         lastComment: lastComment?.text || "",
         lastCommentAuthor: lastComment?.author_name || "",
         lastCommentDate: lastComment?.created_at || "",
