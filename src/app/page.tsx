@@ -2340,6 +2340,7 @@ function TabRevisao() {
   };
 
   const openRevisaoEditor = (cardId: string) => {
+    const card = cards.find((c) => c.id === cardId);
     const opts = getCardOpts(cardId);
     const days = (opts.complexa ? 1 : 2) + extraDays;
     const now = new Date();
@@ -2353,8 +2354,13 @@ function TabRevisao() {
     const mm = String(next.getMonth() + 1).padStart(2, "0");
     const fupDate = `${dd}/${mm}`;
 
+    const base = card?.lastComment || "";
+    const updated = base.includes("⏭️")
+      ? base.replace(/⏭️\s*Fup:\s*\d{2}\/\d{2}/, `⏭️ Fup: ${fupDate}`)
+      : base;
+
     setEditingComment(cardId);
-    setCommentText(getDefaultRevisaoComment(fupDate));
+    setCommentText(updated);
   };
 
   const sendRevisaoComment = async () => {
@@ -2381,10 +2387,21 @@ function TabRevisao() {
   };
 
   const openOnlyCommentEditor = (cardId: string) => {
-    const card = cards.find((c) => c.id === cardId);
-    if (!card?.lastComment) return;
+    const opts = getCardOpts(cardId);
+    const days = (opts.complexa ? 1 : 2) + extraDays;
+    const now = new Date();
+    let added = 0;
+    const next = new Date(now);
+    while (added < days) {
+      next.setDate(next.getDate() + 1);
+      if (next.getDay() !== 0 && next.getDay() !== 6) added++;
+    }
+    const dd = String(next.getDate()).padStart(2, "0");
+    const mm = String(next.getMonth() + 1).padStart(2, "0");
+    const fupDate = `${dd}/${mm}`;
+
     setEditingOnlyComment(cardId);
-    setOnlyCommentText(card.lastComment);
+    setOnlyCommentText(getDefaultRevisaoComment(fupDate));
   };
 
   const sendOnlyComment = async () => {
@@ -2624,8 +2641,8 @@ function TabRevisao() {
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
                       {!isEditing && !cardStatus && (
                         <>
-                          <WithHelp help="Abre editor lateral com o último comentário do card.~Ao enviar: adiciona o texto editado como NOVO comentário no card.~NÃO altera vencimento, responsável, tags, campos nem move de fase.">
-                            <button onClick={() => openOnlyCommentEditor(c.id)} disabled={updatingCard !== null || !c.lastComment} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 disabled:opacity-50 transition-colors whitespace-nowrap">
+                          <WithHelp help="Abre editor lateral com o template padrão (Imóvel em ativação) e FUP calculado.~Ao enviar: adiciona o texto editado como NOVO comentário no card.~NÃO altera vencimento, responsável, tags, campos nem move de fase.">
+                            <button onClick={() => openOnlyCommentEditor(c.id)} disabled={updatingCard !== null} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 disabled:opacity-50 transition-colors whitespace-nowrap">
                               Atualizar comentário
                             </button>
                           </WithHelp>
