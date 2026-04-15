@@ -186,6 +186,29 @@ export async function POST(req: NextRequest) {
     const rawExtra = typeof body.extraDays === "number" && !isNaN(body.extraDays) ? body.extraDays : 0;
     const extraDays = Math.min(Math.max(rawExtra, -99), 10);
     const customComment: string | undefined = body.customComment;
+    const action: string | undefined = body.action;
+
+    // Ação leve: só atualiza o último comentário, sem mover/tags/campos/vencimento
+    if (action === "update_comment") {
+      const commentText: string | undefined = body.commentText;
+      if (!commentText || !commentText.trim()) {
+        return NextResponse.json({ error: "Comentário obrigatório" }, { status: 400 });
+      }
+      const actions: string[] = [];
+      const errors: string[] = [];
+      try {
+        await createComment(validId, commentText);
+        actions.push("Comentário adicionado");
+      } catch (e: unknown) {
+        errors.push(`Comentário: ${e instanceof Error ? e.message : "erro"}`);
+      }
+      const allDetails = [...actions, ...errors.map((e) => `❌ ${e}`)].join(" | ");
+      return NextResponse.json({
+        success: errors.length === 0,
+        action: "updated",
+        details: allDetails,
+      });
+    }
 
     // 1. Buscar card completo
     const result = await pipefyQuery(`{
