@@ -208,6 +208,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, action: "updated", details: actions.join(" | ") });
     }
 
+    if (type === "revisao_update_comment") {
+      if (!customComment) return NextResponse.json({ error: "Comentário obrigatório" }, { status: 400 });
+      await createComment(validId, customComment);
+      return NextResponse.json({ success: true, action: "updated", details: "Comentário adicionado" });
+    }
+
     if (type === "revisao") {
       const actions: string[] = [];
 

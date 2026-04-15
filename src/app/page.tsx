@@ -2219,6 +2219,8 @@ function TabRevisao() {
   const [searchCode, setSearchCode] = useState("");
   const [searching, setSearching] = useState(false);
   const [extraDays, setExtraDays] = useState(0);
+  const [editingOnlyComment, setEditingOnlyComment] = useState<string | null>(null);
+  const [onlyCommentText, setOnlyCommentText] = useState("");
 
   const getCardOpts = (id: string) => cardOptions[id] || { complexa: false, itens: false, manut: false, pin: false };
   const setCardOpt = (id: string, key: "complexa" | "itens" | "manut" | "pin", val: boolean) => {
@@ -2375,6 +2377,37 @@ function TabRevisao() {
     } finally {
       setUpdatingCard(null);
       setEditingComment(null);
+    }
+  };
+
+  const openOnlyCommentEditor = (cardId: string) => {
+    const card = cards.find((c) => c.id === cardId);
+    if (!card?.lastComment) return;
+    setEditingOnlyComment(cardId);
+    setOnlyCommentText(card.lastComment);
+  };
+
+  const sendOnlyComment = async () => {
+    if (!editingOnlyComment || !onlyCommentText.trim()) return;
+    const cardId = editingOnlyComment;
+    setUpdatingCard(cardId);
+    try {
+      const res = await fetch("/api/update-cards-revisao", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardId, type: "revisao_update_comment", customComment: onlyCommentText }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "updated", message: "Comentário atualizado" } }));
+      } else {
+        setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: data.error || "Erro" } }));
+      }
+    } catch {
+      setCardStatuses((prev) => ({ ...prev, [cardId]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setUpdatingCard(null);
+      setEditingOnlyComment(null);
     }
   };
 
@@ -2591,9 +2624,14 @@ function TabRevisao() {
                       {cardStatus && <span className={`text-xs ${cardStatus.status === "updated" ? "text-green-600" : "text-red-600"}`}>{cardStatus.message}</span>}
                       {!isEditing && !cardStatus && (
                         <>
+                          <WithHelp help="Abre editor lateral com o último comentário do card.~Ao enviar: adiciona o texto editado como NOVO comentário no card.~NÃO altera vencimento, responsável, tags, campos nem move de fase.">
+                            <button onClick={() => openOnlyCommentEditor(c.id)} disabled={updatingCard !== null || !c.lastComment} className="bg-yellow-500 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-yellow-600 disabled:opacity-50 transition-colors whitespace-nowrap">
+                              Atualizar comentário
+                            </button>
+                          </WithHelp>
                           <WithHelp help="Abre editor com comentário padrão e FUP calculado:~Se 'Complexa' marcado → FUP +1 dia útil~Se 'Complexa' desmarcado → FUP +2 dias úteis~Edite o texto antes de enviar.|Ao enviar com 'Complexa' marcado:~Muda responsável para Weslley, vencimento +1 dia, adiciona tag Complexa, adiciona tags Itens/Manut se marcados, mantém na Fase 3|Ao enviar com 'Complexa' desmarcado:~Muda responsável para Weslley, vencimento +2 dias, adiciona tags Itens/Manut se marcados, preenche campos obrigatórios, move para Fase 4">
                             <button onClick={() => openRevisaoEditor(c.id)} disabled={updatingCard !== null} className="bg-purple-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-purple-700 disabled:opacity-50 transition-colors whitespace-nowrap">
-                              Atualizar comentário
+                              Fase 4/Complexa
                             </button>
                           </WithHelp>
                           <div className="flex flex-col gap-0.5">
@@ -2640,6 +2678,38 @@ function TabRevisao() {
                             Cancelar
                           </button>
                         </WithHelp>
+                      </div>
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-purple-200">
+                        <CopyScriptPendencias cardTitle={c.title} lastComment={c.lastComment} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Editor lateral — só atualizar comentário */}
+                  {editingOnlyComment === c.id && (
+                    <div className="fixed inset-0 z-50 flex">
+                      <div className="w-1/2 bg-black/30" onClick={() => setEditingOnlyComment(null)} />
+                      <div className="w-1/2 bg-white shadow-xl p-6 overflow-y-auto">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="font-semibold text-gray-900">Atualizar comentário — {c.title}</h3>
+                          <button onClick={() => setEditingOnlyComment(null)} className="text-gray-400 hover:text-gray-600 text-xl">&times;</button>
+                        </div>
+                        <div className="mb-3 text-xs text-gray-500">
+                          Edite o texto abaixo e envie como novo comentário no card. Não altera vencimento, responsável, tags, campos nem move de fase.
+                        </div>
+                        <textarea value={onlyCommentText} onChange={(e) => setOnlyCommentText(e.target.value)} rows={25} className="w-full border border-yellow-300 rounded-md px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+                        <div className="flex gap-2 mt-4">
+                          <WithHelp help="Envia o comentário editado como novo comentário no card do Pipefy">
+                            <button onClick={sendOnlyComment} disabled={updatingCard !== null} className="bg-yellow-600 text-white px-6 py-2.5 rounded-md text-sm font-medium hover:bg-yellow-700 disabled:opacity-50 transition-colors">
+                              {isUpdating ? "Enviando..." : "Enviar comentário"}
+                            </button>
+                          </WithHelp>
+                          <WithHelp help="Fecha o editor sem enviar alterações">
+                            <button onClick={() => setEditingOnlyComment(null)} className="bg-gray-200 text-gray-700 px-6 py-2.5 rounded-md text-sm font-medium hover:bg-gray-300 transition-colors">
+                              Cancelar
+                            </button>
+                          </WithHelp>
+                        </div>
                       </div>
                     </div>
                   )}
