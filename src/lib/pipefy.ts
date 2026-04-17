@@ -6,6 +6,7 @@ const PIPEFY_API = "https://api.pipefy.com/graphql";
 const PIPEFY_TOKEN = process.env.PIPEFY_TOKEN || "";
 
 export const PIPE_ID = "303828424";
+export const PIPE_ID_TROCA = "304170945";
 export const PHASE_3_ID = "323529403";
 export const PHASE_4_ID = "333848207";
 export const PHASE_5_ID = "333848127";
