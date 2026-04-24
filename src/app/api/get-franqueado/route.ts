@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    for (const phaseId of PIPE_1_PHASES) {
+    for (const { id: phaseId } of PIPE_1_PHASES) {
       const result = await pipefyQuery(`{
         phase(id: ${phaseId}) {
           cards(first: 3, search: { title: "${JSON.stringify(code).slice(1, -1)}" }) {

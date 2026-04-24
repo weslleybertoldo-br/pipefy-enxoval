@@ -175,6 +175,7 @@ interface UpdateCardInfo {
   lastComment?: string;
   lastCommentAuthor?: string;
   firstComment?: string;
+  pipe1Phase?: string;
 }
 
 interface UpdateResult {
@@ -1446,7 +1447,14 @@ function TabUpdateCards({ apiRoute, phaseName, phaseDescription, showCopyButton 
                   <div className="flex items-center gap-3">
                     <span className="text-lg">{c.skip ? "⏭️" : "📋"}</span>
                     <div>
-                      <CopyableCode code={c.title} className="text-sm" />
+                      <div className="flex items-center gap-2">
+                        <CopyableCode code={c.title} className="text-sm" />
+                        {c.pipe1Phase && (
+                          <span className="text-[10px] font-semibold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">
+                            Pipe 1 · {c.pipe1Phase}
+                          </span>
+                        )}
+                      </div>
                       {c.labels.length > 0 && (
                         <div className="flex gap-1 mt-1">
                           {c.labels.map((l) => (

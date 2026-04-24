@@ -13,20 +13,42 @@ export const PHASE_5_ID = "333848127";
 export const WESLLEY_USER_ID = "305932218";
 
 // Pipe 1 - fases 1 a 10 (exclui Fase 11 para evitar duplicatas)
-export const PIPE_1_PHASES = [
-  "323044780",  // Backlog
-  "333371452",  // Fase 0
-  "323044781",  // Fase 1
-  "323044783",  // Fase 2
-  "323044784",  // Fase 3
-  "323044785",  // Fase 4
-  "323044786",  // Fase 5
-  "323044787",  // Fase 6
-  "323044796",  // Fase 7
-  "323044844",  // Fase 8
-  "323044836",  // Fase 9
-  "326702699",  // Fase 10
+export const PIPE_1_PHASES: { id: string; name: string }[] = [
+  { id: "323044780", name: "Backlog" },
+  { id: "333371452", name: "Fase 0" },
+  { id: "323044781", name: "Fase 1" },
+  { id: "323044783", name: "Fase 2" },
+  { id: "323044784", name: "Fase 3" },
+  { id: "323044785", name: "Fase 4" },
+  { id: "323044786", name: "Fase 5" },
+  { id: "323044787", name: "Fase 6" },
+  { id: "323044796", name: "Fase 7" },
+  { id: "323044844", name: "Fase 8" },
+  { id: "323044836", name: "Fase 9" },
+  { id: "326702699", name: "Fase 10" },
 ];
+
+/**
+ * Busca todos os cards das 12 fases do Pipe 1 em paralelo e retorna um
+ * Map<titleUpper, phaseName>. Usado pelas abas de Fase 3/4/Ativos pra
+ * mostrar em que fase cada imóvel está no Pipe 1.
+ */
+export async function fetchPipe1PhaseMap(): Promise<Map<string, string>> {
+  const results = await Promise.all(
+    PIPE_1_PHASES.map(async (phase) => {
+      const cards = await fetchAllCardsFromPhase(phase.id);
+      return { name: phase.name, cards };
+    })
+  );
+  const map = new Map<string, string>();
+  for (const { name, cards } of results) {
+    for (const c of cards) {
+      if (!c.title) continue;
+      map.set(c.title.toUpperCase().trim(), name);
+    }
+  }
+  return map;
+}
 
 // ========================
 // Query com tratamento de erros e timeout

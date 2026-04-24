@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   pipefyQuery, fetchAllCardsFromPhase, searchCardInPhase, updateDueDate, updateAssignee, createComment,
   validateCardId, toBrazilDate, formatDateBR, isDueToday, getNextBusinessDayAt22,
-  replaceCommentFupDate, requireAuth, PHASE_4_ID, WESLLEY_USER_ID,
+  replaceCommentFupDate, requireAuth, fetchPipe1PhaseMap, PHASE_4_ID, WESLLEY_USER_ID,
 } from "@/lib/pipefy";
 
 const TAG_ITENS_PEQUENOS = "310938809";
@@ -138,7 +138,10 @@ export async function GET(req: NextRequest) {
     const search = req.nextUrl.searchParams.get("search");
 
     if (search) {
-      const card = await searchCardInPhase(PHASE_4_ID, search);
+      const [card, pipe1Map] = await Promise.all([
+        searchCardInPhase(PHASE_4_ID, search),
+        fetchPipe1PhaseMap(),
+      ]);
       if (!card) return NextResponse.json({ success: true, totalCards: 0, toUpdate: 0, toSkip: 0, cards: [] });
       const skipCheck = shouldSkipCard(card);
       return NextResponse.json({
@@ -148,11 +151,15 @@ export async function GET(req: NextRequest) {
           labels: (card.labels || []).map((l: any) => l.name),
           assignees: (card.assignees || []).map((a: any) => a.name),
           due_date: card.due_date, skip: skipCheck.skip, skipReason: skipCheck.reason,
+          pipe1Phase: pipe1Map.get(card.title?.toUpperCase().trim() || "") || "",
         }],
       });
     }
 
-    const cards = await fetchAllCardsFromPhase(PHASE_4_ID);
+    const [cards, pipe1Map] = await Promise.all([
+      fetchAllCardsFromPhase(PHASE_4_ID),
+      fetchPipe1PhaseMap(),
+    ]);
     const skipMap = cards.map((c) => ({ card: c, ...shouldSkipCard(c) }));
 
     return NextResponse.json({
@@ -176,6 +183,7 @@ export async function GET(req: NextRequest) {
             lastComment: lastComment?.text || "",
             lastCommentAuthor: lastComment?.author_name || "",
             firstComment: firstComment?.text || "",
+            pipe1Phase: pipe1Map.get(s.card.title?.toUpperCase().trim() || "") || "",
           };
         })
         .sort((a, b) => {
