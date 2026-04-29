@@ -4804,23 +4804,29 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [pipefyPreview, setPipefyPreview] = useState<PipefyPreviewData | null>(null);
   const [pipefyTroca, setPipefyTroca] = useState<PipefyTrocaData | null>(null);
+
+  // Flags vindos do backend suporte-ops (campos checkbox preenchidos pelo time)
+  const flags = card.statusFlags || {};
+  const flagToStatus = (b: any): "sim" | "pendente" => (b ? "sim" : "pendente");
   const [status, setStatus] = useState<Record<string, StatusCampo>>({
-    planilha: { valor: "pendente" },
-    sapron: { valor: "pendente" },
-    pipefy: { valor: "pendente" },
-    stays: { valor: "pendente" },
+    planilha: { valor: flagToStatus(flags.alteradoBaseCodigo) },
+    sapron: { valor: flagToStatus(flags.alteradoSapron) },
+    pipefy: { valor: flagToStatus(flags.alteradoPipefy) },
+    stays: { valor: flagToStatus(flags.alteradoStays) },
     nomePredio: { valor: "pendente" },
     avisarGrupo: { valor: "pendente" },
-    airbnb: { valor: "pendente" },
-    expedia: { valor: "pendente" },
-    pipedrive: { valor: "pendente" },
-    csProp: { valor: "pendente" },
+    airbnb: { valor: flagToStatus(flags.alteradoOtas) },
+    expedia: { valor: flagToStatus(flags.alteradoOtas) },
+    pipedrive: { valor: flagToStatus(flags.alteradoPipedrive) },
+    csProp: { valor: flagToStatus(flags.alteradoPipefyCsProp) },
   });
 
   const fields = card.fields || [];
   const codigoAntigo = getFieldValue(fields, "Código Antigo") || card.title;
-  const codigoNovo = getFieldValue(fields, "Código Novo") || "";
-  const solicitante = getFieldValue(fields, "Solicitante") || "";
+  const codigoNovo =
+    getFieldValue(fields, "Novo Código") || getFieldValue(fields, "Código Novo") || "";
+  const solicitante =
+    getFieldValue(fields, "Quem Solicitou") || getFieldValue(fields, "Solicitante") || "";
   const motivo = getFieldValue(fields, "Motivo da troca") || "";
   const idAntigo = getFieldValue(fields, "Id do imóvel antigo") || "";
   const idNovo = getFieldValue(fields, "Id do imóvel novo") || "";
@@ -5000,9 +5006,17 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
   return (
     <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
       {/* Header do card */}
-      <button
+      <div
+        role="button"
+        tabIndex={0}
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            setExpanded(!expanded);
+          }
+        }}
+        className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
       >
         <div className="flex items-center gap-3">
           <svg
@@ -5015,7 +5029,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
           </svg>
           <div>
             <p className="font-semibold text-gray-900">{card.title}</p>
-            <div className="flex items-center gap-4 mt-1">
+            <div className="flex items-center gap-4 mt-1 flex-wrap">
               <span className="text-xs text-gray-500">
                 <span className="font-medium">De:</span> {codigoAntigo} → <span className="font-medium">Para:</span> {codigoNovo}
               </span>
@@ -5024,15 +5038,33 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                   Por: {solicitante}
                 </span>
               )}
+              {card.urgencia && (
+                <span className="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                  {card.urgencia}
+                </span>
+              )}
             </div>
           </div>
         </div>
-        {lastComment && phaseName === "Fazendo" && (
-          <div className="hidden md:block max-w-xs">
-            <p className="text-xs text-gray-500 truncate">{lastComment.text}</p>
-          </div>
-        )}
-      </button>
+        <div className="flex items-center gap-3">
+          {lastComment && phaseName === "Fazendo" && (
+            <div className="hidden md:block max-w-xs">
+              <p className="text-xs text-gray-500 truncate">{lastComment.text}</p>
+            </div>
+          )}
+          {card.url && (
+            <a
+              href={card.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              className="text-xs text-blue-600 hover:underline whitespace-nowrap"
+            >
+              suporte-ops ↗
+            </a>
+          )}
+        </div>
+      </div>
 
       {/* Expandido */}
       {expanded && (

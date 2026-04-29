@@ -1,108 +1,104 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, PIPE_ID_TROCA } from "@/lib/pipefy";
 import { requireAuth } from "@/lib/pipefy";
+import {
+  listarSuportesTroca,
+  extrairCamposTroca,
+  statusParaFase,
+  urlSuporteCard,
+  type FaseUI,
+} from "@/lib/suporte-ops";
+
+// Formato esperado pelo frontend (compatível com a versão antiga que vinha do Pipefy):
+// { phases: [{id, name}], cardsByPhase: { Backlog: [...], Fazendo: [...], Concluído: [...] } }
 
 export async function GET(request: NextRequest) {
   const authToken = request.cookies.get("auth_token")?.value;
-
   if (!requireAuth(authToken)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
     const { searchParams } = new URL(request.url);
-    const search = searchParams.get("search") || "";
+    const search = (searchParams.get("search") || "").trim().toUpperCase();
 
-    // Buscar fases do pipe (phases é array direto, não tem edges)
-    const phasesResult = await pipefyQuery(`{
-      pipe(id: "${PIPE_ID_TROCA}") {
-        phases {
-          id
-          name
-        }
+    const raws = await listarSuportesTroca();
+
+    const phases: { id: string; name: FaseUI }[] = [
+      { id: "backlog", name: "Backlog" },
+      { id: "fazendo", name: "Fazendo" },
+      { id: "concluido", name: "Concluído" },
+    ];
+
+    const cardsByPhase: Record<string, any[]> = {
+      Backlog: [],
+      Fazendo: [],
+      "Concluído": [],
+    };
+
+    for (const card of raws) {
+      const fase = statusParaFase(card.status);
+      if (!fase) continue;
+
+      const campos = extrairCamposTroca(card);
+
+      // Filtro de pesquisa: aceita match em codigoAntigo, codigoNovo ou codigo_imovel
+      if (search) {
+        const haystack = [
+          campos.codigoAntigo,
+          campos.codigoNovo,
+          card.codigo_imovel || "",
+        ]
+          .join("|")
+          .toUpperCase();
+        if (!haystack.includes(search)) continue;
       }
-    }`);
 
-    const phases = phasesResult?.data?.pipe?.phases || [];
-    console.log("[list-troca-codigo] Fases encontradas:", phases.length);
-    console.log("[list-troca-codigo] Nomes das fases:", phases.map((p: any) => p.name));
-
-    // Para cada fase, buscar cards
-    const cardsByPhase: Record<string, any[]> = {};
-    for (const phase of phases) {
-      const query = search
-        ? `{
-            phase(id: "${phase.id}") {
-              cards(first: 50, search: { title: "${search}" }) {
-                edges {
-                  node {
-                    id
-                    title
-                    due_date
-                    assignees { id name email }
-                    labels { id name }
-                    fields { name value }
-                    url
-                  }
-                }
-              }
-            }
-          }`
-        : `{
-            phase(id: "${phase.id}") {
-              cards(first: 50) {
-                edges {
-                  node {
-                    id
-                    title
-                    due_date
-                    assignees { id name email }
-                    labels { id name }
-                    fields { name value }
-                    url
-                  }
-                }
-              }
-            }
-          }`;
-
-      const result = await pipefyQuery(query);
-      let cards = result?.data?.phase?.cards?.edges?.map((e: any) => e.node) || [];
-
-      // Se é a fase Fazendo, buscar comments para cada card
-      if (phase.name === "Fazendo") {
-        for (const card of cards) {
-          try {
-            const commentResult = await pipefyQuery(`{
-              card(id: "${card.id}") {
-                comments {
-                  id
-                  text
-                }
-              }
-            }`);
-            const comments = commentResult?.data?.card?.comments || [];
-            // Pegar o primeiro comentário (mais recente - vem em ordem)
-            card.lastComment = comments[0] || null;
-          } catch {
-            card.lastComment = null;
-          }
-        }
-      }
-      if (cards.length > 0) {
-        cardsByPhase[phase.name] = cards;
-      }
+      cardsByPhase[fase].push({
+        id: card.id,
+        // Pra compatibilidade com o componente antigo que mostrava "card.title"
+        // exibimos o código antigo (que é o que importa pra troca).
+        title: campos.codigoAntigo || card.codigo_imovel || "SEM-CODIGO",
+        due_date: card.sla_deadline,
+        url: urlSuporteCard(card.id),
+        status: card.status,
+        urgencia: card.urgencia,
+        descricao: card.descricao,
+        created_at: card.created_at,
+        updated_at: card.updated_at,
+        // Campos no formato que o componente CardTrocaCode espera (`fields[]` com {name,value})
+        fields: [
+          { name: "Código Antigo", value: campos.codigoAntigo },
+          { name: "Novo Código", value: campos.codigoNovo },
+          { name: "Quem Solicitou", value: campos.solicitante },
+          { name: "Observação", value: campos.observacao },
+          { name: "Status do Imóvel", value: campos.statusImovel },
+          { name: "Motivo da troca", value: "" },
+          { name: "Id do imóvel antigo", value: "" },
+          { name: "Id do imóvel novo", value: "" },
+        ],
+        // Status pré-calculados que o frontend usa pra preencher o tracker
+        statusFlags: {
+          alteradoBaseCodigo: campos.alteradoBaseCodigo,
+          alteradoSapron: campos.alteradoSapron,
+          alteradoPipefy: campos.alteradoPipefy,
+          alteradoStays: campos.alteradoStays,
+          alteradoPipedrive: campos.alteradoPipedrive,
+          alteradoOtas: campos.alteradoOtas,
+          alteradoPipefyCsProp: campos.alteradoPipefyCsProp,
+        },
+      });
     }
 
     return NextResponse.json({
       success: true,
+      source: "suporte-ops",
       phases,
       cardsByPhase,
     });
   } catch (error: any) {
-    console.error("Erro ao buscar cards Troca de Código:", error);
+    console.error("Erro ao buscar suportes Troca de Código:", error);
     return NextResponse.json(
-      { error: error.message || "Erro ao buscar cards" },
+      { error: error.message || "Erro ao buscar suportes" },
       { status: 500 }
     );
   }
