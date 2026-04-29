@@ -178,6 +178,15 @@ export async function updateAssignee(cardId: string, userId: string) {
   }`);
 }
 
+export async function updateCardTitle(cardId: string, title: string) {
+  const escaped = sanitizeGraphQL(title);
+  return pipefyQuery(`mutation {
+    updateCard(input: { id: ${validateCardId(cardId)}, title: "${escaped}" }) {
+      card { id title }
+    }
+  }`);
+}
+
 export async function createComment(cardId: string, text: string) {
   // Escape completo via JSON.stringify
   const escaped = JSON.stringify(text).slice(1, -1); // remove aspas externas

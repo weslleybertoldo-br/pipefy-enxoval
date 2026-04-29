@@ -4782,10 +4782,28 @@ interface PipefyPreviewData {
   exatosNovo: PipefyPreviewMatch[];
 }
 
+interface PipefyTrocaResult {
+  cardId: string;
+  pipeLabel: string;
+  phaseName: string | null;
+  tituloAntigo: string;
+  status: "ok" | "erro";
+  erro?: string;
+}
+
+interface PipefyTrocaData {
+  total: number;
+  sucessos: number;
+  erros: number;
+  resultados: PipefyTrocaResult[];
+  mensagem: string;
+}
+
 function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
   const [expanded, setExpanded] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [pipefyPreview, setPipefyPreview] = useState<PipefyPreviewData | null>(null);
+  const [pipefyTroca, setPipefyTroca] = useState<PipefyTrocaData | null>(null);
   const [status, setStatus] = useState<Record<string, StatusCampo>>({
     planilha: { valor: "pendente" },
     sapron: { valor: "pendente" },
@@ -4879,6 +4897,61 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
         setStatus((prev) => ({
           ...prev,
           pipefy: { valor: "nao", mensagem: data.error },
+        }));
+      }
+    } catch (error) {
+      setStatus((prev) => ({
+        ...prev,
+        pipefy: { valor: "nao", mensagem: "Erro de conexão" },
+      }));
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // Aplicar troca de títulos no Pipefy (usa o preview pra confirmação)
+  const aplicarTrocaPipefy = async () => {
+    if (!pipefyPreview || pipefyPreview.exatosAntigo.length === 0) return;
+    if (!codigoNovo) return;
+
+    const total = pipefyPreview.exatosAntigo.length;
+    const pipes = Array.from(
+      new Set(pipefyPreview.exatosAntigo.map((m) => m.pipeLabel))
+    ).join(", ");
+    const ok = window.confirm(
+      `Renomear ${total} card(s) de "${codigoAntigo}" para "${codigoNovo}" em ${pipes}?\n\nEsta ação altera os títulos no Pipefy e não pode ser desfeita.`
+    );
+    if (!ok) return;
+
+    setLoadingAction("trocaPipefy");
+    try {
+      const res = await fetch("/api/pipefy-trocar-titulos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigoAntigo, codigoNovo }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setPipefyTroca({
+          total: data.total,
+          sucessos: data.sucessos,
+          erros: data.erros,
+          resultados: data.resultados,
+          mensagem: data.mensagem,
+        });
+        setStatus((prev) => ({
+          ...prev,
+          pipefy: {
+            valor: data.erros === 0 && data.sucessos > 0 ? "sim" : "nao",
+            mensagem: data.mensagem,
+          },
+        }));
+        // Limpar preview pra forçar nova consulta caso o user queira reverificar
+        setPipefyPreview(null);
+      } else {
+        setStatus((prev) => ({
+          ...prev,
+          pipefy: { valor: "nao", mensagem: data.error || "Erro ao trocar" },
         }));
       }
     } catch (error) {
@@ -5232,6 +5305,85 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
 
               {pipefyPreview.exatosAntigo.length === 0 && pipefyPreview.exatosNovo.length === 0 && (
                 <p className="text-xs text-gray-500">Nenhum match exato. Verifique se o código antigo está correto.</p>
+              )}
+
+              {pipefyPreview.exatosAntigo.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-200 flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={aplicarTrocaPipefy}
+                    disabled={loadingAction === "trocaPipefy" || !codigoNovo}
+                    className="px-3 py-1.5 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {loadingAction === "trocaPipefy" ? (
+                      <>
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Renomeando...
+                      </>
+                    ) : (
+                      `Aplicar troca em ${pipefyPreview.exatosAntigo.length} card(s)`
+                    )}
+                  </button>
+                  <span className="text-xs text-gray-500">
+                    Renomeia o título de "{codigoAntigo}" → "{codigoNovo}" nos cards listados acima.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Resultado da Troca aplicada */}
+          {pipefyTroca && (
+            <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-gray-700">Resultado da troca</h4>
+                <button
+                  onClick={() => setPipefyTroca(null)}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                  aria-label="Fechar resultado"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 mb-2">{pipefyTroca.mensagem}</p>
+              <div className="flex gap-2 mb-2 text-xs">
+                <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded">
+                  ✓ {pipefyTroca.sucessos}
+                </span>
+                {pipefyTroca.erros > 0 && (
+                  <span className="px-2 py-0.5 bg-red-100 text-red-700 rounded">
+                    ✕ {pipefyTroca.erros}
+                  </span>
+                )}
+              </div>
+              {pipefyTroca.resultados.length > 0 && (
+                <ul className="space-y-1">
+                  {pipefyTroca.resultados.map((r) => (
+                    <li key={`r-${r.cardId}`} className="text-xs flex items-center gap-2">
+                      <span
+                        className={`px-1.5 py-0.5 rounded ${
+                          r.status === "ok" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                        }`}
+                      >
+                        {r.status === "ok" ? "✓" : "✕"}
+                      </span>
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
+                        {r.pipeLabel}
+                      </span>
+                      <span className="text-gray-600">
+                        {r.tituloAntigo}
+                      </span>
+                      {r.phaseName && (
+                        <span className="text-gray-400">· {r.phaseName}</span>
+                      )}
+                      {r.erro && (
+                        <span className="text-red-500">— {r.erro}</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
             </div>
           )}
