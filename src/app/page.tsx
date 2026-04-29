@@ -4764,9 +4764,28 @@ interface CardTrocaCodeProps {
   getFieldValue: (fields: any[], name: string) => string;
 }
 
+interface PipefyPreviewMatch {
+  pipeId: string;
+  pipeLabel: string;
+  cardId: string;
+  title: string;
+  phaseId: string | null;
+  phaseName: string | null;
+  url: string | null;
+  matchType: "exact" | "partial";
+}
+
+interface PipefyPreviewData {
+  resumo: string;
+  exatosAntigo: PipefyPreviewMatch[];
+  parciaisAntigo: PipefyPreviewMatch[];
+  exatosNovo: PipefyPreviewMatch[];
+}
+
 function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
   const [expanded, setExpanded] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
+  const [pipefyPreview, setPipefyPreview] = useState<PipefyPreviewData | null>(null);
   const [status, setStatus] = useState<Record<string, StatusCampo>>({
     planilha: { valor: "pendente" },
     sapron: { valor: "pendente" },
@@ -4827,6 +4846,45 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
       setStatus((prev) => ({
         ...prev,
         planilha: { valor: "nao", mensagem: "Erro de conexão" },
+      }));
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // Pré-visualizar troca no Pipefy: lista cards com o código antigo nos pipes monitorados
+  const previewTrocaPipefy = async () => {
+    setLoadingAction("pipefy");
+    try {
+      const res = await fetch(
+        `/api/pipefy-preview-troca?codigoAntigo=${encodeURIComponent(codigoAntigo)}&codigoNovo=${encodeURIComponent(codigoNovo)}`
+      );
+      const data = await res.json();
+      if (data.success) {
+        setPipefyPreview({
+          resumo: data.resumo,
+          exatosAntigo: data.exatosAntigo,
+          parciaisAntigo: data.parciaisAntigo,
+          exatosNovo: data.exatosNovo,
+        });
+        setStatus((prev) => ({
+          ...prev,
+          pipefy: {
+            // se já existe card com o código novo, sinalizar como "sim" (troca já feita / duplicidade)
+            valor: data.exatosNovo.length > 0 && data.exatosAntigo.length === 0 ? "sim" : "pendente",
+            mensagem: data.resumo,
+          },
+        }));
+      } else {
+        setStatus((prev) => ({
+          ...prev,
+          pipefy: { valor: "nao", mensagem: data.error },
+        }));
+      }
+    } catch (error) {
+      setStatus((prev) => ({
+        ...prev,
+        pipefy: { valor: "nao", mensagem: "Erro de conexão" },
       }));
     } finally {
       setLoadingAction(null);
@@ -5003,10 +5061,21 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                 )}
               </button>
               <button
-                onClick={() => setStatus((prev) => ({ ...prev, pipefy: { valor: "sim" } }))}
-                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                onClick={previewTrocaPipefy}
+                disabled={loadingAction === "pipefy" || !codigoAntigo}
+                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
-                Trocar no Pipefy
+                {loadingAction === "pipefy" ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Buscando...
+                  </>
+                ) : (
+                  "Pré-visualizar Pipefy"
+                )}
               </button>
               <button
                 onClick={verificarSapron}
@@ -5055,6 +5124,117 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
               * Apenas pipes com conexão no Card do Pipe 1 serão alterados
             </p>
           </div>
+
+          {/* Resultado do Preview Pipefy */}
+          {pipefyPreview && (
+            <div className="mb-4 p-3 bg-white border border-gray-200 rounded-md">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-gray-700">Preview Pipefy</h4>
+                <button
+                  onClick={() => setPipefyPreview(null)}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                  aria-label="Fechar preview"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-xs text-gray-600 mb-3">{pipefyPreview.resumo}</p>
+
+              {pipefyPreview.exatosAntigo.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-xs font-medium text-gray-700 mb-1">
+                    Cards com código antigo (match exato) — {pipefyPreview.exatosAntigo.length}:
+                  </div>
+                  <ul className="space-y-1">
+                    {pipefyPreview.exatosAntigo.map((m) => (
+                      <li key={`a-${m.cardId}`} className="text-xs flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
+                          {m.pipeLabel}
+                        </span>
+                        <span className="text-gray-600">{m.title}</span>
+                        {m.phaseName && (
+                          <span className="text-gray-400">· {m.phaseName}</span>
+                        )}
+                        {m.url && (
+                          <a
+                            href={m.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            abrir
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {pipefyPreview.exatosNovo.length > 0 && (
+                <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded">
+                  <div className="text-xs font-medium text-amber-800 mb-1">
+                    ⚠ Cards já existentes com o código novo — {pipefyPreview.exatosNovo.length}:
+                  </div>
+                  <ul className="space-y-1">
+                    {pipefyPreview.exatosNovo.map((m) => (
+                      <li key={`n-${m.cardId}`} className="text-xs flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">
+                          {m.pipeLabel}
+                        </span>
+                        <span className="text-gray-700">{m.title}</span>
+                        {m.phaseName && (
+                          <span className="text-gray-500">· {m.phaseName}</span>
+                        )}
+                        {m.url && (
+                          <a
+                            href={m.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-amber-700 hover:underline"
+                          >
+                            abrir
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {pipefyPreview.parciaisAntigo.length > 0 && (
+                <details className="text-xs">
+                  <summary className="cursor-pointer text-gray-500 hover:text-gray-700">
+                    Matches parciais ({pipefyPreview.parciaisAntigo.length}) — não serão renomeados automaticamente
+                  </summary>
+                  <ul className="mt-2 space-y-1 pl-4">
+                    {pipefyPreview.parciaisAntigo.map((m) => (
+                      <li key={`p-${m.cardId}`} className="flex items-center gap-2">
+                        <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
+                          {m.pipeLabel}
+                        </span>
+                        <span className="text-gray-500">{m.title}</span>
+                        {m.url && (
+                          <a
+                            href={m.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:underline"
+                          >
+                            abrir
+                          </a>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
+
+              {pipefyPreview.exatosAntigo.length === 0 && pipefyPreview.exatosNovo.length === 0 && (
+                <p className="text-xs text-gray-500">Nenhum match exato. Verifique se o código antigo está correto.</p>
+              )}
+            </div>
+          )}
 
           {/* Motivo */}
           {motivo && (
