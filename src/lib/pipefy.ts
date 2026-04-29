@@ -187,6 +187,34 @@ export async function updateCardTitle(cardId: string, title: string) {
   }`);
 }
 
+// Atualiza o valor de um custom field do card (form do pipe).
+// `field_id` aceita o slug "c_digo_do_im_vel" (ex: campo "Imóvel" do Pipe 1).
+// `new_value` é LIST no schema mas a API aceita string única pra short_text/long_text.
+export async function updateCardField(
+  cardId: string,
+  fieldId: string,
+  newValue: string
+) {
+  const cid = validateCardId(cardId);
+  const fEsc = sanitizeGraphQL(fieldId);
+  const vEsc = sanitizeGraphQL(newValue);
+  return pipefyQuery(`mutation {
+    updateCardField(input: {
+      card_id: ${cid},
+      field_id: "${fEsc}",
+      new_value: "${vEsc}"
+    }) {
+      success
+    }
+  }`);
+}
+
+// Slug do field "Imóvel" / "Código do imóvel" — mesmo id usado no Pipe 1
+// (form inicial), em outros pipes (quando existe) e como title_field da
+// tabela Stand-By v.2. Tentamos atualizar em todos os cards renomeados;
+// se o field não existir naquele pipe, a mutation falha e ignoramos.
+export const FIELD_IMOVEL_ID = "c_digo_do_im_vel";
+
 // ========================
 // Pipes & tabelas onde uma troca de código de imóvel impacta dados
 // ========================

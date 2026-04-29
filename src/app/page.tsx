@@ -4443,8 +4443,19 @@ function DaySummary() {
 export default function Home() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [activeTab, setActiveTab] = useState<"fase3" | "fase4" | "revisao" | "fase5" | "processamento" | "ocorrencia" | "enxovalcso" | "complexa" | "cardsall" | "slackhistory" | "cardsgerais">("fase3");
-  const [activeSection, setActiveSection] = useState<"enxoval" | "troca">("enxoval");
+  const [activeSection, setActiveSection] = useState<"enxoval" | "troca">(() => {
+    if (typeof window === "undefined") return "enxoval";
+    const v = window.localStorage.getItem("activeSection");
+    return v === "troca" ? "troca" : "enxoval";
+  });
   const [showSectionPopover, setShowSectionPopover] = useState(false);
+
+  // Persiste a aba escolhida (Pipefy Enxoval vs Troca de Código) entre reloads
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("activeSection", activeSection);
+    }
+  }, [activeSection]);
 
   // Fechar popover ao clicar fora
   useEffect(() => {
@@ -4791,6 +4802,8 @@ interface PipefyTrocaResult {
   tituloAntigo: string;
   status: "ok" | "erro";
   erro?: string;
+  fieldImovel?: "ok" | "skip" | "erro";
+  fieldImovelErro?: string;
 }
 
 interface PipefyTrocaData {
@@ -5411,6 +5424,16 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                       </span>
                       {r.phaseName && (
                         <span className="text-gray-400">· {r.phaseName}</span>
+                      )}
+                      {r.fieldImovel === "ok" && (
+                        <span className="text-green-600 text-[10px]" title="Campo Imóvel do form atualizado">
+                          + form Imóvel ✓
+                        </span>
+                      )}
+                      {r.fieldImovel === "erro" && (
+                        <span className="text-amber-600 text-[10px]" title={r.fieldImovelErro || ""}>
+                          form Imóvel ✕
+                        </span>
                       )}
                       {r.erro && (
                         <span className="text-red-500">— {r.erro}</span>

@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   requireAuth,
   updateCardTitle,
+  updateCardField,
   setTableRecordFieldValue,
   findCardsByTitleInPipe,
   findTableRecordsByTitle,
   PIPES_TROCA,
   TABELAS_TROCA,
+  FIELD_IMOVEL_ID,
 } from "@/lib/pipefy";
 
 interface TrocaResultado {
@@ -17,6 +19,9 @@ interface TrocaResultado {
   tituloAntigo: string;
   status: "ok" | "erro";
   erro?: string;
+  // Sub-status: atualização do campo "Imóvel" do form (apenas pra cards)
+  fieldImovel?: "ok" | "skip" | "erro";
+  fieldImovelErro?: string;
 }
 
 async function findExactCardsInPipe(
@@ -113,29 +118,43 @@ export async function POST(request: NextRequest) {
 
     const resultados: TrocaResultado[] = [];
 
-    // 2) Renomear cards (updateCard.title)
+    // 2) Renomear cards: title + (best-effort) campo "Imóvel" do form
     for (const c of cardsExatos) {
+      let titleStatus: "ok" | "erro" = "ok";
+      let titleErr: string | undefined;
       try {
         await updateCardTitle(c.cardId, codigoNovo);
-        resultados.push({
-          kind: "card",
-          itemId: c.cardId,
-          containerLabel: c.pipeLabel,
-          phaseName: c.phaseName,
-          tituloAntigo: c.title,
-          status: "ok",
-        });
       } catch (err: any) {
-        resultados.push({
-          kind: "card",
-          itemId: c.cardId,
-          containerLabel: c.pipeLabel,
-          phaseName: c.phaseName,
-          tituloAntigo: c.title,
-          status: "erro",
-          erro: err?.message || String(err),
-        });
+        titleStatus = "erro";
+        titleErr = err?.message || String(err);
       }
+
+      // Atualizar o field "Imóvel" do form (mesmo slug em todos os pipes
+      // que têm esse campo). Best-effort: se o pipe não tem o field, falha
+      // e ignoramos — não derruba o resultado do title.
+      let fieldImovel: "ok" | "skip" | "erro" = "skip";
+      let fieldImovelErro: string | undefined;
+      if (titleStatus === "ok") {
+        try {
+          await updateCardField(c.cardId, FIELD_IMOVEL_ID, codigoNovo);
+          fieldImovel = "ok";
+        } catch (err: any) {
+          fieldImovel = "erro";
+          fieldImovelErro = err?.message || String(err);
+        }
+      }
+
+      resultados.push({
+        kind: "card",
+        itemId: c.cardId,
+        containerLabel: c.pipeLabel,
+        phaseName: c.phaseName,
+        tituloAntigo: c.title,
+        status: titleStatus,
+        ...(titleErr ? { erro: titleErr } : {}),
+        fieldImovel,
+        ...(fieldImovelErro ? { fieldImovelErro } : {}),
+      });
     }
 
     // 3) Atualizar records (setTableRecordFieldValue no title_field, que sincroniza title)
