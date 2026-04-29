@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { pipefyQuery, requireAuth, sanitizeGraphQL } from "@/lib/pipefy";
+import { requireAuth, findCardsByTitleInPipe } from "@/lib/pipefy";
 
-// Pipes onde uma troca de código tipicamente impacta cards
 const PIPES_BUSCA: { id: string; label: string }[] = [
   { id: "303781436", label: "Pipe 1 — Implantação" },
   { id: "303828424", label: "Pipe 2 — Adequação" },
@@ -25,42 +24,27 @@ async function searchCardsInPipe(
   pipeLabel: string,
   needle: string
 ): Promise<MatchedCard[]> {
-  const escaped = sanitizeGraphQL(needle);
-  // findCards faz match parcial case-insensitive no título
-  const result = await pipefyQuery(`{
-    findCards(pipeId: ${pipeId}, search: { title: "${escaped}" }, first: 30) {
-      edges {
-        node {
-          id
-          title
-          url
-          current_phase { id name }
-        }
-      }
-    }
-  }`).catch((err) => {
-    console.error(`[pipefy-preview-troca] findCards falhou em ${pipeLabel}:`, err.message);
-    return null;
-  });
-
-  const edges = result?.data?.findCards?.edges || [];
+  let matches;
+  try {
+    matches = await findCardsByTitleInPipe(pipeId, needle);
+  } catch (err: any) {
+    console.error(
+      `[pipefy-preview-troca] findCardsByTitleInPipe falhou em ${pipeLabel}:`,
+      err.message
+    );
+    return [];
+  }
   const target = needle.toUpperCase().trim();
-
-  return edges.map((e: any): MatchedCard => {
-    const title: string = e.node.title || "";
-    const matchType =
-      title.toUpperCase().trim() === target ? "exact" : "partial";
-    return {
-      pipeId,
-      pipeLabel,
-      cardId: e.node.id,
-      title,
-      phaseId: e.node.current_phase?.id || null,
-      phaseName: e.node.current_phase?.name || null,
-      url: e.node.url || null,
-      matchType,
-    };
-  });
+  return matches.map((m): MatchedCard => ({
+    pipeId,
+    pipeLabel,
+    cardId: m.cardId,
+    title: m.title,
+    phaseId: m.phaseId,
+    phaseName: m.phaseName,
+    url: m.url,
+    matchType: m.title.toUpperCase().trim() === target ? "exact" : "partial",
+  }));
 }
 
 export async function GET(request: NextRequest) {
@@ -81,8 +65,6 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Buscar em paralelo nos 4 pipes (matches do código antigo + verificação de
-    // duplicidade do código novo, se fornecido)
     const buscas = PIPES_BUSCA.flatMap((p) => {
       const lista: Promise<MatchedCard[]>[] = [
         searchCardsInPipe(p.id, p.label, codigoAntigo),
@@ -99,14 +81,13 @@ export async function GET(request: NextRequest) {
     const matchesNovo: MatchedCard[] = [];
 
     let idx = 0;
-    for (const p of PIPES_BUSCA) {
+    for (const _p of PIPES_BUSCA) {
       matchesAntigo.push(...results[idx++]);
       if (codigoNovo) {
         matchesNovo.push(...results[idx++]);
       }
     }
 
-    // Agrupar exact / partial separados
     const exatosAntigo = matchesAntigo.filter((m) => m.matchType === "exact");
     const parciaisAntigo = matchesAntigo.filter((m) => m.matchType === "partial");
     const exatosNovo = matchesNovo.filter((m) => m.matchType === "exact");

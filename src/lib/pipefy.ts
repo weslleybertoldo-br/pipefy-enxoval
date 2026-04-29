@@ -187,6 +187,59 @@ export async function updateCardTitle(cardId: string, title: string) {
   }`);
 }
 
+// ========================
+// Buscar cards por título dentro de um pipe (todas as fases)
+// ========================
+//
+// `findCards(pipeId)` da API exige `fieldId`+`fieldValue` (busca por custom field),
+// não aceita `title`. A alternativa que funciona é aninhar
+// `pipe { phases { cards(search: { title }) } }` — uma chamada cobre o pipe inteiro.
+
+export interface PipeCardMatch {
+  cardId: string;
+  title: string;
+  url: string | null;
+  phaseId: string;
+  phaseName: string;
+}
+
+export async function findCardsByTitleInPipe(
+  pipeId: string,
+  title: string
+): Promise<PipeCardMatch[]> {
+  const escaped = sanitizeGraphQL(title);
+  // pipeId precisa ser numérico — deixar Pipefy aceitar como ID via aspas
+  const result = await pipefyQuery(`{
+    pipe(id: "${pipeId}") {
+      phases {
+        id
+        name
+        cards(first: 30, search: { title: "${escaped}" }) {
+          edges {
+            node { id title url }
+          }
+        }
+      }
+    }
+  }`);
+
+  const phases = result?.data?.pipe?.phases || [];
+  const out: PipeCardMatch[] = [];
+  for (const ph of phases) {
+    const edges = ph?.cards?.edges || [];
+    for (const e of edges) {
+      out.push({
+        cardId: e.node.id,
+        title: e.node.title || "",
+        url: e.node.url || null,
+        phaseId: ph.id,
+        phaseName: ph.name || "",
+      });
+    }
+  }
+  return out;
+}
+
 export async function createComment(cardId: string, text: string) {
   // Escape completo via JSON.stringify
   const escaped = JSON.stringify(text).slice(1, -1); // remove aspas externas

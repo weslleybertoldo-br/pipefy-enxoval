@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  pipefyQuery,
   requireAuth,
-  sanitizeGraphQL,
   updateCardTitle,
+  findCardsByTitleInPipe,
 } from "@/lib/pipefy";
 
 const PIPES_BUSCA: { id: string; label: string }[] = [
@@ -27,28 +26,16 @@ async function findExactMatches(
   pipeLabel: string,
   needle: string
 ) {
-  const escaped = sanitizeGraphQL(needle);
-  const result = await pipefyQuery(`{
-    findCards(pipeId: ${pipeId}, search: { title: "${escaped}" }, first: 30) {
-      edges {
-        node {
-          id
-          title
-          current_phase { id name }
-        }
-      }
-    }
-  }`);
-  const edges = result?.data?.findCards?.edges || [];
+  const matches = await findCardsByTitleInPipe(pipeId, needle);
   const target = needle.toUpperCase().trim();
-  return edges
-    .map((e: any) => ({
-      cardId: e.node.id as string,
-      title: (e.node.title as string) || "",
-      phaseName: e.node.current_phase?.name || null,
+  return matches
+    .filter((m) => m.title.toUpperCase().trim() === target)
+    .map((m) => ({
+      cardId: m.cardId,
+      title: m.title,
+      phaseName: m.phaseName,
       pipeLabel,
-    }))
-    .filter((c: any) => c.title.toUpperCase().trim() === target);
+    }));
 }
 
 export async function POST(request: NextRequest) {
