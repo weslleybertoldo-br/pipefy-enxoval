@@ -4765,9 +4765,10 @@ interface CardTrocaCodeProps {
 }
 
 interface PipefyPreviewMatch {
-  pipeId: string;
-  pipeLabel: string;
-  cardId: string;
+  kind: "card" | "record";
+  containerId: string;
+  containerLabel: string;
+  itemId: string;
   title: string;
   phaseId: string | null;
   phaseName: string | null;
@@ -4783,8 +4784,9 @@ interface PipefyPreviewData {
 }
 
 interface PipefyTrocaResult {
-  cardId: string;
-  pipeLabel: string;
+  kind: "card" | "record";
+  itemId: string;
+  containerLabel: string;
   phaseName: string | null;
   tituloAntigo: string;
   status: "ok" | "erro";
@@ -4922,7 +4924,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
 
     const total = pipefyPreview.exatosAntigo.length;
     const pipes = Array.from(
-      new Set(pipefyPreview.exatosAntigo.map((m) => m.pipeLabel))
+      new Set(pipefyPreview.exatosAntigo.map((m) => m.containerLabel))
     ).join(", ");
     const ok = window.confirm(
       `Renomear ${total} card(s) de "${codigoAntigo}" para "${codigoNovo}" em ${pipes}?\n\nEsta ação altera os títulos no Pipefy e não pode ser desfeita.`
@@ -5252,9 +5254,9 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                   </div>
                   <ul className="space-y-1">
                     {pipefyPreview.exatosAntigo.map((m) => (
-                      <li key={`a-${m.cardId}`} className="text-xs flex items-center gap-2">
+                      <li key={`a-${m.itemId}`} className="text-xs flex items-center gap-2">
                         <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
-                          {m.pipeLabel}
+                          {m.containerLabel}
                         </span>
                         <span className="text-gray-600">{m.title}</span>
                         {m.phaseName && (
@@ -5283,9 +5285,9 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                   </div>
                   <ul className="space-y-1">
                     {pipefyPreview.exatosNovo.map((m) => (
-                      <li key={`n-${m.cardId}`} className="text-xs flex items-center gap-2">
+                      <li key={`n-${m.itemId}`} className="text-xs flex items-center gap-2">
                         <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded">
-                          {m.pipeLabel}
+                          {m.containerLabel}
                         </span>
                         <span className="text-gray-700">{m.title}</span>
                         {m.phaseName && (
@@ -5314,9 +5316,9 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                   </summary>
                   <ul className="mt-2 space-y-1 pl-4">
                     {pipefyPreview.parciaisAntigo.map((m) => (
-                      <li key={`p-${m.cardId}`} className="flex items-center gap-2">
+                      <li key={`p-${m.itemId}`} className="flex items-center gap-2">
                         <span className="px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded">
-                          {m.pipeLabel}
+                          {m.containerLabel}
                         </span>
                         <span className="text-gray-500">{m.title}</span>
                         {m.url && (
@@ -5393,7 +5395,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
               {pipefyTroca.resultados.length > 0 && (
                 <ul className="space-y-1">
                   {pipefyTroca.resultados.map((r) => (
-                    <li key={`r-${r.cardId}`} className="text-xs flex items-center gap-2">
+                    <li key={`r-${r.itemId}`} className="text-xs flex items-center gap-2">
                       <span
                         className={`px-1.5 py-0.5 rounded ${
                           r.status === "ok" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
@@ -5402,7 +5404,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                         {r.status === "ok" ? "✓" : "✕"}
                       </span>
                       <span className="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded">
-                        {r.pipeLabel}
+                        {r.containerLabel}
                       </span>
                       <span className="text-gray-600">
                         {r.tituloAntigo}

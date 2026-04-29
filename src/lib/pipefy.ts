@@ -188,6 +188,36 @@ export async function updateCardTitle(cardId: string, title: string) {
 }
 
 // ========================
+// Pipes & tabelas onde uma troca de código de imóvel impacta dados
+// ========================
+//
+// Listagem usada pelos endpoints de preview e troca de título
+// (`pipefy-preview-troca`, `pipefy-trocar-titulos`).
+
+export const PIPES_TROCA: { id: string; label: string }[] = [
+  { id: "303781436", label: "Pipe 1 — Implantação" },
+  { id: "303828424", label: "Pipe 2 — Adequação" },
+  { id: "302290867", label: "Pipe 3 — Vistorias" },
+  { id: "302290880", label: "Pipe 4 — Fotos" },
+  { id: "303024105", label: "Pipe 5 — Criação de Anúncios" },
+  { id: "303024130", label: "Pipe 5.1 — Atualização de Anúncios" },
+  { id: "303756524", label: "Pipe 6 — Precificação" },
+  { id: "303807224", label: "Pipe 0 — Onboarding" },
+];
+
+export const TABELAS_TROCA: {
+  id: string;
+  label: string;
+  titleFieldId: string;
+}[] = [
+  {
+    id: "qkh5HZTQ",
+    label: "Tabela — Stand-By v.2",
+    titleFieldId: "c_digo_do_im_vel",
+  },
+];
+
+// ========================
 // Buscar cards por título dentro de um pipe (todas as fases)
 // ========================
 //
@@ -238,6 +268,54 @@ export async function findCardsByTitleInPipe(
     }
   }
   return out;
+}
+
+// ========================
+// Tabelas (database records) — busca + update do título
+// ========================
+
+export interface TableRecordMatch {
+  recordId: string;
+  title: string;
+}
+
+export async function findTableRecordsByTitle(
+  tableId: string,
+  title: string
+): Promise<TableRecordMatch[]> {
+  const escaped = sanitizeGraphQL(title);
+  const tableEscaped = sanitizeGraphQL(tableId);
+  const result = await pipefyQuery(`{
+    table_records(table_id: "${tableEscaped}", first: 50, search: { title: "${escaped}" }) {
+      edges { node { id title } }
+    }
+  }`);
+  const edges = result?.data?.table_records?.edges || [];
+  return edges.map((e: any) => ({
+    recordId: e.node.id,
+    title: e.node.title || "",
+  }));
+}
+
+// Atualiza o valor de um campo do registro. Quando o campo é o `title_field`
+// da tabela, o `title` do record é atualizado junto automaticamente.
+export async function setTableRecordFieldValue(
+  recordId: string,
+  fieldId: string,
+  value: string
+) {
+  const recId = validateCardId(recordId);
+  const fieldEscaped = sanitizeGraphQL(fieldId);
+  const valEscaped = sanitizeGraphQL(value);
+  return pipefyQuery(`mutation {
+    setTableRecordFieldValue(input: {
+      table_record_id: ${recId},
+      field_id: "${fieldEscaped}",
+      value: "${valEscaped}"
+    }) {
+      table_record { id title }
+    }
+  }`);
 }
 
 export async function createComment(cardId: string, text: string) {

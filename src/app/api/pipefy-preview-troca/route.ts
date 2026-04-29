@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, findCardsByTitleInPipe } from "@/lib/pipefy";
+import {
+  requireAuth,
+  findCardsByTitleInPipe,
+  findTableRecordsByTitle,
+  PIPES_TROCA,
+  TABELAS_TROCA,
+} from "@/lib/pipefy";
 
-const PIPES_BUSCA: { id: string; label: string }[] = [
-  { id: "303781436", label: "Pipe 1 — Implantação" },
-  { id: "303828424", label: "Pipe 2 — Adequação" },
-  { id: "303807224", label: "Pipe 0 — Onboarding" },
-  { id: "303024130", label: "Pipe 5.1 — Anúncios" },
-];
-
-interface MatchedCard {
-  pipeId: string;
-  pipeLabel: string;
-  cardId: string;
+interface MatchedItem {
+  kind: "card" | "record";
+  containerId: string;
+  containerLabel: string;
+  itemId: string;
   title: string;
   phaseId: string | null;
   phaseName: string | null;
@@ -19,11 +19,11 @@ interface MatchedCard {
   matchType: "exact" | "partial";
 }
 
-async function searchCardsInPipe(
+async function searchInPipe(
   pipeId: string,
   pipeLabel: string,
   needle: string
-): Promise<MatchedCard[]> {
+): Promise<MatchedItem[]> {
   let matches;
   try {
     matches = await findCardsByTitleInPipe(pipeId, needle);
@@ -35,14 +35,44 @@ async function searchCardsInPipe(
     return [];
   }
   const target = needle.toUpperCase().trim();
-  return matches.map((m): MatchedCard => ({
-    pipeId,
-    pipeLabel,
-    cardId: m.cardId,
+  return matches.map((m): MatchedItem => ({
+    kind: "card",
+    containerId: pipeId,
+    containerLabel: pipeLabel,
+    itemId: m.cardId,
     title: m.title,
     phaseId: m.phaseId,
     phaseName: m.phaseName,
     url: m.url,
+    matchType: m.title.toUpperCase().trim() === target ? "exact" : "partial",
+  }));
+}
+
+async function searchInTable(
+  tableId: string,
+  tableLabel: string,
+  needle: string
+): Promise<MatchedItem[]> {
+  let matches;
+  try {
+    matches = await findTableRecordsByTitle(tableId, needle);
+  } catch (err: any) {
+    console.error(
+      `[pipefy-preview-troca] findTableRecordsByTitle falhou em ${tableLabel}:`,
+      err.message
+    );
+    return [];
+  }
+  const target = needle.toUpperCase().trim();
+  return matches.map((m): MatchedItem => ({
+    kind: "record",
+    containerId: tableId,
+    containerLabel: tableLabel,
+    itemId: m.recordId,
+    title: m.title,
+    phaseId: null,
+    phaseName: null,
+    url: null,
     matchType: m.title.toUpperCase().trim() === target ? "exact" : "partial",
   }));
 }
@@ -65,49 +95,46 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const buscas = PIPES_BUSCA.flatMap((p) => {
-      const lista: Promise<MatchedCard[]>[] = [
-        searchCardsInPipe(p.id, p.label, codigoAntigo),
-      ];
-      if (codigoNovo) {
-        lista.push(searchCardsInPipe(p.id, p.label, codigoNovo));
-      }
-      return lista;
-    });
+    // Pipes + tabelas em paralelo, antigo e (se houver) novo
+    const buscas = [
+      ...PIPES_TROCA.map((p) => searchInPipe(p.id, p.label, codigoAntigo)),
+      ...TABELAS_TROCA.map((t) => searchInTable(t.id, t.label, codigoAntigo)),
+    ];
+    const buscasNovo = codigoNovo
+      ? [
+          ...PIPES_TROCA.map((p) => searchInPipe(p.id, p.label, codigoNovo)),
+          ...TABELAS_TROCA.map((t) => searchInTable(t.id, t.label, codigoNovo)),
+        ]
+      : [];
 
-    const results = await Promise.all(buscas);
+    const [matchesAntigoAll, matchesNovoAll] = await Promise.all([
+      Promise.all(buscas).then((arr) => arr.flat()),
+      Promise.all(buscasNovo).then((arr) => arr.flat()),
+    ]);
 
-    const matchesAntigo: MatchedCard[] = [];
-    const matchesNovo: MatchedCard[] = [];
-
-    let idx = 0;
-    for (const _p of PIPES_BUSCA) {
-      matchesAntigo.push(...results[idx++]);
-      if (codigoNovo) {
-        matchesNovo.push(...results[idx++]);
-      }
-    }
-
-    const exatosAntigo = matchesAntigo.filter((m) => m.matchType === "exact");
-    const parciaisAntigo = matchesAntigo.filter((m) => m.matchType === "partial");
-    const exatosNovo = matchesNovo.filter((m) => m.matchType === "exact");
+    const exatosAntigo = matchesAntigoAll.filter((m) => m.matchType === "exact");
+    const parciaisAntigo = matchesAntigoAll.filter((m) => m.matchType === "partial");
+    const exatosNovo = matchesNovoAll.filter((m) => m.matchType === "exact");
 
     let resumo = "";
     if (exatosAntigo.length === 0) {
-      resumo = `Nenhum card com título "${codigoAntigo}" encontrado nos ${PIPES_BUSCA.length} pipes monitorados.`;
+      resumo = `Nenhum item com "${codigoAntigo}" encontrado nos ${PIPES_TROCA.length} pipes + ${TABELAS_TROCA.length} tabelas monitorados.`;
     } else {
-      const porPipe = exatosAntigo.reduce<Record<string, number>>((acc, m) => {
-        acc[m.pipeLabel] = (acc[m.pipeLabel] || 0) + 1;
-        return acc;
-      }, {});
-      const partes = Object.entries(porPipe).map(
-        ([pipe, n]) => `${pipe}: ${n}`
+      const porContainer = exatosAntigo.reduce<Record<string, number>>(
+        (acc, m) => {
+          acc[m.containerLabel] = (acc[m.containerLabel] || 0) + 1;
+          return acc;
+        },
+        {}
       );
-      resumo = `${exatosAntigo.length} card(s) com "${codigoAntigo}" — ${partes.join(", ")}.`;
+      const partes = Object.entries(porContainer).map(
+        ([c, n]) => `${c}: ${n}`
+      );
+      resumo = `${exatosAntigo.length} item(ns) com "${codigoAntigo}" — ${partes.join(", ")}.`;
     }
 
     if (exatosNovo.length > 0) {
-      resumo += ` ⚠ ${exatosNovo.length} card(s) já existem com "${codigoNovo}" — risco de duplicidade.`;
+      resumo += ` ⚠ ${exatosNovo.length} item(ns) já existem com "${codigoNovo}" — risco de duplicidade.`;
     }
 
     return NextResponse.json({
@@ -115,10 +142,13 @@ export async function GET(request: NextRequest) {
       codigoAntigo,
       codigoNovo,
       resumo,
+      // Mantém os nomes antigos (`exatosAntigo` etc) que o frontend já consome,
+      // mas com payload expandido (kind: card|record, containerLabel etc).
       exatosAntigo,
       parciaisAntigo,
       exatosNovo,
-      pipesPesquisados: PIPES_BUSCA,
+      pipesPesquisados: PIPES_TROCA,
+      tabelasPesquisadas: TABELAS_TROCA,
     });
   } catch (error: any) {
     console.error("Erro em pipefy-preview-troca:", error);

@@ -2,26 +2,24 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   requireAuth,
   updateCardTitle,
+  setTableRecordFieldValue,
   findCardsByTitleInPipe,
+  findTableRecordsByTitle,
+  PIPES_TROCA,
+  TABELAS_TROCA,
 } from "@/lib/pipefy";
 
-const PIPES_BUSCA: { id: string; label: string }[] = [
-  { id: "303781436", label: "Pipe 1 — Implantação" },
-  { id: "303828424", label: "Pipe 2 — Adequação" },
-  { id: "303807224", label: "Pipe 0 — Onboarding" },
-  { id: "303024130", label: "Pipe 5.1 — Anúncios" },
-];
-
 interface TrocaResultado {
-  cardId: string;
-  pipeLabel: string;
+  kind: "card" | "record";
+  itemId: string;
+  containerLabel: string;
   phaseName: string | null;
   tituloAntigo: string;
   status: "ok" | "erro";
   erro?: string;
 }
 
-async function findExactMatches(
+async function findExactCardsInPipe(
   pipeId: string,
   pipeLabel: string,
   needle: string
@@ -31,10 +29,28 @@ async function findExactMatches(
   return matches
     .filter((m) => m.title.toUpperCase().trim() === target)
     .map((m) => ({
+      kind: "card" as const,
       cardId: m.cardId,
       title: m.title,
       phaseName: m.phaseName,
       pipeLabel,
+    }));
+}
+
+async function findExactRecordsInTable(
+  tableId: string,
+  tableLabel: string,
+  needle: string
+) {
+  const matches = await findTableRecordsByTitle(tableId, needle);
+  const target = needle.toUpperCase().trim();
+  return matches
+    .filter((m) => m.title.toUpperCase().trim() === target)
+    .map((m) => ({
+      kind: "record" as const,
+      recordId: m.recordId,
+      title: m.title,
+      tableLabel,
     }));
 }
 
@@ -61,7 +77,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    // Validação de formato leve (alfanumérico + hifens, sem caracteres exóticos)
     if (!/^[A-Za-z0-9._-]+$/.test(codigoNovo)) {
       return NextResponse.json(
         { error: "codigoNovo tem caracteres inválidos" },
@@ -69,13 +84,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 1) Buscar matches exatos em paralelo nos 4 pipes
-    const matchesPorPipe = await Promise.all(
-      PIPES_BUSCA.map((p) => findExactMatches(p.id, p.label, codigoAntigo))
+    // 1) Buscar matches exatos em paralelo (pipes + tabelas)
+    const matchesPipes = await Promise.all(
+      PIPES_TROCA.map((p) => findExactCardsInPipe(p.id, p.label, codigoAntigo))
     );
-    const matches = matchesPorPipe.flat();
+    const matchesTabelas = await Promise.all(
+      TABELAS_TROCA.map((t) =>
+        findExactRecordsInTable(t.id, t.label, codigoAntigo).then((rows) =>
+          rows.map((r) => ({ ...r, titleFieldId: t.titleFieldId }))
+        )
+      )
+    );
+    const cardsExatos = matchesPipes.flat();
+    const recordsExatos = matchesTabelas.flat();
 
-    if (matches.length === 0) {
+    if (cardsExatos.length + recordsExatos.length === 0) {
       return NextResponse.json({
         success: true,
         codigoAntigo,
@@ -84,28 +107,56 @@ export async function POST(request: NextRequest) {
         sucessos: 0,
         erros: 0,
         resultados: [],
-        mensagem: `Nenhum card com título "${codigoAntigo}" nos pipes monitorados.`,
+        mensagem: `Nenhum item com "${codigoAntigo}" nos pipes/tabelas monitorados.`,
       });
     }
 
-    // 2) Atualizar título de cada card — try/catch individual pra não derrubar o lote
     const resultados: TrocaResultado[] = [];
-    for (const m of matches) {
+
+    // 2) Renomear cards (updateCard.title)
+    for (const c of cardsExatos) {
       try {
-        await updateCardTitle(m.cardId, codigoNovo);
+        await updateCardTitle(c.cardId, codigoNovo);
         resultados.push({
-          cardId: m.cardId,
-          pipeLabel: m.pipeLabel,
-          phaseName: m.phaseName,
-          tituloAntigo: m.title,
+          kind: "card",
+          itemId: c.cardId,
+          containerLabel: c.pipeLabel,
+          phaseName: c.phaseName,
+          tituloAntigo: c.title,
           status: "ok",
         });
       } catch (err: any) {
         resultados.push({
-          cardId: m.cardId,
-          pipeLabel: m.pipeLabel,
-          phaseName: m.phaseName,
-          tituloAntigo: m.title,
+          kind: "card",
+          itemId: c.cardId,
+          containerLabel: c.pipeLabel,
+          phaseName: c.phaseName,
+          tituloAntigo: c.title,
+          status: "erro",
+          erro: err?.message || String(err),
+        });
+      }
+    }
+
+    // 3) Atualizar records (setTableRecordFieldValue no title_field, que sincroniza title)
+    for (const r of recordsExatos) {
+      try {
+        await setTableRecordFieldValue(r.recordId, r.titleFieldId, codigoNovo);
+        resultados.push({
+          kind: "record",
+          itemId: r.recordId,
+          containerLabel: r.tableLabel,
+          phaseName: null,
+          tituloAntigo: r.title,
+          status: "ok",
+        });
+      } catch (err: any) {
+        resultados.push({
+          kind: "record",
+          itemId: r.recordId,
+          containerLabel: r.tableLabel,
+          phaseName: null,
+          tituloAntigo: r.title,
           status: "erro",
           erro: err?.message || String(err),
         });
@@ -125,7 +176,7 @@ export async function POST(request: NextRequest) {
       resultados,
       mensagem:
         erros === 0
-          ? `${sucessos} card(s) renomeados de "${codigoAntigo}" para "${codigoNovo}".`
+          ? `${sucessos} item(ns) renomeados de "${codigoAntigo}" para "${codigoNovo}".`
           : `${sucessos} ok / ${erros} com erro — ver detalhes.`,
     });
   } catch (error: any) {
