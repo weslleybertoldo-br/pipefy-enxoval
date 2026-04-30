@@ -5633,6 +5633,12 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                       mover de "{moverPreview.statusAtual}" → "{moverPreview.novoStatus}"
                     </span>
                   </li>
+                  <li className="flex items-baseline gap-2">
+                    <span className="text-gray-600">Botão "enviar" (template Slack):</span>
+                    <span className="text-amber-700 italic">
+                      NÃO disparado — clicar manualmente no site se quiser notificar os times
+                    </span>
+                  </li>
                 </ul>
 
                 <div className="flex items-center gap-2">
