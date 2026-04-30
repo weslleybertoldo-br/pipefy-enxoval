@@ -24,15 +24,19 @@ export async function GET(request: NextRequest) {
     const raws = await listarSuportesTroca();
 
     const phases: { id: string; name: FaseUI }[] = [
-      { id: "backlog", name: "Backlog" },
-      { id: "fazendo", name: "Fazendo" },
+      { id: "novo", name: "Novo" },
+      { id: "em_andamento", name: "Em Andamento" },
+      { id: "aguardando", name: "Aguardando" },
       { id: "concluido", name: "Concluído" },
+      { id: "arquivado", name: "Arquivado" },
     ];
 
     const cardsByPhase: Record<string, any[]> = {
-      Backlog: [],
-      Fazendo: [],
+      Novo: [],
+      "Em Andamento": [],
+      Aguardando: [],
       "Concluído": [],
+      Arquivado: [],
     };
 
     for (const card of raws) {

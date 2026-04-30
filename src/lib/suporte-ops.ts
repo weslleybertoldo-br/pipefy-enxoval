@@ -67,8 +67,8 @@ export async function suporteFetch(
 }
 
 export async function listarSuportesTroca(): Promise<SuporteCardRaw[]> {
-  // Pega tudo exceto arquivado, ordenado por created_at desc
-  const path = `/cards?processo_id=eq.${PROCESSO_TROCA_ID}&status=in.(novo,em_andamento,aguardando,concluido)&order=created_at.desc&limit=200`;
+  // Pega todas as 5 fases (novo / em_andamento / aguardando / concluido / arquivado)
+  const path = `/cards?processo_id=eq.${PROCESSO_TROCA_ID}&status=in.(novo,em_andamento,aguardando,concluido,arquivado)&order=created_at.desc&limit=200`;
   const res = await suporteFetch(path);
   if (!res.ok) {
     const txt = await res.text().catch(() => "");
@@ -156,16 +156,23 @@ export function extrairCamposTroca(card: SuporteCardRaw): TrocaCampos {
 }
 
 // ========================
-// Mapeamento de status do Supabase → 3 fases visuais (Backlog/Fazendo/Concluído)
+// Mapeamento status do Supabase → 5 fases visuais (espelham o site suporte-ops)
 // ========================
 
-export type FaseUI = "Backlog" | "Fazendo" | "Concluído";
+export type FaseUI =
+  | "Novo"
+  | "Em Andamento"
+  | "Aguardando"
+  | "Concluído"
+  | "Arquivado";
 
 export function statusParaFase(status: SuporteStatus): FaseUI | null {
-  if (status === "novo") return "Backlog";
-  if (status === "em_andamento" || status === "aguardando") return "Fazendo";
+  if (status === "novo") return "Novo";
+  if (status === "em_andamento") return "Em Andamento";
+  if (status === "aguardando") return "Aguardando";
   if (status === "concluido") return "Concluído";
-  return null; // arquivado
+  if (status === "arquivado") return "Arquivado";
+  return null;
 }
 
 // URL pra abrir o card no site suporte-ops

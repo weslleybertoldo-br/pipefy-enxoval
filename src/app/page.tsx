@@ -4637,12 +4637,16 @@ export default function Home() {
 // SECTION: TROCA DE CÓDIGO
 // =====================
 
+type FaseTrocaTab = "novo" | "em_andamento" | "aguardando" | "concluido" | "arquivado";
+
 function SectionTrocaCodigo() {
-  const [activeTabTroca, setActiveTabTroca] = useState<"backlog" | "fazendo" | "concluido">("backlog");
+  const [activeTabTroca, setActiveTabTroca] = useState<FaseTrocaTab>("em_andamento");
   const [cardsByPhase, setCardsByPhase] = useState<Record<string, any[]>>({});
   const [loading, setLoading] = useState(false);
   const [phases, setPhases] = useState<any[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);
+  const [searchGlobal, setSearchGlobal] = useState("");
+  const [searchPorFase, setSearchPorFase] = useState("");
 
   const loadAllData = async () => {
     setLoading(true);
@@ -4670,15 +4674,37 @@ function SectionTrocaCodigo() {
     }
   }, [dataLoaded]);
 
-  // Mapear fases do Pipefy para as 3 abas
-  const phaseMapping: Record<string, string> = {
-    backlog: "Backlog",
-    fazendo: "Fazendo",
+  // status enum (Supabase) → nome da aba
+  const phaseMapping: Record<FaseTrocaTab, string> = {
+    novo: "Novo",
+    em_andamento: "Em Andamento",
+    aguardando: "Aguardando",
     concluido: "Concluído",
+    arquivado: "Arquivado",
   };
 
+  // Filtragem por busca: aplica nas duas (global + por fase)
+  const matchSearch = (card: any, q: string): boolean => {
+    if (!q.trim()) return true;
+    const needle = q.trim().toUpperCase();
+    const fields = card.fields || [];
+    const codigos = [
+      card.title || "",
+      ...fields.map((f: any) => f?.value || ""),
+      card.descricao || "",
+    ]
+      .join("|")
+      .toUpperCase();
+    return codigos.includes(needle);
+  };
+
+  // Se a busca global tem texto, ignora a aba e mostra todos os cards de todas as fases
+  // que casam. Senão, mostra apenas os da aba ativa filtrados pelo searchPorFase.
+  const isGlobalSearching = searchGlobal.trim().length > 0;
   const currentPhaseName = phaseMapping[activeTabTroca];
-  const currentCards = cardsByPhase[currentPhaseName] || [];
+  const currentCards: any[] = isGlobalSearching
+    ? Object.values(cardsByPhase).flat().filter((c: any) => matchSearch(c, searchGlobal))
+    : (cardsByPhase[currentPhaseName] || []).filter((c: any) => matchSearch(c, searchPorFase));
 
   // Helper para extrair valor de campo
   const getFieldValue = (fields: any[], fieldName: string): string => {
@@ -4686,10 +4712,12 @@ function SectionTrocaCodigo() {
     return field?.value || "";
   };
 
-  const tabs = [
-    { id: "backlog" as const, label: "Backlog", help: "Cards no backlog" },
-    { id: "fazendo" as const, label: "Fazendo", help: "Cards em andamento" },
-    { id: "concluido" as const, label: "Concluído", help: "Cards concluídos" },
+  const tabs: { id: FaseTrocaTab; label: string; help: string }[] = [
+    { id: "novo", label: "Novo", help: "Cards na fase Novo" },
+    { id: "em_andamento", label: "Em Andamento", help: "Cards em andamento" },
+    { id: "aguardando", label: "Aguardando", help: "Cards aguardando" },
+    { id: "concluido", label: "Concluído", help: "Cards concluídos" },
+    { id: "arquivado", label: "Arquivado", help: "Cards arquivados" },
   ];
 
   return (
@@ -4709,8 +4737,26 @@ function SectionTrocaCodigo() {
         </button>
       </div>
 
-      {/* Tabs das fases - lado a lado */}
-      <div className="mb-6 bg-gray-100 p-1 rounded-lg">
+      {/* Busca global — pesquisa em TODAS as fases */}
+      <div className="mb-3">
+        <input
+          type="text"
+          value={searchGlobal}
+          onChange={(e) => setSearchGlobal(e.target.value)}
+          placeholder="Busca geral (todas as fases): código, título, descrição..."
+          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        {isGlobalSearching && (
+          <p className="text-xs text-blue-600 mt-1">
+            Mostrando {currentCards.length} resultado(s) em todas as fases.
+            <button onClick={() => setSearchGlobal("")} className="ml-2 underline">Limpar</button>
+          </p>
+        )}
+      </div>
+
+      {/* Tabs das fases - lado a lado (somem quando busca global está ativa) */}
+      {!isGlobalSearching && (
+      <div className="mb-3 bg-gray-100 p-1 rounded-lg">
         <div className="flex gap-1">
           {tabs.map((tab) => {
             const count = cardsByPhase[phaseMapping[tab.id]]?.length || 0;
@@ -4734,6 +4780,20 @@ function SectionTrocaCodigo() {
           })}
         </div>
       </div>
+      )}
+
+      {/* Busca por fase (só aparece quando não está em busca global) */}
+      {!isGlobalSearching && (
+        <div className="mb-3">
+          <input
+            type="text"
+            value={searchPorFase}
+            onChange={(e) => setSearchPorFase(e.target.value)}
+            placeholder={`Buscar dentro de "${currentPhaseName}"...`}
+            className="w-full px-3 py-2 text-sm border border-gray-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      )}
 
       {/* Cards da fase selecionada */}
       {loading ? (
@@ -4749,8 +4809,9 @@ function SectionTrocaCodigo() {
             <CardTrocaCode
               key={card.id}
               card={card}
-              phaseName={currentPhaseName}
+              phaseName={isGlobalSearching ? phaseMapping[card.status as FaseTrocaTab] || "" : currentPhaseName}
               getFieldValue={getFieldValue}
+              onReload={loadAllData}
             />
           ))}
         </div>
@@ -4773,6 +4834,7 @@ interface CardTrocaCodeProps {
   card: any;
   phaseName: string;
   getFieldValue: (fields: any[], name: string) => string;
+  onReload?: () => void;
 }
 
 interface PipefyPreviewMatch {
@@ -4829,7 +4891,16 @@ interface PipefyTrocaData {
   mensagem: string;
 }
 
-function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
+// Sequência das fases pra avançar/retornar
+const FASE_SEQUENCE: ReadonlyArray<{ status: string; label: string }> = [
+  { status: "novo", label: "Novo" },
+  { status: "em_andamento", label: "Em Andamento" },
+  { status: "aguardando", label: "Aguardando" },
+  { status: "concluido", label: "Concluído" },
+  { status: "arquivado", label: "Arquivado" },
+];
+
+function CardTrocaCode({ card, phaseName, getFieldValue, onReload }: CardTrocaCodeProps) {
   const [expanded, setExpanded] = useState(false);
   const [loadingAction, setLoadingAction] = useState<string | null>(null);
   const [pipefyPreview, setPipefyPreview] = useState<PipefyPreviewData | null>(null);
@@ -5093,6 +5164,35 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
           : null,
   });
 
+  // Avançar / retornar fase (PATCH no status do card no Supabase)
+  const moverFase = async (novoStatus: string) => {
+    if (!card?.id) return;
+    setLoadingAction(`fase:${novoStatus}`);
+    try {
+      const res = await fetch("/api/suporte-mover-fase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardSuporteId: card.id, novoStatus }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (onReload) onReload();
+      } else {
+        alert(`Erro ao mover fase: ${data.error || "desconhecido"}`);
+      }
+    } catch (err: any) {
+      alert(`Erro ao mover fase: ${err?.message || err}`);
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  const indiceFaseAtual = FASE_SEQUENCE.findIndex((f) => f.status === card.status);
+  const faseAnterior = indiceFaseAtual > 0 ? FASE_SEQUENCE[indiceFaseAtual - 1] : null;
+  const faseProxima = indiceFaseAtual >= 0 && indiceFaseAtual < FASE_SEQUENCE.length - 1
+    ? FASE_SEQUENCE[indiceFaseAtual + 1]
+    : null;
+
   // Etapa 1: chama dryRun e mostra bloco preview inline
   const previewMover = async () => {
     if (!card?.id || !codigoAntigo || !codigoNovo) return;
@@ -5325,6 +5425,29 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
               suporte-ops ↗
             </a>
           )}
+          {/* Botões de avançar/retornar fase — sempre visíveis no header */}
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            {faseAnterior && (
+              <button
+                onClick={() => moverFase(faseAnterior.status)}
+                disabled={loadingAction === `fase:${faseAnterior.status}`}
+                className="text-[10px] px-2 py-1 rounded border border-gray-300 text-gray-700 hover:bg-gray-100 disabled:opacity-50 whitespace-nowrap"
+                title={`Retornar para "${faseAnterior.label}"`}
+              >
+                ← {faseAnterior.label}
+              </button>
+            )}
+            {faseProxima && (
+              <button
+                onClick={() => moverFase(faseProxima.status)}
+                disabled={loadingAction === `fase:${faseProxima.status}`}
+                className="text-[10px] px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 whitespace-nowrap"
+                title={`Avançar para "${faseProxima.label}"`}
+              >
+                {faseProxima.label} →
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -5351,7 +5474,8 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
             </div>
           </div>
 
-          {/* Status dos campos */}
+          {/* Status + Ações + previews — escondidos na fase Aguardando */}
+          {card.status !== "aguardando" && (<>
           <div className="mb-4">
             <h4 className="text-sm font-medium text-gray-700 mb-2">Status das Alterações</h4>
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
@@ -5707,6 +5831,49 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
               </p>
             )}
           </div>
+          </>)}
+
+          {/* Bloco "Campos desta fase — Aguardando" — só aparece nessa fase */}
+          {card.status === "aguardando" && (
+            <div className="mb-4 p-4 bg-white border border-gray-200 rounded-md">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h4 className="text-sm font-semibold text-gray-800">Campos desta fase — Aguardando</h4>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Processo: Troca de Código de Imóvel · {codigoAntigo}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                  onClick={() => alert("Salvar — sem função ainda")}
+                >
+                  Salvar
+                </button>
+              </div>
+              <div className="space-y-2 mb-3">
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" className="h-4 w-4" />
+                  Alterado no Pipedrive
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" className="h-4 w-4" />
+                  Alterado nas OTAs?
+                </label>
+                <label className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" className="h-4 w-4" />
+                  Alterado no Pipefy - CS Prop
+                </label>
+              </div>
+              <button
+                type="button"
+                className="px-3 py-1.5 text-xs bg-gray-100 border border-gray-300 text-gray-700 rounded hover:bg-gray-200"
+                onClick={() => alert("Enviar — sem função ainda")}
+              >
+                enviar
+              </button>
+            </div>
+          )}
 
           {/* Resultado do Preview Pipefy */}
           {pipefyPreview && (
