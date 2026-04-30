@@ -4804,6 +4804,8 @@ interface PipefyTrocaResult {
   erro?: string;
   fieldImovel?: "ok" | "skip" | "erro";
   fieldImovelErro?: string;
+  comentario?: "ok" | "skip" | "erro";
+  comentarioErro?: string;
 }
 
 interface PipefyTrocaData {
@@ -5433,6 +5435,16 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                       {r.fieldImovel === "erro" && (
                         <span className="text-amber-600 text-[10px]" title={r.fieldImovelErro || ""}>
                           form Imóvel ✕
+                        </span>
+                      )}
+                      {r.comentario === "ok" && (
+                        <span className="text-green-600 text-[10px]" title="Comentário de troca adicionado">
+                          + comentário ✓
+                        </span>
+                      )}
+                      {r.comentario === "erro" && (
+                        <span className="text-amber-600 text-[10px]" title={r.comentarioErro || ""}>
+                          comentário ✕
                         </span>
                       )}
                       {r.erro && (

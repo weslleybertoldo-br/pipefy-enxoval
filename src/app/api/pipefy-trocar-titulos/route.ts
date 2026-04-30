@@ -6,6 +6,7 @@ import {
   setTableRecordFieldValue,
   findCardsByTitleInPipe,
   findTableRecordsByTitle,
+  createComment,
   PIPES_TROCA,
   TABELAS_TROCA,
   FIELD_IMOVEL_ID,
@@ -22,6 +23,9 @@ interface TrocaResultado {
   // Sub-status: atualização do campo "Imóvel" do form (apenas pra cards)
   fieldImovel?: "ok" | "skip" | "erro";
   fieldImovelErro?: string;
+  // Sub-status: comentário registrando a troca (apenas pra cards)
+  comentario?: "ok" | "skip" | "erro";
+  comentarioErro?: string;
 }
 
 async function findExactCardsInPipe(
@@ -118,7 +122,10 @@ export async function POST(request: NextRequest) {
 
     const resultados: TrocaResultado[] = [];
 
-    // 2) Renomear cards: title + (best-effort) campo "Imóvel" do form
+    // Template do comentário registrando a troca em cada card
+    const COMENTARIO_TEMPLATE = `Imóvel passou por troca de código:\nCódigo Antigo: ${codigoAntigo}\nNovo Código: ${codigoNovo}`;
+
+    // 2) Pra cada card, em sequência: title → field "Imóvel" → comentário
     for (const c of cardsExatos) {
       let titleStatus: "ok" | "erro" = "ok";
       let titleErr: string | undefined;
@@ -144,6 +151,19 @@ export async function POST(request: NextRequest) {
         }
       }
 
+      // Comentário no card registrando a troca
+      let comentario: "ok" | "skip" | "erro" = "skip";
+      let comentarioErro: string | undefined;
+      if (titleStatus === "ok") {
+        try {
+          await createComment(c.cardId, COMENTARIO_TEMPLATE);
+          comentario = "ok";
+        } catch (err: any) {
+          comentario = "erro";
+          comentarioErro = err?.message || String(err);
+        }
+      }
+
       resultados.push({
         kind: "card",
         itemId: c.cardId,
@@ -154,6 +174,8 @@ export async function POST(request: NextRequest) {
         ...(titleErr ? { erro: titleErr } : {}),
         fieldImovel,
         ...(fieldImovelErro ? { fieldImovelErro } : {}),
+        comentario,
+        ...(comentarioErro ? { comentarioErro } : {}),
       });
     }
 
