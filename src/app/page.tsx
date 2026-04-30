@@ -4843,7 +4843,6 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
     sapron: { valor: flagToStatus(flags.alteradoSapron) },
     pipefy: { valor: flagToStatus(flags.alteradoPipefy) },
     stays: { valor: flagToStatus(flags.alteradoStays) },
-    nomePredio: { valor: "pendente" },
     avisarGrupo: { valor: "pendente" },
     airbnb: { valor: flagToStatus(flags.alteradoOtas) },
     expedia: { valor: flagToStatus(flags.alteradoOtas) },
@@ -5196,10 +5195,6 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                   <span className="text-xs text-gray-500 mt-1">{status.stays.mensagem}</span>
                 )}
               </div>
-              <div className="flex items-center justify-between bg-white px-3 py-2 rounded border">
-                <span className="text-xs text-gray-600">Nome Prédio</span>
-                {getStatusBadge("nomePredio")}
-              </div>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-2">
               <div className="flex items-center justify-between bg-white px-3 py-2 rounded border">
@@ -5300,22 +5295,6 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                 Avisar no Grupo
               </button>
             </div>
-          </div>
-
-          {/* Info Pipes conectados (Pipefy) */}
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
-            <h4 className="text-sm font-medium text-blue-700 mb-2">Pipes que serão alterados (Pipefy):</h4>
-            <div className="flex flex-wrap gap-2 text-xs text-blue-600">
-              <span className="px-2 py-1 bg-blue-100 rounded">Pipe 1 (Principal)</span>
-              <span className="px-2 py-1 bg-blue-100 rounded">Pipe 2 - Adequação</span>
-              <span className="px-2 py-1 bg-blue-100 rounded">Pipe 3 - Vistorias</span>
-              <span className="px-2 py-1 bg-blue-100 rounded">Pipe 4 - Fotos</span>
-              <span className="px-2 py-1 bg-blue-100 rounded">Pipe 5 - Anúncios</span>
-              <span className="px-2 py-1 bg-blue-100 rounded">Pipe 0 - Onboarding</span>
-            </div>
-            <p className="text-xs text-blue-500 mt-2">
-              * Apenas pipes com conexão no Card do Pipe 1 serão alterados
-            </p>
           </div>
 
           {/* Resultado do Preview Pipefy */}
