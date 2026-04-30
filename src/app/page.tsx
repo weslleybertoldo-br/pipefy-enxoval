@@ -4795,7 +4795,7 @@ interface PipefyPreviewData {
 }
 
 interface PipefyTrocaResult {
-  kind: "card" | "record";
+  kind: "card" | "record" | "stays";
   itemId: string;
   containerLabel: string;
   phaseName: string | null;
@@ -4806,6 +4806,7 @@ interface PipefyTrocaResult {
   fieldImovelErro?: string;
   comentario?: "ok" | "skip" | "erro";
   comentarioErro?: string;
+  staysTitulosCount?: number;
 }
 
 interface PipefyTrocaData {
@@ -5445,6 +5446,11 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                       {r.comentario === "erro" && (
                         <span className="text-amber-600 text-[10px]" title={r.comentarioErro || ""}>
                           comentário ✕
+                        </span>
+                      )}
+                      {r.kind === "stays" && typeof r.staysTitulosCount === "number" && r.status === "ok" && (
+                        <span className="text-green-600 text-[10px]" title="Idiomas do _mstitle atualizados">
+                          + {r.staysTitulosCount} título(s) ✓
                         </span>
                       )}
                       {r.erro && (

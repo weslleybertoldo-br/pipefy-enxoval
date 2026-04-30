@@ -7,13 +7,18 @@ import {
   findCardsByTitleInPipe,
   findTableRecordsByTitle,
   createComment,
+  pipefyQuery,
   PIPES_TROCA,
   TABELAS_TROCA,
   FIELD_IMOVEL_ID,
 } from "@/lib/pipefy";
+import { trocarCodigoStays } from "@/lib/stays";
+
+const PIPE_1_ID = "303781436"; // Pipe 1 — Implantação (onde fica id_da_stays_do_im_vel)
+const FIELD_STAYS_ID = "id_da_stays_do_im_vel";
 
 interface TrocaResultado {
-  kind: "card" | "record";
+  kind: "card" | "record" | "stays";
   itemId: string;
   containerLabel: string;
   phaseName: string | null;
@@ -26,6 +31,8 @@ interface TrocaResultado {
   // Sub-status: comentário registrando a troca (apenas pra cards)
   comentario?: "ok" | "skip" | "erro";
   comentarioErro?: string;
+  // Sub-status: títulos do _mstitle atualizados (apenas pra Stays)
+  staysTitulosCount?: number;
 }
 
 async function findExactCardsInPipe(
@@ -122,6 +129,30 @@ export async function POST(request: NextRequest) {
 
     const resultados: TrocaResultado[] = [];
 
+    // Pré-leitura: extrair `id_da_stays_do_im_vel` do card do Pipe 1 ANTES de
+    // qualquer renomeação. O field só existe no Pipe 1 e não muda com a troca,
+    // mas lemos antes pra evitar depender do title novo (e pra ter o valor pronto
+    // mesmo se algum updateCardTitle falhar no meio do caminho).
+    let staysListingId: string | null = null;
+    const cardPipe1 = cardsExatos.find((c) => c.pipeLabel.startsWith("Pipe 1"));
+    if (cardPipe1) {
+      try {
+        const r = await pipefyQuery(`{
+          card(id: ${cardPipe1.cardId}) {
+            fields { field { id } value }
+          }
+        }`);
+        const fs = (r?.data?.card?.fields || []) as any[];
+        const sf = fs.find((f) => f?.field?.id === FIELD_STAYS_ID);
+        const v = sf?.value;
+        if (typeof v === "string" && v.trim()) {
+          staysListingId = v.trim();
+        }
+      } catch (err) {
+        console.error("[pipefy-trocar-titulos] falha lendo id_da_stays_do_im_vel:", err);
+      }
+    }
+
     // Template do comentário registrando a troca em cada card
     const COMENTARIO_TEMPLATE = `Imóvel passou por troca de código:\nCódigo Antigo: ${codigoAntigo}\nNovo Código: ${codigoNovo}`;
 
@@ -198,6 +229,52 @@ export async function POST(request: NextRequest) {
           containerLabel: r.tableLabel,
           phaseName: null,
           tituloAntigo: r.title,
+          status: "erro",
+          erro: err?.message || String(err),
+        });
+      }
+    }
+
+    // 4) Stays — atualizar internalName + sufixo do _mstitle do listing vinculado
+    if (staysListingId) {
+      try {
+        const r = await trocarCodigoStays(
+          staysListingId,
+          codigoAntigo,
+          codigoNovo
+        );
+        const titulosCount = Object.keys(r.titulosAtualizados).length;
+        if (r.patchEnviado) {
+          resultados.push({
+            kind: "stays",
+            itemId: staysListingId,
+            containerLabel: "Stays — listing",
+            phaseName: null,
+            tituloAntigo: r.internalNameAntigo || codigoAntigo,
+            status: "ok",
+            staysTitulosCount: titulosCount,
+          });
+        } else {
+          // Drift: o internalName atual da Stays não bate com codigoAntigo e
+          // nenhum idioma do _mstitle tem o código → não enviou PATCH.
+          resultados.push({
+            kind: "stays",
+            itemId: staysListingId,
+            containerLabel: "Stays — listing",
+            phaseName: null,
+            tituloAntigo: r.internalNameAntigo || codigoAntigo,
+            status: "erro",
+            erro: `internalName Stays atual ("${r.internalNameAntigo}") não bate com "${codigoAntigo}"; nenhum título contém o código antigo. PATCH não enviado.`,
+            staysTitulosCount: 0,
+          });
+        }
+      } catch (err: any) {
+        resultados.push({
+          kind: "stays",
+          itemId: staysListingId,
+          containerLabel: "Stays — listing",
+          phaseName: null,
+          tituloAntigo: codigoAntigo,
           status: "erro",
           erro: err?.message || String(err),
         });
