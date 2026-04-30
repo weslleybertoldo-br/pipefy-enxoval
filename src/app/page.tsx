@@ -4787,11 +4787,23 @@ interface PipefyPreviewMatch {
   matchType: "exact" | "partial";
 }
 
+interface PipefyStaysCheck {
+  listingId: string;
+  internalName: string;
+  internalNameStatus: "antigo" | "novo" | "drift";
+  mstitleAntigoCount: number;
+  mstitleNovoCount: number;
+  mstitleTotal: number;
+  resumo: string;
+}
+
 interface PipefyPreviewData {
   resumo: string;
   exatosAntigo: PipefyPreviewMatch[];
   parciaisAntigo: PipefyPreviewMatch[];
   exatosNovo: PipefyPreviewMatch[];
+  staysCheck?: PipefyStaysCheck | null;
+  staysCheckErro?: string | null;
 }
 
 interface PipefyTrocaResult {
@@ -4908,6 +4920,8 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
           exatosAntigo: data.exatosAntigo,
           parciaisAntigo: data.parciaisAntigo,
           exatosNovo: data.exatosNovo,
+          staysCheck: data.staysCheck,
+          staysCheckErro: data.staysCheckErro,
         });
         setStatus((prev) => ({
           ...prev,
@@ -5322,6 +5336,34 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {(pipefyPreview.staysCheck || pipefyPreview.staysCheckErro) && (
+                <div className={`mb-3 p-2 rounded border ${
+                  pipefyPreview.staysCheck?.internalNameStatus === "antigo"
+                    ? "bg-blue-50 border-blue-200"
+                    : pipefyPreview.staysCheck?.internalNameStatus === "novo" && pipefyPreview.staysCheck.mstitleAntigoCount === 0
+                    ? "bg-green-50 border-green-200"
+                    : pipefyPreview.staysCheck?.internalNameStatus === "drift"
+                    ? "bg-amber-50 border-amber-200"
+                    : "bg-gray-50 border-gray-200"
+                }`}>
+                  <div className="text-xs font-medium text-gray-700 mb-1">
+                    Stays — listing {pipefyPreview.staysCheck?.listingId || ""}
+                  </div>
+                  {pipefyPreview.staysCheckErro ? (
+                    <p className="text-xs text-amber-700">Erro ao consultar: {pipefyPreview.staysCheckErro}</p>
+                  ) : pipefyPreview.staysCheck ? (
+                    <>
+                      <p className="text-xs text-gray-700">{pipefyPreview.staysCheck.resumo}</p>
+                      <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-2 flex-wrap">
+                        <span>internalName: <code className="bg-white px-1 rounded">{pipefyPreview.staysCheck.internalName}</code></span>
+                        <span>·</span>
+                        <span>_mstitle: {pipefyPreview.staysCheck.mstitleAntigoCount} c/ antigo / {pipefyPreview.staysCheck.mstitleNovoCount} c/ novo / {pipefyPreview.staysCheck.mstitleTotal} total</span>
+                      </div>
+                    </>
+                  ) : null}
                 </div>
               )}
 
