@@ -54,6 +54,7 @@ export async function POST(request: NextRequest) {
     const codigoAntigo = String(body.codigoAntigo || "").trim();
     const codigoNovo = String(body.codigoNovo || "").trim();
     const flags = (body.flags || {}) as MoverFlags;
+    const dryRun = Boolean(body.dryRun);
 
     if (!cardSuporteId) {
       return NextResponse.json(
@@ -100,7 +101,28 @@ export async function POST(request: NextRequest) {
       em_andamento: { ...emAndamentoAtual, ...novoEmAndamento },
     };
 
-    // 4) PATCH: campos_preenchidos + status="aguardando"
+    // Resumo legível pra mensagem
+    const resumoCampos = Object.entries(novoEmAndamento)
+      .filter(([k]) => k !== "Status do imóvel")
+      .map(([k, v]) => `${k}: ${v === true ? "✓" : v === false ? "—" : v}`)
+      .join(", ");
+
+    // 4) Se dryRun, retorna o que SERIA aplicado sem PATCH
+    if (dryRun) {
+      return NextResponse.json({
+        success: true,
+        dryRun: true,
+        cardSuporteId,
+        statusAtual: atual.status,
+        statusImovel,
+        camposAplicados: novoEmAndamento,
+        camposAtuais: emAndamentoAtual,
+        novoStatus: "aguardando",
+        mensagem: `Preview — Status: ${statusImovel || "(vazio)"}, ${resumoCampos}.`,
+      });
+    }
+
+    // 5) PATCH: campos_preenchidos + status="aguardando"
     const updated = await updateSuporteCard(cardSuporteId, {
       campos_preenchidos: camposPreenchidosNovos,
       status: "aguardando",
@@ -108,16 +130,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      dryRun: false,
       cardSuporteId,
       statusImovel,
       camposAplicados: novoEmAndamento,
       novoStatus: "aguardando",
-      mensagem: `Card movido para "Aguardando" — Status: ${statusImovel || "(vazio)"}, ${
-        Object.entries(novoEmAndamento)
-          .filter(([k]) => k !== "Status do imóvel")
-          .map(([k, v]) => `${k}: ${v === true ? "✓" : v === false ? "—" : v}`)
-          .join(", ")
-      }.`,
+      mensagem: `Card movido para "Aguardando" — Status: ${statusImovel || "(vazio)"}, ${resumoCampos}.`,
       cardAtualizado: { id: updated?.id, status: updated?.status },
     });
   } catch (error: any) {

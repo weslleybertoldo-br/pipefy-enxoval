@@ -5070,38 +5070,73 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
     }
   };
 
-  // Mover card no suporte-ops: preenche campos da fase em_andamento (Status do
-  // imóvel via Sapron, checkboxes a partir do tracker, Preço Mínimo) e move
-  // status pra "aguardando".
-  const moverCard = async () => {
+  // Mover card no suporte-ops: 2 etapas — preview (dryRun) → confirmar (PATCH)
+  const [moverPreview, setMoverPreview] = useState<{
+    statusImovel: string;
+    camposAplicados: Record<string, any>;
+    camposAtuais: Record<string, any>;
+    statusAtual: string;
+    novoStatus: string;
+  } | null>(null);
+
+  const flagsAtuais = () => ({
+    planilha: status.planilha.valor === "sim",
+    sapron: status.sapron.valor === "sim",
+    pipefy: status.pipefy.valor === "sim",
+    stays: status.stays.valor === "sim",
+    precoMinimo:
+      status.precoMinimo.valor === "sim"
+        ? "sim"
+        : status.precoMinimo.valor === "nao"
+          ? "nao"
+          : null,
+  });
+
+  // Etapa 1: chama dryRun e mostra bloco preview inline
+  const previewMover = async () => {
     if (!card?.id || !codigoAntigo || !codigoNovo) return;
+    setLoadingAction("moverCardPreview");
+    try {
+      const res = await fetch("/api/suporte-mover-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cardSuporteId: card.id,
+          codigoAntigo,
+          codigoNovo,
+          flags: flagsAtuais(),
+          dryRun: true,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setMoverPreview({
+          statusImovel: data.statusImovel || "",
+          camposAplicados: data.camposAplicados || {},
+          camposAtuais: data.camposAtuais || {},
+          statusAtual: data.statusAtual || "",
+          novoStatus: data.novoStatus || "aguardando",
+        });
+        setStatus((prev) => ({ ...prev, moverCard: { valor: "pendente" } }));
+      } else {
+        setStatus((prev) => ({
+          ...prev,
+          moverCard: { valor: "nao", mensagem: data.error || "Erro no preview" },
+        }));
+      }
+    } catch (error) {
+      setStatus((prev) => ({
+        ...prev,
+        moverCard: { valor: "nao", mensagem: "Erro de conexão" },
+      }));
+    } finally {
+      setLoadingAction(null);
+    }
+  };
 
-    const flags = {
-      planilha: status.planilha.valor === "sim",
-      sapron: status.sapron.valor === "sim",
-      pipefy: status.pipefy.valor === "sim",
-      stays: status.stays.valor === "sim",
-      precoMinimo:
-        status.precoMinimo.valor === "sim"
-          ? "sim"
-          : status.precoMinimo.valor === "nao"
-            ? "nao"
-            : null,
-    };
-
-    const resumoFlags = [
-      `Planilha: ${flags.planilha ? "✓" : "—"}`,
-      `Sapron: ${flags.sapron ? "✓" : "—"}`,
-      `Pipefy: ${flags.pipefy ? "✓" : "—"}`,
-      `Stays: ${flags.stays ? "✓" : "—"}`,
-      `Preço Mínimo: ${flags.precoMinimo === "sim" ? "Sim" : flags.precoMinimo === "nao" ? "Não" : "(em branco)"}`,
-    ].join("\n");
-
-    const ok = window.confirm(
-      `Mover card no suporte-ops para "Aguardando":\n\n${resumoFlags}\n\nO Status do imóvel é deduzido via Sapron. Continuar?`
-    );
-    if (!ok) return;
-
+  // Etapa 2: confirma e aplica PATCH
+  const aplicarMover = async () => {
+    if (!card?.id || !codigoAntigo || !codigoNovo) return;
     setLoadingAction("moverCard");
     try {
       const res = await fetch("/api/suporte-mover-card", {
@@ -5111,7 +5146,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
           cardSuporteId: card.id,
           codigoAntigo,
           codigoNovo,
-          flags,
+          flags: flagsAtuais(),
         }),
       });
       const data = await res.json();
@@ -5120,6 +5155,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
           ...prev,
           moverCard: { valor: "sim", mensagem: data.mensagem },
         }));
+        setMoverPreview(null);
       } else {
         setStatus((prev) => ({
           ...prev,
@@ -5417,18 +5453,18 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                 )}
               </button>
               <button
-                onClick={moverCard}
-                disabled={loadingAction === "moverCard" || !codigoAntigo || !codigoNovo}
+                onClick={previewMover}
+                disabled={loadingAction === "moverCardPreview" || loadingAction === "moverCard" || !codigoAntigo || !codigoNovo}
                 className="px-4 py-2 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-                title={status.moverCard.mensagem || "Preenche campos da fase 'Em Andamento' do suporte-ops e move pra 'Aguardando'"}
+                title="Mostra preview do que vai preencher no card e move pra Aguardando"
               >
-                {loadingAction === "moverCard" ? (
+                {loadingAction === "moverCardPreview" ? (
                   <>
                     <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                     </svg>
-                    Movendo...
+                    Preview...
                   </>
                 ) : status.moverCard.valor === "sim" ? (
                   "Movido ✓"
@@ -5437,6 +5473,84 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                 )}
               </button>
             </div>
+
+            {/* Preview inline: o que vai ser preenchido no card */}
+            {moverPreview && (
+              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                <div className="flex items-center justify-between mb-2">
+                  <h4 className="text-sm font-medium text-orange-800">
+                    Preview — campos que vão ser preenchidos no suporte-ops
+                  </h4>
+                  <button
+                    onClick={() => setMoverPreview(null)}
+                    className="text-xs text-orange-700 hover:text-orange-900"
+                    aria-label="Cancelar preview"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <table className="w-full text-xs mb-3">
+                  <thead>
+                    <tr className="text-left text-gray-500">
+                      <th className="py-1 pr-3">Campo</th>
+                      <th className="py-1 pr-3">Atual</th>
+                      <th className="py-1">Novo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(moverPreview.camposAplicados).map(([k, novo]) => {
+                      const atual = moverPreview.camposAtuais[k];
+                      const renderVal = (v: any) => {
+                        if (v === true) return <span className="text-green-700">✓ Sim</span>;
+                        if (v === false) return <span className="text-gray-400">— Não</span>;
+                        if (v === undefined || v === null || v === "")
+                          return <span className="text-gray-400">(vazio)</span>;
+                        return <span>{String(v)}</span>;
+                      };
+                      const mudou = JSON.stringify(atual) !== JSON.stringify(novo);
+                      return (
+                        <tr key={k} className={mudou ? "bg-white" : ""}>
+                          <td className="py-1 pr-3 font-medium text-gray-700">{k}</td>
+                          <td className="py-1 pr-3">{renderVal(atual)}</td>
+                          <td className={`py-1 ${mudou ? "font-semibold" : ""}`}>{renderVal(novo)}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="border-t border-orange-200">
+                      <td className="py-1 pr-3 font-medium text-gray-700">Status do card</td>
+                      <td className="py-1 pr-3 text-gray-600">{moverPreview.statusAtual}</td>
+                      <td className="py-1 font-semibold text-orange-700">{moverPreview.novoStatus}</td>
+                    </tr>
+                  </tbody>
+                </table>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={aplicarMover}
+                    disabled={loadingAction === "moverCard"}
+                    className="px-3 py-1.5 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {loadingAction === "moverCard" ? (
+                      <>
+                        <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Aplicando...
+                      </>
+                    ) : (
+                      "Confirmar e mover pra Aguardando"
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setMoverPreview(null)}
+                    className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 text-xs rounded hover:bg-gray-50"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </div>
+            )}
+
             {status.moverCard.mensagem && (
               <p
                 className={`text-xs mt-2 ${
