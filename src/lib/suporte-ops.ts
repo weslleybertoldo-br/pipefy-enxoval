@@ -172,3 +172,48 @@ export function statusParaFase(status: SuporteStatus): FaseUI | null {
 export function urlSuporteCard(cardId: string): string {
   return `https://suporte-ops.seazone.properties/kanban?card=${cardId}`;
 }
+
+// ========================
+// Update de card do suporte-ops
+// ========================
+// Anon key tem permissão de UPDATE em `cards` (testado 30/04/2026 — RLS
+// liberada pra anon escrever; o site usa Google OAuth pra UI mas o
+// endpoint REST não exige JWT pra mutate).
+
+export async function getSuporteCard(cardId: string): Promise<SuporteCardRaw | null> {
+  const r = await suporteFetch(`/cards?id=eq.${encodeURIComponent(cardId)}&limit=1`);
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error(`Supabase GET card ${cardId}: ${r.status} ${txt.slice(0, 200)}`);
+  }
+  const arr = await r.json();
+  return Array.isArray(arr) && arr[0] ? arr[0] : null;
+}
+
+export async function updateSuporteCard(
+  cardId: string,
+  patch: Partial<SuporteCardRaw>
+): Promise<SuporteCardRaw | null> {
+  const r = await suporteFetch(
+    `/cards?id=eq.${encodeURIComponent(cardId)}&select=*`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify(patch),
+    }
+  );
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error(
+      `Supabase PATCH card ${cardId}: ${r.status} ${txt.slice(0, 200)}`
+    );
+  }
+  const arr = await r.json();
+  // RLS pode silenciar UPDATE retornando array vazio; checar pra não fingir sucesso.
+  if (!Array.isArray(arr) || arr.length === 0) {
+    throw new Error(
+      `Supabase PATCH card ${cardId}: 0 linhas atualizadas (RLS bloqueou ou id não existe)`
+    );
+  }
+  return arr[0];
+}

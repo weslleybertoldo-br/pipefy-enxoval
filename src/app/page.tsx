@@ -4844,7 +4844,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
     sapron: { valor: flagToStatus(flags.alteradoSapron) },
     pipefy: { valor: flagToStatus(flags.alteradoPipefy) },
     stays: { valor: flagToStatus(flags.alteradoStays) },
-    avisarGrupo: { valor: "pendente" },
+    moverCard: { valor: "pendente" },
     airbnb: { valor: flagToStatus(flags.alteradoOtas) },
     expedia: { valor: flagToStatus(flags.alteradoOtas) },
     pipedrive: { valor: flagToStatus(flags.alteradoPipedrive) },
@@ -5064,6 +5064,72 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
       setStatus((prev) => ({
         ...prev,
         sapron: { valor: "nao", mensagem: "Erro de conexão" },
+      }));
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // Mover card no suporte-ops: preenche campos da fase em_andamento (Status do
+  // imóvel via Sapron, checkboxes a partir do tracker, Preço Mínimo) e move
+  // status pra "aguardando".
+  const moverCard = async () => {
+    if (!card?.id || !codigoAntigo || !codigoNovo) return;
+
+    const flags = {
+      planilha: status.planilha.valor === "sim",
+      sapron: status.sapron.valor === "sim",
+      pipefy: status.pipefy.valor === "sim",
+      stays: status.stays.valor === "sim",
+      precoMinimo:
+        status.precoMinimo.valor === "sim"
+          ? "sim"
+          : status.precoMinimo.valor === "nao"
+            ? "nao"
+            : null,
+    };
+
+    const resumoFlags = [
+      `Planilha: ${flags.planilha ? "✓" : "—"}`,
+      `Sapron: ${flags.sapron ? "✓" : "—"}`,
+      `Pipefy: ${flags.pipefy ? "✓" : "—"}`,
+      `Stays: ${flags.stays ? "✓" : "—"}`,
+      `Preço Mínimo: ${flags.precoMinimo === "sim" ? "Sim" : flags.precoMinimo === "nao" ? "Não" : "(em branco)"}`,
+    ].join("\n");
+
+    const ok = window.confirm(
+      `Mover card no suporte-ops para "Aguardando":\n\n${resumoFlags}\n\nO Status do imóvel é deduzido via Sapron. Continuar?`
+    );
+    if (!ok) return;
+
+    setLoadingAction("moverCard");
+    try {
+      const res = await fetch("/api/suporte-mover-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cardSuporteId: card.id,
+          codigoAntigo,
+          codigoNovo,
+          flags,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatus((prev) => ({
+          ...prev,
+          moverCard: { valor: "sim", mensagem: data.mensagem },
+        }));
+      } else {
+        setStatus((prev) => ({
+          ...prev,
+          moverCard: { valor: "nao", mensagem: data.error || "Erro ao mover card" },
+        }));
+      }
+    } catch (error) {
+      setStatus((prev) => ({
+        ...prev,
+        moverCard: { valor: "nao", mensagem: "Erro de conexão" },
       }));
     } finally {
       setLoadingAction(null);
@@ -5351,12 +5417,35 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                 )}
               </button>
               <button
-                onClick={() => setStatus((prev) => ({ ...prev, avisarGrupo: { valor: "sim" } }))}
-                className="px-4 py-2 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700 transition-colors"
+                onClick={moverCard}
+                disabled={loadingAction === "moverCard" || !codigoAntigo || !codigoNovo}
+                className="px-4 py-2 bg-orange-600 text-white text-sm rounded-md hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                title={status.moverCard.mensagem || "Preenche campos da fase 'Em Andamento' do suporte-ops e move pra 'Aguardando'"}
               >
-                Avisar no Grupo
+                {loadingAction === "moverCard" ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Movendo...
+                  </>
+                ) : status.moverCard.valor === "sim" ? (
+                  "Movido ✓"
+                ) : (
+                  "Mover card"
+                )}
               </button>
             </div>
+            {status.moverCard.mensagem && (
+              <p
+                className={`text-xs mt-2 ${
+                  status.moverCard.valor === "sim" ? "text-green-700" : "text-red-600"
+                }`}
+              >
+                {status.moverCard.mensagem}
+              </p>
+            )}
           </div>
 
           {/* Resultado do Preview Pipefy */}
