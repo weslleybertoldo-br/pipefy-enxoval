@@ -190,6 +190,94 @@ export async function getSuporteCard(cardId: string): Promise<SuporteCardRaw | n
   return Array.isArray(arr) && arr[0] ? arr[0] : null;
 }
 
+// User Weslley no Supabase suporte-ops (descoberto via JWT que o user colou)
+export const SUPORTE_USER_WESLLEY = "3b09cea1-b3af-48ad-9e95-b9cecc961a94";
+
+// Lê definição do processo (incluindo botao_mensagem dos campos_gestao_json)
+export async function getProcesso(id: string): Promise<any | null> {
+  const r = await suporteFetch(`/processos?id=eq.${encodeURIComponent(id)}&limit=1`);
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error(`Supabase GET processo ${id}: ${r.status} ${txt.slice(0, 200)}`);
+  }
+  const arr = await r.json();
+  return Array.isArray(arr) && arr[0] ? arr[0] : null;
+}
+
+// Pega nome do responsável do card (pra resolver {responsavel} no template)
+export async function getNomeUsuario(usuarioId: string): Promise<string> {
+  if (!usuarioId) return "";
+  try {
+    const r = await suporteFetch(
+      `/usuarios?id=eq.${encodeURIComponent(usuarioId)}&select=nome&limit=1`
+    );
+    if (!r.ok) return "";
+    const arr = await r.json();
+    return arr?.[0]?.nome || "";
+  } catch {
+    return "";
+  }
+}
+
+// Insere comentário no card. `autor_id` pode ser usuário do Supabase suporte-ops.
+export async function addSuporteComment(
+  cardId: string,
+  autorId: string,
+  texto: string,
+  via: string = "app"
+): Promise<any> {
+  const r = await suporteFetch(`/comentarios?select=*`, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({
+      card_id: cardId,
+      autor_id: autorId,
+      texto,
+      via,
+    }),
+  });
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error(
+      `Supabase POST comentario ${cardId}: ${r.status} ${txt.slice(0, 200)}`
+    );
+  }
+  const arr = await r.json();
+  return Array.isArray(arr) ? arr[0] : arr;
+}
+
+// Invoca a Edge Function `notify-slack` (mesma usada pelo site quando user
+// clica Salvar/Comentar/etc.). O Edge encaminha pro Slack workspace correto.
+export async function invokeNotifySlack(payload: Record<string, any>): Promise<any> {
+  const url = `${SUPORTE_URL}/functions/v1/notify-slack`;
+  const r = await suporteFetch(url, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error(`notify-slack ${r.status}: ${txt.slice(0, 200)}`);
+  }
+  return r.json();
+}
+
+// Resolve variáveis do `botao_mensagem` template ({Status do imóvel},
+// {Código Antigo}, {Novo Código}, @{responsavel}). Substituições case-sensitive
+// como no site original.
+export function resolverTemplateBotao(
+  template: string,
+  vars: Record<string, string>
+): string {
+  let out = template;
+  for (const [k, v] of Object.entries(vars)) {
+    // @{responsavel} ou {responsavel}
+    const reAtKey = new RegExp(`@\\{${k}\\}`, "g");
+    const reKey = new RegExp(`\\{${k}\\}`, "g");
+    out = out.replace(reAtKey, v || "").replace(reKey, v || "");
+  }
+  return out;
+}
+
 export async function updateSuporteCard(
   cardId: string,
   patch: Partial<SuporteCardRaw>

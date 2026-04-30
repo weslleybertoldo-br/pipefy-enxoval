@@ -5077,6 +5077,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
     camposAtuais: Record<string, any>;
     statusAtual: string;
     novoStatus: string;
+    templateBotaoEnviar?: string | null;
   } | null>(null);
 
   const flagsAtuais = () => ({
@@ -5116,6 +5117,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
           camposAtuais: data.camposAtuais || {},
           statusAtual: data.statusAtual || "",
           novoStatus: data.novoStatus || "aguardando",
+          templateBotaoEnviar: data.templateBotaoEnviar || null,
         });
         setStatus((prev) => ({ ...prev, moverCard: { valor: "pendente" } }));
       } else {
@@ -5635,11 +5637,27 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                   </li>
                   <li className="flex items-baseline gap-2">
                     <span className="text-gray-600">Botão "enviar" (template Slack):</span>
-                    <span className="text-amber-700 italic">
-                      NÃO disparado — clicar manualmente no site se quiser notificar os times
-                    </span>
+                    {moverPreview.templateBotaoEnviar ? (
+                      <span className="text-green-700 font-medium">
+                        ✓ vai disparar (insere comentário + notify-slack)
+                      </span>
+                    ) : (
+                      <span className="text-gray-400 italic">
+                        sem template — não disparado
+                      </span>
+                    )}
                   </li>
                 </ul>
+                {moverPreview.templateBotaoEnviar && (
+                  <details className="mb-3 -mt-1">
+                    <summary className="text-xs text-gray-500 cursor-pointer hover:text-gray-700">
+                      Ver mensagem que vai pro Slack
+                    </summary>
+                    <pre className="mt-2 p-2 bg-gray-50 border border-gray-200 rounded text-xs whitespace-pre-wrap text-gray-700">
+                      {moverPreview.templateBotaoEnviar}
+                    </pre>
+                  </details>
+                )}
 
                 <div className="flex items-center gap-2">
                   <button

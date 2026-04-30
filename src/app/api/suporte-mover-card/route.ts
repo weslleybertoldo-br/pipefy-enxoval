@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/pipefy";
-import { getSuporteCard, updateSuporteCard } from "@/lib/suporte-ops";
+import {
+  getSuporteCard,
+  updateSuporteCard,
+  getProcesso,
+  getNomeUsuario,
+  addSuporteComment,
+  invokeNotifySlack,
+  resolverTemplateBotao,
+  SUPORTE_USER_WESLLEY,
+  PROCESSO_TROCA_ID,
+} from "@/lib/suporte-ops";
 
 const SAPRON_API_KEY = "85Rjs5I1QCLQRlWfncYkBbFOeYOn5iXiczeKMfcswao";
 const SAPRON_BASE_URL = "https://api.sapron.com.br";
@@ -107,7 +117,34 @@ export async function POST(request: NextRequest) {
       .map(([k, v]) => `${k}: ${v === true ? "✓" : v === false ? "—" : v}`)
       .join(", ");
 
-    // 4) Se dryRun, retorna o que SERIA aplicado sem PATCH
+    // 4) Construir mensagem do botão "enviar" (template Slack)
+    // O processo da Troca de Código tem `campos_gestao_json` com o item
+    // {nome:"enviar", tipo:"botao", botao_mensagem:"..."} — replicamos o que
+    // o site faz quando o user clica nesse botão: insere comentário com texto
+    // = template processado e invoca Edge Function `notify-slack`.
+    let templateProcessado = "";
+    let nomeResponsavel = "";
+    try {
+      const processo = await getProcesso(PROCESSO_TROCA_ID);
+      const camposGestao = (processo?.campos_gestao_json as any[]) || [];
+      const enviar = camposGestao.find(
+        (c: any) => c?.nome === "enviar" && c?.tipo === "botao"
+      );
+      const template = (enviar?.botao_mensagem as string) || "";
+      if (template) {
+        nomeResponsavel = await getNomeUsuario(atual.responsavel_id || "");
+        templateProcessado = resolverTemplateBotao(template, {
+          "Status do imóvel": statusImovel,
+          "Código Antigo": codigoAntigo,
+          "Novo Código": codigoNovo,
+          responsavel: nomeResponsavel,
+        });
+      }
+    } catch (err) {
+      console.error("[suporte-mover-card] template do botão enviar falhou:", err);
+    }
+
+    // 5) Se dryRun, retorna o que SERIA aplicado sem PATCH/Slack
     if (dryRun) {
       return NextResponse.json({
         success: true,
@@ -118,15 +155,49 @@ export async function POST(request: NextRequest) {
         camposAplicados: novoEmAndamento,
         camposAtuais: emAndamentoAtual,
         novoStatus: "aguardando",
+        templateBotaoEnviar: templateProcessado || null,
         mensagem: `Preview — Status: ${statusImovel || "(vazio)"}, ${resumoCampos}.`,
       });
     }
 
-    // 5) PATCH: campos_preenchidos + status="aguardando"
+    // 6) PATCH: campos_preenchidos + status="aguardando"
     const updated = await updateSuporteCard(cardSuporteId, {
       campos_preenchidos: camposPreenchidosNovos,
       status: "aguardando",
     } as any);
+
+    // 7) Botão "enviar": insere comentário + invoca notify-slack (best-effort)
+    let botaoEnviarStatus: "ok" | "skip" | "erro" = "skip";
+    let botaoEnviarErro: string | undefined;
+    if (templateProcessado) {
+      try {
+        const comentario = await addSuporteComment(
+          cardSuporteId,
+          SUPORTE_USER_WESLLEY,
+          templateProcessado,
+          "app"
+        );
+        try {
+          await invokeNotifySlack({
+            card_id: cardSuporteId,
+            action: "add_comment",
+            comment_id: comentario?.id,
+            comment_text: templateProcessado,
+            comment_autor: nomeResponsavel || "Sistema",
+            comment_via: "app",
+          });
+        } catch (err: any) {
+          // Se o Slack falhar mas o comentário foi criado, ainda conta como ok-parcial
+          console.error("[suporte-mover-card] notify-slack falhou:", err);
+          botaoEnviarErro = `Comentário criado mas Slack falhou: ${err?.message || err}`;
+          botaoEnviarStatus = "erro";
+        }
+        if (botaoEnviarStatus !== "erro") botaoEnviarStatus = "ok";
+      } catch (err: any) {
+        botaoEnviarStatus = "erro";
+        botaoEnviarErro = err?.message || String(err);
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -135,7 +206,8 @@ export async function POST(request: NextRequest) {
       statusImovel,
       camposAplicados: novoEmAndamento,
       novoStatus: "aguardando",
-      mensagem: `Card movido para "Aguardando" — Status: ${statusImovel || "(vazio)"}, ${resumoCampos}.`,
+      botaoEnviar: { status: botaoEnviarStatus, erro: botaoEnviarErro },
+      mensagem: `Card movido para "Aguardando" — Status: ${statusImovel || "(vazio)"}, ${resumoCampos}. Botão enviar: ${botaoEnviarStatus}.`,
       cardAtualizado: { id: updated?.id, status: updated?.status },
     });
   } catch (error: any) {
