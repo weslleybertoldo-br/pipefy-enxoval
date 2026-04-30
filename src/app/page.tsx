@@ -5195,15 +5195,25 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
       });
       const data = await res.json();
       if (data.success) {
-        setStaysPreview({
-          staysId: data.staysId,
-          internalNameAntigo: data.internalNameAntigo || "",
-          internalNameNovo: data.internalNameNovo || "",
-          titulosAtualizados: data.titulosAtualizados || {},
-          precisaPatch: !!data.precisaPatch,
-          mensagem: data.mensagem,
-        });
-        setStatus((prev) => ({ ...prev, stays: { valor: "pendente" } }));
+        // Se nada precisa mudar, a Stays já está com o código novo → marca
+        // "Sim" no tracker e NÃO abre o bloco preview (não tem o que confirmar).
+        if (!data.precisaPatch) {
+          setStatus((prev) => ({
+            ...prev,
+            stays: { valor: "sim", mensagem: data.mensagem },
+          }));
+          setStaysPreview(null);
+        } else {
+          setStaysPreview({
+            staysId: data.staysId,
+            internalNameAntigo: data.internalNameAntigo || "",
+            internalNameNovo: data.internalNameNovo || "",
+            titulosAtualizados: data.titulosAtualizados || {},
+            precisaPatch: true,
+            mensagem: data.mensagem,
+          });
+          setStatus((prev) => ({ ...prev, stays: { valor: "pendente" } }));
+        }
       } else {
         setStatus((prev) => ({
           ...prev,
