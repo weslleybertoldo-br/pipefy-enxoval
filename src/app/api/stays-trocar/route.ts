@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, pipefyQuery, findCardsByTitleInPipe } from "@/lib/pipefy";
-import { trocarCodigoStays } from "@/lib/stays";
+import { trocarCodigoStays, previewTrocaStays } from "@/lib/stays";
 
 const PIPE_1_ID = "303781436";
 const FIELD_STAYS_ID = "id_da_stays_do_im_vel";
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const codigoAntigo = String(body.codigoAntigo || "").trim();
     const codigoNovo = String(body.codigoNovo || "").trim();
+    const dryRun = Boolean(body.dryRun);
     if (!codigoAntigo || !codigoNovo) {
       return NextResponse.json(
         { error: "codigoAntigo e codigoNovo são obrigatórios" },
@@ -71,6 +72,35 @@ export async function POST(request: NextRequest) {
       });
     }
 
+    // Dry-run: preview do que seria enviado, sem PATCH
+    if (dryRun) {
+      const p = await previewTrocaStays(staysId, codigoAntigo, codigoNovo);
+      const titulosCount = Object.keys(p.titulosAtualizados).length;
+      let mensagem: string;
+      if (p.precisaPatch) {
+        const partes: string[] = [];
+        if (p.internalNameAntigo !== p.internalNameNovo) {
+          partes.push(`internalName ${p.internalNameAntigo} → ${p.internalNameNovo}`);
+        }
+        if (titulosCount > 0) partes.push(`${titulosCount} título(s) serão atualizado(s)`);
+        mensagem = `Preview Stays (listing ${staysId}): ${partes.join(" + ")}.`;
+      } else {
+        mensagem = `Listing ${staysId}: nada a alterar — internalName "${p.internalNameAntigo}" não bate com "${codigoAntigo}" e nenhum título contém o código antigo (provavelmente já foi trocado).`;
+      }
+      return NextResponse.json({
+        success: true,
+        dryRun: true,
+        precisaPatch: p.precisaPatch,
+        staysId,
+        internalNameAntigo: p.internalNameAntigo,
+        internalNameNovo: p.internalNameNovo,
+        titulosAtualizados: p.titulosAtualizados,
+        titulosCount,
+        body: p.body,
+        mensagem,
+      });
+    }
+
     const r = await trocarCodigoStays(staysId, codigoAntigo, codigoNovo);
     const titulosCount = Object.keys(r.titulosAtualizados).length;
 
@@ -88,6 +118,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      dryRun: false,
       patchEnviado: r.patchEnviado,
       staysId,
       internalNameAntigo: r.internalNameAntigo,

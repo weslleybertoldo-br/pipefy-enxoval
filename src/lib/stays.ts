@@ -86,11 +86,19 @@ export interface StaysTrocaResult {
 //  - Só altera `internalName` se o atual bater com `codigoAntigo` (case-insensitive).
 //  - Em cada idioma do `_mstitle`, faz substituição global do `codigoAntigo` por `codigoNovo`.
 //  - Se nem o internalName nem nenhum idioma do _mstitle precisam mudar, NÃO dispara o PATCH.
-export async function trocarCodigoStays(
+// Calcula o que seria enviado num PATCH sem executar — read-only.
+// Retorna o `body` que iria pro PATCH (vazio se nada precisa mudar).
+export async function previewTrocaStays(
   listingId: string,
   codigoAntigo: string,
   codigoNovo: string
-): Promise<StaysTrocaResult> {
+): Promise<{
+  internalNameAntigo: string;
+  internalNameNovo: string;
+  titulosAtualizados: Record<string, { antigo: string; novo: string }>;
+  body: Record<string, any>;
+  precisaPatch: boolean;
+}> {
   const listing = await getStaysListing(listingId);
   const internalNameAntigo: string = listing.internalName || "";
   const mstitle: Record<string, string> =
@@ -98,15 +106,14 @@ export async function trocarCodigoStays(
       ? listing._mstitle
       : {}) as Record<string, string>;
 
-  const newBody: Record<string, any> = {};
-  const titulosAtualizados: Record<
-    string,
-    { antigo: string; novo: string }
-  > = {};
+  const body: Record<string, any> = {};
+  const titulosAtualizados: Record<string, { antigo: string; novo: string }> = {};
 
   // 1) internalName
-  if (internalNameAntigo.toUpperCase().trim() === codigoAntigo.toUpperCase().trim()) {
-    newBody.internalName = codigoNovo;
+  if (
+    internalNameAntigo.toUpperCase().trim() === codigoAntigo.toUpperCase().trim()
+  ) {
+    body.internalName = codigoNovo;
   }
 
   // 2) _mstitle por idioma
@@ -122,24 +129,40 @@ export async function trocarCodigoStays(
     }
   }
   if (mstitleHasChanges) {
-    newBody._mstitle = newMstitle;
+    body._mstitle = newMstitle;
   }
 
-  if (Object.keys(newBody).length === 0) {
+  return {
+    internalNameAntigo,
+    internalNameNovo: body.internalName ?? internalNameAntigo,
+    titulosAtualizados,
+    body,
+    precisaPatch: Object.keys(body).length > 0,
+  };
+}
+
+export async function trocarCodigoStays(
+  listingId: string,
+  codigoAntigo: string,
+  codigoNovo: string
+): Promise<StaysTrocaResult> {
+  const preview = await previewTrocaStays(listingId, codigoAntigo, codigoNovo);
+
+  if (!preview.precisaPatch) {
     return {
-      internalNameAntigo,
-      internalNameNovo: internalNameAntigo,
+      internalNameAntigo: preview.internalNameAntigo,
+      internalNameNovo: preview.internalNameAntigo,
       titulosAtualizados: {},
       patchEnviado: false,
     };
   }
 
-  await patchStaysListing(listingId, newBody);
+  await patchStaysListing(listingId, preview.body);
 
   return {
-    internalNameAntigo,
-    internalNameNovo: newBody.internalName ?? internalNameAntigo,
-    titulosAtualizados,
+    internalNameAntigo: preview.internalNameAntigo,
+    internalNameNovo: preview.internalNameNovo,
+    titulosAtualizados: preview.titulosAtualizados,
     patchEnviado: true,
   };
 }
