@@ -4840,6 +4840,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
   const flagToStatus = (b: any): "sim" | "pendente" => (b ? "sim" : "pendente");
   const [status, setStatus] = useState<Record<string, StatusCampo>>({
     planilha: { valor: flagToStatus(flags.alteradoBaseCodigo) },
+    precoMinimo: { valor: "pendente" },
     sapron: { valor: flagToStatus(flags.alteradoSapron) },
     pipefy: { valor: flagToStatus(flags.alteradoPipefy) },
     stays: { valor: flagToStatus(flags.alteradoStays) },
@@ -4899,6 +4900,41 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
       setStatus((prev) => ({
         ...prev,
         planilha: { valor: "nao", mensagem: "Erro de conexão" },
+      }));
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
+  // Validar na planilha de Preço Mínimo
+  const validarPrecoMinimo = async () => {
+    setLoadingAction("precoMinimo");
+    try {
+      const res = await fetch(
+        `/api/validar-preco-minimo?codigoAntigo=${encodeURIComponent(codigoAntigo)}&codigoNovo=${encodeURIComponent(codigoNovo)}`
+      );
+      const data = await res.json();
+      if (data.success) {
+        const algumEncontrado =
+          data.resultados.codigoAntigo.encontrado ||
+          data.resultados.codigoNovo.encontrado;
+        setStatus((prev) => ({
+          ...prev,
+          precoMinimo: {
+            valor: algumEncontrado ? "sim" : "nao",
+            mensagem: data.mensagem,
+          },
+        }));
+      } else {
+        setStatus((prev) => ({
+          ...prev,
+          precoMinimo: { valor: "nao", mensagem: data.error },
+        }));
+      }
+    } catch (error) {
+      setStatus((prev) => ({
+        ...prev,
+        precoMinimo: { valor: "nao", mensagem: "Erro de conexão" },
       }));
     } finally {
       setLoadingAction(null);
@@ -5173,6 +5209,15 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                   <span className="text-xs text-gray-500 mt-1">{status.planilha.mensagem}</span>
                 )}
               </div>
+              <div className="flex flex-col bg-white px-3 py-2 rounded border">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Preço Mínimo</span>
+                  {getStatusBadge("precoMinimo")}
+                </div>
+                {status.precoMinimo.mensagem && (
+                  <span className="text-xs text-gray-500 mt-1">{status.precoMinimo.mensagem}</span>
+                )}
+              </div>
               <div className="flex items-center justify-between bg-white px-3 py-2 rounded border">
                 <span className="text-xs text-gray-600">Pipefy</span>
                 {getStatusBadge("pipefy")}
@@ -5235,6 +5280,23 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                   </>
                 ) : (
                   "Validar na Planilha"
+                )}
+              </button>
+              <button
+                onClick={validarPrecoMinimo}
+                disabled={loadingAction === "precoMinimo" || (!codigoAntigo && !codigoNovo)}
+                className="px-4 py-2 bg-amber-600 text-white text-sm rounded-md hover:bg-amber-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+              >
+                {loadingAction === "precoMinimo" ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Verificando...
+                  </>
+                ) : (
+                  "Verificar Preço Mínimo"
                 )}
               </button>
               <button
