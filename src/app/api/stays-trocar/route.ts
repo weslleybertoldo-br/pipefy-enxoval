@@ -1,0 +1,106 @@
+import { NextRequest, NextResponse } from "next/server";
+import { requireAuth, pipefyQuery, findCardsByTitleInPipe } from "@/lib/pipefy";
+import { trocarCodigoStays } from "@/lib/stays";
+
+const PIPE_1_ID = "303781436";
+const FIELD_STAYS_ID = "id_da_stays_do_im_vel";
+
+// Busca card no Pipe 1 com title=needle e devolve `id_da_stays_do_im_vel`.
+// Tenta antigo e novo pra cobrir os dois estados (pré e pós troca de título).
+async function getStaysIdFromPipe1(
+  codigoAntigo: string,
+  codigoNovo: string
+): Promise<string | null> {
+  for (const codigo of [codigoAntigo, codigoNovo].filter(Boolean)) {
+    try {
+      const matches = await findCardsByTitleInPipe(PIPE_1_ID, codigo);
+      const exato = matches.find(
+        (m) => m.title.toUpperCase().trim() === codigo.toUpperCase().trim()
+      );
+      if (!exato) continue;
+      const r = await pipefyQuery(`{
+        card(id: ${exato.cardId}) {
+          fields { field { id } value }
+        }
+      }`);
+      const fs = (r?.data?.card?.fields || []) as any[];
+      const sf = fs.find((f) => f?.field?.id === FIELD_STAYS_ID);
+      const v = sf?.value;
+      if (typeof v === "string" && v.trim()) return v.trim();
+    } catch {
+      // ignora e tenta próximo
+    }
+  }
+  return null;
+}
+
+export async function POST(request: NextRequest) {
+  const authToken = request.cookies.get("auth_token")?.value;
+  if (!requireAuth(authToken)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    const codigoAntigo = String(body.codigoAntigo || "").trim();
+    const codigoNovo = String(body.codigoNovo || "").trim();
+    if (!codigoAntigo || !codigoNovo) {
+      return NextResponse.json(
+        { error: "codigoAntigo e codigoNovo são obrigatórios" },
+        { status: 400 }
+      );
+    }
+    if (codigoAntigo.toUpperCase() === codigoNovo.toUpperCase()) {
+      return NextResponse.json(
+        { error: "Códigos iguais" },
+        { status: 400 }
+      );
+    }
+    if (!/^[A-Za-z0-9._-]+$/.test(codigoNovo)) {
+      return NextResponse.json(
+        { error: "codigoNovo tem caracteres inválidos" },
+        { status: 400 }
+      );
+    }
+
+    const staysId = await getStaysIdFromPipe1(codigoAntigo, codigoNovo);
+    if (!staysId) {
+      return NextResponse.json({
+        success: false,
+        error: `Não encontrei o ID Stays no card do Pipe 1 (procurei title=${codigoAntigo} e title=${codigoNovo}). Verifique se o card existe e se o campo "ID da Stays do imóvel" está preenchido.`,
+      });
+    }
+
+    const r = await trocarCodigoStays(staysId, codigoAntigo, codigoNovo);
+    const titulosCount = Object.keys(r.titulosAtualizados).length;
+
+    let mensagem: string;
+    if (r.patchEnviado) {
+      const partes: string[] = [];
+      if (r.internalNameAntigo !== r.internalNameNovo) {
+        partes.push(`internalName ${r.internalNameAntigo} → ${r.internalNameNovo}`);
+      }
+      if (titulosCount > 0) partes.push(`${titulosCount} título(s) atualizado(s)`);
+      mensagem = `Stays atualizada (listing ${staysId}): ${partes.join(" + ")}.`;
+    } else {
+      mensagem = `Listing ${staysId}: nada a alterar — internalName "${r.internalNameAntigo}" não bate com "${codigoAntigo}" e nenhum título contém o código antigo (provavelmente já foi trocado).`;
+    }
+
+    return NextResponse.json({
+      success: true,
+      patchEnviado: r.patchEnviado,
+      staysId,
+      internalNameAntigo: r.internalNameAntigo,
+      internalNameNovo: r.internalNameNovo,
+      titulosAtualizados: r.titulosAtualizados,
+      titulosCount,
+      mensagem,
+    });
+  } catch (error: any) {
+    console.error("Erro em stays-trocar:", error);
+    return NextResponse.json(
+      { error: error.message || "Erro ao trocar na Stays" },
+      { status: 500 }
+    );
+  }
+}

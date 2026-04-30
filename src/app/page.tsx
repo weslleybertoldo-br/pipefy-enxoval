@@ -5035,6 +5035,46 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
     }
   };
 
+  // Trocar na Stays — chama POST /api/stays-trocar (atualiza internalName + _mstitle)
+  const trocarStays = async () => {
+    if (!codigoAntigo || !codigoNovo) return;
+    const ok = window.confirm(
+      `Atualizar na Stays:\n\ninternalName: ${codigoAntigo} → ${codigoNovo}\n+ sufixo dos títulos (_mstitle) em todos os idiomas\n\nEsta ação altera o cadastro do imóvel na Stays e nas OTAs publicadas.`
+    );
+    if (!ok) return;
+
+    setLoadingAction("stays");
+    try {
+      const res = await fetch("/api/stays-trocar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigoAntigo, codigoNovo }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatus((prev) => ({
+          ...prev,
+          stays: {
+            valor: data.patchEnviado ? "sim" : "nao",
+            mensagem: data.mensagem,
+          },
+        }));
+      } else {
+        setStatus((prev) => ({
+          ...prev,
+          stays: { valor: "nao", mensagem: data.error || "Erro ao atualizar Stays" },
+        }));
+      }
+    } catch (error) {
+      setStatus((prev) => ({
+        ...prev,
+        stays: { valor: "nao", mensagem: "Erro de conexão" },
+      }));
+    } finally {
+      setLoadingAction(null);
+    }
+  };
+
   return (
     <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
       {/* Header do card */}
@@ -5147,9 +5187,14 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                   <span className="text-xs text-gray-500 mt-1">{status.sapron.mensagem}</span>
                 )}
               </div>
-              <div className="flex items-center justify-between bg-white px-3 py-2 rounded border">
-                <span className="text-xs text-gray-600">Stays</span>
-                {getStatusBadge("stays")}
+              <div className="flex flex-col bg-white px-3 py-2 rounded border">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-600">Stays</span>
+                  {getStatusBadge("stays")}
+                </div>
+                {status.stays.mensagem && (
+                  <span className="text-xs text-gray-500 mt-1">{status.stays.mensagem}</span>
+                )}
               </div>
               <div className="flex items-center justify-between bg-white px-3 py-2 rounded border">
                 <span className="text-xs text-gray-600">Nome Prédio</span>
@@ -5232,10 +5277,21 @@ function CardTrocaCode({ card, phaseName, getFieldValue }: CardTrocaCodeProps) {
                 )}
               </button>
               <button
-                onClick={() => setStatus((prev) => ({ ...prev, stays: { valor: "sim" } }))}
-                className="px-4 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors"
+                onClick={trocarStays}
+                disabled={loadingAction === "stays" || !codigoAntigo || !codigoNovo}
+                className="px-4 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center gap-2"
               >
-                Trocar na Stays
+                {loadingAction === "stays" ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Atualizando...
+                  </>
+                ) : (
+                  "Trocar na Stays"
+                )}
               </button>
               <button
                 onClick={() => setStatus((prev) => ({ ...prev, avisarGrupo: { valor: "sim" } }))}
