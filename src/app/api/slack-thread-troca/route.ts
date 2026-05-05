@@ -246,13 +246,23 @@ export async function GET(request: NextRequest) {
     }
 
     const templateMsg = msgs.find((m) => m.isTemplateEnviar) || null;
+
+    // Cutoff pra "replies depois do Aguardando":
+    //   1) Mensagem ":hourglass: Aguardando" se existir (caso o suporte-ops
+    //      tenha feito repost da transicao no Slack);
+    //   2) Mensagem do botao enviar (template) — proxy razoavel, ja que ela
+    //      eh disparada exatamente quando o card entra em Aguardando;
+    //   3) Sem cutoff: pega tudo exceto a raiz e status changes.
     const aguardandoIdx = msgs.findIndex(
       (m) => m.isStatusChange && /Aguardando/i.test(m.text)
     );
-    const repliesAfterAguardando =
-      aguardandoIdx >= 0
-        ? msgs.slice(aguardandoIdx + 1).filter((m) => !m.isStatusChange)
-        : [];
+    let cutoffIdx = aguardandoIdx;
+    if (cutoffIdx < 0 && templateMsg) {
+      cutoffIdx = msgs.findIndex((m) => m.ts === templateMsg.ts);
+    }
+    const repliesAfterAguardando = (
+      cutoffIdx >= 0 ? msgs.slice(cutoffIdx + 1) : msgs.slice(1)
+    ).filter((m) => !m.isStatusChange && !m.isTemplateEnviar);
 
     return NextResponse.json({
       success: true,
