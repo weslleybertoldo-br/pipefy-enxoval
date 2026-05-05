@@ -663,7 +663,7 @@ function TabProcessamento() {
                       const code = vistoriaPicker.code;
                       const id = v.id;
                       setVistoriaPicker(null);
-                      generateEnxoval(code, id);
+                      generateEnxoval(code, { vistoriaCardId: id });
                     }}
                     className="w-full text-left px-4 py-3 border rounded-md hover:bg-blue-50 hover:border-blue-300 transition-colors"
                   >
