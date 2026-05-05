@@ -280,7 +280,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Não autenticado" }, { status: 401 });
   }
   try {
-    const { code } = await request.json();
+    const body = (await request.json()) as {
+      code?: string;
+      attachmentPath?: string;
+      attachmentUrl?: string;
+    };
+    const code = body.code;
     if (!code) {
       return NextResponse.json({ error: "Código não fornecido" }, { status: 400 });
     }
@@ -291,8 +296,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Card "${code}" não encontrado` }, { status: 404 });
     }
 
-    // 2. Find enxoval PDF
-    const pdfAttachment = findEnxovalPdf(card.attachments || [], code);
+    // 2. Pick PDF: usa o que veio na request OU acha por nome
+    let pdfAttachment;
+    if (body.attachmentPath) {
+      pdfAttachment = (card.attachments || []).find(
+        (a: { path: string }) => a.path === body.attachmentPath
+      );
+      if (!pdfAttachment && body.attachmentUrl) {
+        pdfAttachment = { path: body.attachmentPath, url: body.attachmentUrl, createdAt: null };
+      }
+    }
+    if (!pdfAttachment) {
+      pdfAttachment = findEnxovalPdf(card.attachments || [], code);
+    }
     if (!pdfAttachment) {
       return NextResponse.json(
         { error: `Nenhum PDF de enxoval encontrado nos anexos do card "${code}"` },
@@ -313,7 +329,6 @@ export async function POST(request: NextRequest) {
     // 4. Parse PDF
     const pdfData = await pdf(pdfBuffer);
     const parsed = parsePdfText(pdfData.text);
-    // Use the code from the request if PDF parsing didn't find it
     if (!parsed.codigo_imovel) parsed.codigo_imovel = code;
 
     // 5. Upload PDF to Pipefy S3

@@ -258,12 +258,23 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
 // TAB: PROCESSAMENTO (cards da Fase 5 com registro de enxoval)
 // =====================
 
+interface PdfAttachment {
+  fileName: string;
+  path: string;
+  url: string;
+  createdAt: string | null;
+}
+
 interface EnxovalCard {
   id: string;
   title: string;
   hasRecord: boolean;
   recordId: string;
+  attachments: PdfAttachment[];
+  defaultPdf: { fileName: string; path: string } | null;
 }
+
+type ProcessMode = "anexo" | "vistoria";
 
 type VistoriaCardOpt = {
   id: string;
@@ -290,6 +301,9 @@ function TabProcessamento() {
     code: string;
     cards: VistoriaCardOpt[];
   } | null>(null);
+  // Por linha: modo selecionado e (no modo anexo) o path do PDF escolhido
+  const [rowMode, setRowMode] = useState<Record<string, ProcessMode>>({});
+  const [rowAttachment, setRowAttachment] = useState<Record<string, string>>({}); // code -> attachment.path
 
   const loadCards = async () => {
     setLoading(true);
@@ -299,8 +313,20 @@ function TabProcessamento() {
       const res = await fetch("/api/list-phase5-enxoval");
       const data = await res.json();
       if (data.success) {
-        setCards(data.cards);
+        const list = data.cards as EnxovalCard[];
+        setCards(list);
         setSummary({ total: data.totalCards, withRecord: data.withRecord, withoutRecord: data.withoutRecord });
+        // Inicializa estado por card: se tem defaultPdf usa modo "anexo" + path; senão sem default
+        const modeInit: Record<string, ProcessMode> = {};
+        const attachInit: Record<string, string> = {};
+        for (const c of list) {
+          if (c.defaultPdf) {
+            modeInit[c.title] = "anexo";
+            attachInit[c.title] = c.defaultPdf.path;
+          }
+        }
+        setRowMode(modeInit);
+        setRowAttachment(attachInit);
       } else {
         setError(data.error || "Erro ao carregar cards");
       }
@@ -338,8 +364,52 @@ function TabProcessamento() {
     }
   };
 
-  const deleteRegistro = async (code: string, recordId: string) => {
-    if (!confirm(`Excluir o registro de enxoval do imóvel ${code}? Esta ação remove o registro da tabela e desconecta o PDF anexado.`)) return;
+  const processFromAnexo = async (code: string, attachment: PdfAttachment | undefined) => {
+    if (!attachment) {
+      setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: "Escolha o PDF anexado" } }));
+      return;
+    }
+    setProcessingCard(code);
+    try {
+      const res = await fetch("/api/process-card", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, attachmentPath: attachment.path, attachmentUrl: attachment.url }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCardStatuses((prev) => ({ ...prev, [code]: { status: "success", message: `Registro #${data.recordId} criado` } }));
+        setCards((prev) => prev.map((c) => c.title === code ? { ...c, hasRecord: true, recordId: data.recordId } : c));
+      } else {
+        setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: data.error || "Erro" } }));
+      }
+    } catch {
+      setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setProcessingCard(null);
+    }
+  };
+
+  const runRow = (c: EnxovalCard) => {
+    const mode = rowMode[c.title];
+    if (!mode) {
+      setCardStatuses((prev) => ({
+        ...prev,
+        [c.title]: { status: "error", message: "Escolha um modo abaixo (anexo ou vistoria)" },
+      }));
+      return;
+    }
+    if (mode === "vistoria") {
+      generateEnxoval(c.title);
+    } else {
+      const path = rowAttachment[c.title];
+      const att = c.attachments.find((a) => a.path === path);
+      processFromAnexo(c.title, att);
+    }
+  };
+
+  const deleteRegistro = async (code: string, recordId: string, skipConfirm = false) => {
+    if (!skipConfirm && !confirm(`Excluir o registro de enxoval do imóvel ${code}? Esta ação remove o registro da tabela e desconecta o PDF anexado.`)) return;
     setDeletingCard(code);
     try {
       const res = await fetch("/api/delete-registro", {
@@ -361,6 +431,20 @@ function TabProcessamento() {
     }
   };
 
+  const [deletingAll, setDeletingAll] = useState(false);
+  const deleteAllRecords = async () => {
+    const toDelete = cards.filter((c) => c.hasRecord && !!c.recordId);
+    if (toDelete.length === 0) return;
+    if (!confirm(`Excluir TODOS os ${toDelete.length} registros de enxoval listados? Esta ação remove cada registro da tabela e desconecta do card. Não pode ser desfeito.`)) return;
+    abortRef.current = false;
+    setDeletingAll(true);
+    for (const c of toDelete) {
+      if (abortRef.current) break;
+      await deleteRegistro(c.title, c.recordId, true);
+    }
+    setDeletingAll(false);
+  };
+
   const processAllCards = async () => {
     const toProcess = cards.filter((c) => !c.hasRecord && !cardStatuses[c.title]);
     if (toProcess.length === 0) return;
@@ -368,7 +452,20 @@ function TabProcessamento() {
     setProcessingAll(true);
     for (const card of toProcess) {
       if (abortRef.current) break;
-      await generateEnxoval(card.title);
+      const mode = rowMode[card.title];
+      if (mode === "anexo") {
+        const path = rowAttachment[card.title];
+        const att = card.attachments.find((a) => a.path === path);
+        await processFromAnexo(card.title, att);
+      } else if (mode === "vistoria") {
+        await generateEnxoval(card.title);
+      } else {
+        // sem modo escolhido: pula
+        setCardStatuses((prev) => ({
+          ...prev,
+          [card.title]: { status: "error", message: "Escolha um modo (anexo/vistoria) antes" },
+        }));
+      }
     }
     setProcessingAll(false);
   };
@@ -380,7 +477,7 @@ function TabProcessamento() {
       <section className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold mb-2">Registro de Enxoval — Fase 5</h2>
         <p className="text-sm text-gray-500 mb-4">
-          Lista os cards da Fase 5 mostrando quais já possuem registro de enxoval. Clique em &quot;Gerar Registro&quot; para processar individualmente ou &quot;Gerar Todos&quot; para processar todos sem registro.
+          Lista os cards da Fase 5. Por linha você escolhe o modo: <b>Usar PDF anexado</b> (lê o PDF do card e extrai quantidades) ou <b>Gerar do card de Vistorias</b> (calcula tudo do PIPE 3 e gera PDF idêntico à planilha). Se o card já tiver um anexo &quot;enxoval Geral&quot; ele já vem pré-selecionado.
         </p>
         <div className="flex gap-3">
           <WithHelp help="Busca todos os cards da Fase 5 e mostra quais já possuem registro de enxoval">
@@ -403,8 +500,19 @@ function TabProcessamento() {
               </button>
             </WithHelp>
           )}
-          {processingAll && (
-            <WithHelp help="Interrompe o processamento em lote dos registros de enxoval">
+          {cards.length > 0 && cards.some((c) => c.hasRecord) && (
+            <WithHelp help="Exclui TODOS os registros listados (apenas os cards que têm registro). Confirma 1× e processa em lote.">
+              <button
+                onClick={deleteAllRecords}
+                disabled={deletingAll || processingAll || processingCard !== null || deletingCard !== null}
+                className="bg-red-700 text-white px-6 py-3 rounded-md font-medium hover:bg-red-800 disabled:opacity-50 transition-colors"
+              >
+                {deletingAll ? "Excluindo todos..." : `Excluir Todos (${cards.filter((c) => c.hasRecord).length})`}
+              </button>
+            </WithHelp>
+          )}
+          {(processingAll || deletingAll) && (
+            <WithHelp help="Interrompe o processamento em lote">
               <button
                 onClick={() => { abortRef.current = true; }}
                 className="bg-red-500 text-white px-6 py-3 rounded-md font-medium hover:bg-red-600 transition-colors"
@@ -443,60 +551,108 @@ function TabProcessamento() {
           {cards.map((c) => {
             const cardStatus = cardStatuses[c.title];
             const isProcessing = processingCard === c.title;
+            const mode = rowMode[c.title];
+            const selectedAttachment = rowAttachment[c.title] || "";
+            const hasAttachments = c.attachments && c.attachments.length > 0;
             return (
-              <div key={c.id} className={`flex items-center justify-between px-4 py-3 rounded-md border ${
+              <div key={c.id} className={`px-4 py-3 rounded-md border ${
                 cardStatus?.status === "success" ? "bg-green-50 border-green-200" :
                 cardStatus?.status === "error" ? "bg-red-50 border-red-200" :
                 c.hasRecord ? "bg-green-50/50 border-green-100" : "bg-white border-gray-200"
               }`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-lg">
-                    {cardStatus?.status === "success" ? "✅" :
-                     cardStatus?.status === "error" ? "❌" :
-                     isProcessing ? <span className="inline-block animate-spin">⏳</span> :
-                     c.hasRecord ? "📋" : "⚠️"}
-                  </span>
-                  <div>
-                    <CopyableCode code={c.title} className="text-sm" />
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">
+                      {cardStatus?.status === "success" ? "✅" :
+                       cardStatus?.status === "error" ? "❌" :
+                       isProcessing ? <span className="inline-block animate-spin">⏳</span> :
+                       c.hasRecord ? "📋" : "⚠️"}
+                    </span>
+                    <div>
+                      <CopyableCode code={c.title} className="text-sm" />
+                      {c.hasRecord && (
+                        <span className="text-xs text-green-600 ml-2">Registro #{c.recordId}</span>
+                      )}
+                      {!c.hasRecord && !cardStatus && (
+                        <span className="text-xs text-red-500 ml-2">Sem registro</span>
+                      )}
+                      {cardStatus && (
+                        <span className={`text-xs ml-2 ${cardStatus.status === "success" ? "text-green-600" : "text-red-600"}`}>
+                          {cardStatus.message}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <WithHelp help="Executa o modo selecionado abaixo: 'Usar PDF anexado' (lê o PDF escolhido no dropdown e cria registro) ou 'Gerar do card de Vistorias' (calcula tudo automaticamente do PIPE 3 e gera o PDF idêntico ao da planilha).">
+                      <button
+                        onClick={() => runRow(c)}
+                        disabled={isProcessing || processingCard !== null || deletingCard !== null || (c.hasRecord && !cardStatus)}
+                        className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                          c.hasRecord && !cardStatus
+                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                            : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                        }`}
+                      >
+                        {isProcessing ? "Processando..." : c.hasRecord && !cardStatus ? "Já registrado" : "Gerar Registro"}
+                      </button>
+                    </WithHelp>
                     {c.hasRecord && (
-                      <span className="text-xs text-green-600 ml-2">Registro #{c.recordId}</span>
-                    )}
-                    {!c.hasRecord && !cardStatus && (
-                      <span className="text-xs text-red-500 ml-2">Sem registro</span>
-                    )}
-                    {cardStatus && (
-                      <span className={`text-xs ml-2 ${cardStatus.status === "success" ? "text-green-600" : "text-red-600"}`}>
-                        {cardStatus.message}
-                      </span>
+                      <WithHelp help="1. Desconecta o registro de enxoval do card~2. Apaga o registro da tabela">
+                        <button
+                          onClick={() => deleteRegistro(c.title, c.recordId)}
+                          disabled={deletingCard === c.title || processingCard !== null || processingAll}
+                          className="px-3 py-2 rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 transition-colors whitespace-nowrap"
+                        >
+                          {deletingCard === c.title ? "Excluindo..." : "Excluir"}
+                        </button>
+                      </WithHelp>
                     )}
                   </div>
                 </div>
-                <div className="flex gap-2">
-                  <WithHelp help="1. Busca card de Vistoria (PIPE 3) com mesmo código~2. Se houver mais de uma vistoria, abre modal para escolher~3. Consolida proprietário, franquia, cluster, frete e fornecedor automaticamente~4. Calcula valores e gera PDF idêntico ao da planilha~5. Anexa PDF no card Fase 5~6. Cria registro na tabela de enxoval e conecta ao card">
-                    <button
-                      onClick={() => generateEnxoval(c.title)}
-                      disabled={isProcessing || processingCard !== null || deletingCard !== null || (c.hasRecord && !cardStatus)}
-                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                        c.hasRecord && !cardStatus
-                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                          : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                      }`}
-                    >
-                      {isProcessing ? "Gerando..." : c.hasRecord && !cardStatus ? "Já registrado" : "Gerar Registro"}
-                    </button>
-                  </WithHelp>
-                  {c.hasRecord && (
-                    <WithHelp help="1. Desconecta o registro de enxoval do card~2. Apaga o registro da tabela~3. Limpa o PDF anexado no campo comprovante">
-                      <button
-                        onClick={() => deleteRegistro(c.title, c.recordId)}
-                        disabled={deletingCard === c.title || processingCard !== null || processingAll}
-                        className="px-3 py-2 rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 transition-colors whitespace-nowrap"
+
+                {/* Modos de processamento */}
+                {!c.hasRecord && !cardStatus?.status && (
+                  <div className="mt-3 pl-9 flex flex-col gap-1.5 text-sm">
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`mode-${c.id}`}
+                        checked={mode === "anexo"}
+                        disabled={!hasAttachments}
+                        onChange={() => setRowMode((p) => ({ ...p, [c.title]: "anexo" }))}
+                      />
+                      <span className={hasAttachments ? "" : "text-gray-400"}>Usar PDF anexado</span>
+                      <select
+                        value={selectedAttachment}
+                        onChange={(e) => {
+                          setRowAttachment((p) => ({ ...p, [c.title]: e.target.value }));
+                          setRowMode((p) => ({ ...p, [c.title]: "anexo" }));
+                        }}
+                        disabled={!hasAttachments || mode !== "anexo"}
+                        className="text-xs px-2 py-1 border rounded bg-white disabled:bg-gray-100 disabled:text-gray-400 max-w-xs"
                       >
-                        {deletingCard === c.title ? "Excluindo..." : "Excluir"}
-                      </button>
-                    </WithHelp>
-                  )}
-                </div>
+                        {!hasAttachments && <option value="">Sem anexos PDF</option>}
+                        {hasAttachments && <option value="">— selecione —</option>}
+                        {c.attachments.map((a) => (
+                          <option key={a.path} value={a.path}>
+                            {a.fileName}
+                            {c.defaultPdf?.path === a.path ? " ★" : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="radio"
+                        name={`mode-${c.id}`}
+                        checked={mode === "vistoria"}
+                        onChange={() => setRowMode((p) => ({ ...p, [c.title]: "vistoria" }))}
+                      />
+                      <span>Gerar do card de Vistorias (PIPE 3)</span>
+                    </label>
+                  </div>
+                )}
               </div>
             );
           })}

@@ -17,6 +17,7 @@ async function getCardsWithEnxovalInfo(): Promise<any[]> {
             node {
               id
               title
+              attachments { path url createdAt }
               fields {
                 name
                 value
@@ -56,20 +57,52 @@ export async function GET(req: NextRequest) {
     const cards = await getCardsWithEnxovalInfo();
 
     const result = cards.map((card) => {
-      // Procurar o campo de registro de enxoval pelo nome
       const enxovalField = (card.fields || []).find(
         (f: any) => f.name?.toLowerCase().includes("registro de enxoval")
       );
-
       const connectedItems = enxovalField?.connected_repo_items || [];
       const hasRecord = connectedItems.length > 0 && !!connectedItems[0]?.id;
       const recordId = hasRecord ? connectedItems[0].id : "";
+
+      // Lista anexos PDF do card (filtrar apenas .pdf)
+      const attachments = (card.attachments || [])
+        .map((a: { path: string; url: string; createdAt: string | null }) => {
+          const fileName = a.path.split("/").pop() || a.path;
+          return {
+            fileName,
+            path: a.path,
+            url: a.url,
+            createdAt: a.createdAt,
+          };
+        })
+        .filter((a: { fileName: string }) => a.fileName.toLowerCase().endsWith(".pdf"))
+        .sort(
+          (a: { createdAt: string | null }, b: { createdAt: string | null }) => {
+            if (!a.createdAt && !b.createdAt) return 0;
+            if (!a.createdAt) return 1;
+            if (!b.createdAt) return -1;
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+          }
+        );
+
+      // Default: o anexo "enxoval Geral.pdf" (caso exista) ou o que tiver "enxoval" no nome
+      const exactGeral = attachments.find((a: { fileName: string }) =>
+        a.fileName.toLowerCase().includes("enxoval geral")
+      );
+      const anyEnxoval = attachments.find((a: { fileName: string }) =>
+        a.fileName.toLowerCase().includes("enxoval")
+      );
+      const defaultPdf = exactGeral || anyEnxoval || null;
 
       return {
         id: card.id,
         title: card.title,
         hasRecord,
         recordId,
+        attachments,
+        defaultPdf: defaultPdf
+          ? { fileName: defaultPdf.fileName, path: defaultPdf.path }
+          : null,
       };
     });
 
