@@ -265,6 +265,16 @@ interface EnxovalCard {
   recordId: string;
 }
 
+type VistoriaCardOpt = {
+  id: string;
+  title: string;
+  phaseName: string;
+  responsavel: string | null;
+  dataAgendamento: string | null;
+  motivo: string | null;
+  kits: Record<string, number>;
+};
+
 function TabProcessamento() {
   const [cards, setCards] = useState<EnxovalCard[]>([]);
   const [loading, setLoading] = useState(false);
@@ -274,6 +284,12 @@ function TabProcessamento() {
   const abortRef = useRef(false);
   const [cardStatuses, setCardStatuses] = useState<Record<string, { status: "success" | "error"; message: string }>>({});
   const [summary, setSummary] = useState<{ total: number; withRecord: number; withoutRecord: number } | null>(null);
+  const [deletingCard, setDeletingCard] = useState<string | null>(null);
+  // Modal de seleção de vistoria
+  const [vistoriaPicker, setVistoriaPicker] = useState<{
+    code: string;
+    cards: VistoriaCardOpt[];
+  } | null>(null);
 
   const loadCards = async () => {
     setLoading(true);
@@ -295,18 +311,22 @@ function TabProcessamento() {
     }
   };
 
-  const processCard = async (code: string) => {
+  const generateEnxoval = async (code: string, vistoriaCardId?: string) => {
     setProcessingCard(code);
     try {
-      const res = await fetch("/api/process-card", {
+      const res = await fetch("/api/generate-enxoval", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, vistoriaCardId }),
       });
       const data = await res.json();
+      if (res.status === 409 && data.error === "MULTIPLE_VISTORIAS") {
+        setProcessingCard(null);
+        setVistoriaPicker({ code, cards: data.cards as VistoriaCardOpt[] });
+        return;
+      }
       if (data.success) {
         setCardStatuses((prev) => ({ ...prev, [code]: { status: "success", message: `Registro #${data.recordId} criado` } }));
-        // Atualizar card na lista
         setCards((prev) => prev.map((c) => c.title === code ? { ...c, hasRecord: true, recordId: data.recordId } : c));
       } else {
         setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: data.error || "Erro" } }));
@@ -318,6 +338,29 @@ function TabProcessamento() {
     }
   };
 
+  const deleteRegistro = async (code: string, recordId: string) => {
+    if (!confirm(`Excluir o registro de enxoval do imóvel ${code}? Esta ação remove o registro da tabela e desconecta o PDF anexado.`)) return;
+    setDeletingCard(code);
+    try {
+      const res = await fetch("/api/delete-registro", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, recordId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCardStatuses((prev) => ({ ...prev, [code]: { status: "success", message: "Registro excluído" } }));
+        setCards((prev) => prev.map((c) => c.title === code ? { ...c, hasRecord: false, recordId: "" } : c));
+      } else {
+        setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: data.error || "Erro ao excluir" } }));
+      }
+    } catch {
+      setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: "Erro de conexão" } }));
+    } finally {
+      setDeletingCard(null);
+    }
+  };
+
   const processAllCards = async () => {
     const toProcess = cards.filter((c) => !c.hasRecord && !cardStatuses[c.title]);
     if (toProcess.length === 0) return;
@@ -325,7 +368,7 @@ function TabProcessamento() {
     setProcessingAll(true);
     for (const card of toProcess) {
       if (abortRef.current) break;
-      await processCard(card.title);
+      await generateEnxoval(card.title);
     }
     setProcessingAll(false);
   };
@@ -428,23 +471,90 @@ function TabProcessamento() {
                     )}
                   </div>
                 </div>
-                <WithHelp help="1. Busca o card pelo código na Fase 5~2. Procura o PDF de enxoval nos anexos do card~3. Faz download e extrai as quantidades de cada item do PDF~4. Faz upload do PDF no Pipefy~5. Cria registro na tabela de enxoval com todas as quantidades~6. Conecta o registro ao card">
-                  <button
-                    onClick={() => processCard(c.title)}
-                    disabled={isProcessing || processingCard !== null || (c.hasRecord && !cardStatus)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
-                      c.hasRecord && !cardStatus
-                        ? "bg-gray-200 text-gray-500 cursor-not-allowed"
-                        : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-                    }`}
-                  >
-                    {isProcessing ? "Processando..." : c.hasRecord && !cardStatus ? "Já registrado" : "Gerar Registro"}
-                  </button>
-                </WithHelp>
+                <div className="flex gap-2">
+                  <WithHelp help="1. Busca card de Vistoria (PIPE 3) com mesmo código~2. Se houver mais de uma vistoria, abre modal para escolher~3. Consolida proprietário, franquia, cluster, frete e fornecedor automaticamente~4. Calcula valores e gera PDF idêntico ao da planilha~5. Anexa PDF no card Fase 5~6. Cria registro na tabela de enxoval e conecta ao card">
+                    <button
+                      onClick={() => generateEnxoval(c.title)}
+                      disabled={isProcessing || processingCard !== null || deletingCard !== null || (c.hasRecord && !cardStatus)}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap ${
+                        c.hasRecord && !cardStatus
+                          ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                          : "bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                      }`}
+                    >
+                      {isProcessing ? "Gerando..." : c.hasRecord && !cardStatus ? "Já registrado" : "Gerar Registro"}
+                    </button>
+                  </WithHelp>
+                  {c.hasRecord && (
+                    <WithHelp help="1. Desconecta o registro de enxoval do card~2. Apaga o registro da tabela~3. Limpa o PDF anexado no campo comprovante">
+                      <button
+                        onClick={() => deleteRegistro(c.title, c.recordId)}
+                        disabled={deletingCard === c.title || processingCard !== null || processingAll}
+                        className="px-3 py-2 rounded-md text-sm font-medium bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 transition-colors whitespace-nowrap"
+                      >
+                        {deletingCard === c.title ? "Excluindo..." : "Excluir"}
+                      </button>
+                    </WithHelp>
+                  )}
+                </div>
               </div>
             );
           })}
         </section>
+      )}
+
+      {/* Modal seletor de vistoria */}
+      {vistoriaPicker && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold">Múltiplas vistorias para {vistoriaPicker.code}</h3>
+              <p className="text-sm text-gray-500 mt-1">Escolha qual usar como referência para gerar o registro de enxoval.</p>
+            </div>
+            <div className="p-4 space-y-2">
+              {vistoriaPicker.cards.map((v) => {
+                const totalKits = Object.values(v.kits).reduce((s, n) => s + n, 0);
+                return (
+                  <button
+                    key={v.id}
+                    onClick={() => {
+                      const code = vistoriaPicker.code;
+                      const id = v.id;
+                      setVistoriaPicker(null);
+                      generateEnxoval(code, id);
+                    }}
+                    className="w-full text-left px-4 py-3 border rounded-md hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium">{v.phaseName} <span className="text-xs text-gray-500 ml-2">#{v.id}</span></div>
+                        <div className="text-xs text-gray-600 mt-1">
+                          {v.dataAgendamento && <>Agendamento: {v.dataAgendamento} · </>}
+                          {v.motivo && <>Motivo: {v.motivo} · </>}
+                          {v.responsavel && <>Resp: {v.responsavel}</>}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm font-bold text-blue-700">{totalKits} kit(s)</div>
+                        <div className="text-xs text-gray-500">
+                          {Object.entries(v.kits).filter(([, n]) => n > 0).map(([k, n]) => `${k}×${n}`).join(" ")}
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="px-6 py-3 border-t flex justify-end">
+              <button
+                onClick={() => setVistoriaPicker(null)}
+                className="px-4 py-2 rounded-md text-sm bg-gray-100 hover:bg-gray-200"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );

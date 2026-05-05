@@ -1,0 +1,274 @@
+{
+  "Bombinhas/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Campos do Jordão/SP": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Goiânia/GO": {
+    "capital": "Sim",
+    "regiao": "Centro-Oeste"
+  },
+  "São Paulo/SP": {
+    "capital": "Sim",
+    "regiao": "Sudeste"
+  },
+  "Florianópolis/SC": {
+    "capital": "Sim",
+    "regiao": "Sul"
+  },
+  "Camaçari/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Maraú/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Gramado/RS": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Ilhéus/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Maceió/AL": {
+    "capital": "Sim",
+    "regiao": "Nordeste"
+  },
+  "Ubatuba/SP": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Itapema/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Passo de Camaragibe/AL": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Penha/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Porto Seguro/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Arraial d'Ajuda/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Balneário Piçarras/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Salvador/BA": {
+    "capital": "Sim",
+    "regiao": "Nordeste"
+  },
+  "Guarapari/ES": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Porto Alegre/RS": {
+    "capital": "Sim",
+    "regiao": "Sul"
+  },
+  "Mata de São João/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Anitápolis/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Porto Belo/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Itajaí/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Itacaré/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Trancoso/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Balneário Camboriú/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Brasília/DF": {
+    "capital": "Sim",
+    "regiao": "Centro-Oeste"
+  },
+  "Barra Velha/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Petropolis/RJ": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Imbituba/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Canela/RS": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Joinville/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Armação dos Búzios/RJ": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Urubici/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "São Miguel dos Milagres/AL": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Santa Cruz Cabrália/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Porto de Pedras/AL": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Poços de Caldas/MG": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Garopaba/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "João Pessoa/PB": {
+    "capital": "Sim",
+    "regiao": "Nordeste"
+  },
+  "Santos/SP": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Curitiba/PR": {
+    "capital": "Sim",
+    "regiao": "Sul"
+  },
+  "Caldas Novas/GO": {
+    "capital": "Não",
+    "regiao": "Centro-Oeste"
+  },
+  "Cabo Frio/RJ": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Recife/PE": {
+    "capital": "Sim",
+    "regiao": "Nordeste"
+  },
+  "Itacimirim/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Águas Claras/DF": {
+    "capital": "Não",
+    "regiao": "Centro-Oeste"
+  },
+  "Blumenau/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Santana do Deserto/MG": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Pirenópolis/GO": {
+    "capital": "Não",
+    "regiao": "Centro-Oeste"
+  },
+  "Hidrolândia/GO": {
+    "capital": "Não",
+    "regiao": "Centro-Oeste"
+  },
+  "Camboriú/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Palhoça/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Santo André/SP": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Armação/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Criciúma/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Balneário Camburiú/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Taboão da Serra/SP": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "Concórdia/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Lauro de Freitas/BA": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "Barueri/SP": {
+    "capital": "Não",
+    "regiao": "Sudeste"
+  },
+  "São José/SC": {
+    "capital": "Não",
+    "regiao": "Sul"
+  },
+  "Campo Grande/MS": {
+    "capital": "Sim",
+    "regiao": "Centro-Oeste"
+  },
+  "Belo Horizonte/MG": {
+    "capital": "Sim",
+    "regiao": "Sudeste"
+  },
+  "Rio de Janeiro/RJ": {
+    "capital": "Sim",
+    "regiao": "Sudeste"
+  },
+  "Camaragibe/PE": {
+    "capital": "Não",
+    "regiao": "Nordeste"
+  },
+  "/": {
+    "capital": null,
+    "regiao": "#REF!"
+  }
+}

@@ -1,0 +1,164 @@
+{
+  "AC": {
+    "MATINALI_INTERIOR": 220.0,
+    "MATINALI_CAPITAL": 180.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "AL": {
+    "MATINALI_INTERIOR": 150.0,
+    "MATINALI_CAPITAL": 120.0,
+    "RM_INTERIOR": 140.0,
+    "RM_CAPITAL": 140.0
+  },
+  "AP": {
+    "MATINALI_INTERIOR": 150.0,
+    "MATINALI_CAPITAL": 130.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "AM": {
+    "MATINALI_INTERIOR": 350.0,
+    "MATINALI_CAPITAL": 280.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "BA": {
+    "MATINALI_INTERIOR": 140.0,
+    "MATINALI_CAPITAL": 110.0,
+    "RM_INTERIOR": 120.0,
+    "RM_CAPITAL": 63.0
+  },
+  "CE": {
+    "MATINALI_INTERIOR": 160.0,
+    "MATINALI_CAPITAL": 140.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "DF": {
+    "MATINALI_INTERIOR": 95.0,
+    "MATINALI_CAPITAL": 95.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "ES": {
+    "MATINALI_INTERIOR": 100.0,
+    "MATINALI_CAPITAL": 90.0,
+    "RM_INTERIOR": 160.0,
+    "RM_CAPITAL": 160.0
+  },
+  "GO": {
+    "MATINALI_INTERIOR": 85.0,
+    "MATINALI_CAPITAL": 70.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "MA": {
+    "MATINALI_INTERIOR": 160.0,
+    "MATINALI_CAPITAL": 150.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "MT": {
+    "MATINALI_INTERIOR": 150.0,
+    "MATINALI_CAPITAL": 100.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "MS": {
+    "MATINALI_INTERIOR": 120.0,
+    "MATINALI_CAPITAL": 100.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "MG": {
+    "MATINALI_INTERIOR": 100.0,
+    "MATINALI_CAPITAL": 75.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "PA": {
+    "MATINALI_INTERIOR": 150.0,
+    "MATINALI_CAPITAL": 125.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "PB": {
+    "MATINALI_INTERIOR": 145.0,
+    "MATINALI_CAPITAL": 130.0,
+    "RM_INTERIOR": 160.0,
+    "RM_CAPITAL": 160.0
+  },
+  "PR": {
+    "MATINALI_INTERIOR": 70.0,
+    "MATINALI_CAPITAL": 55.0,
+    "RM_INTERIOR": 220.0,
+    "RM_CAPITAL": 220.0
+  },
+  "PE": {
+    "MATINALI_INTERIOR": 150.0,
+    "MATINALI_CAPITAL": 100.0,
+    "RM_INTERIOR": 160.0,
+    "RM_CAPITAL": 160.0
+  },
+  "PI": {
+    "MATINALI_INTERIOR": 200.0,
+    "MATINALI_CAPITAL": 150.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "RJ": {
+    "MATINALI_INTERIOR": 160.0,
+    "MATINALI_CAPITAL": 140.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "RN": {
+    "MATINALI_INTERIOR": 170.0,
+    "MATINALI_CAPITAL": 160.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "RS": {
+    "MATINALI_INTERIOR": 65.0,
+    "MATINALI_CAPITAL": 50.0,
+    "RM_INTERIOR": 220.0,
+    "RM_CAPITAL": 220.0
+  },
+  "RO": {
+    "MATINALI_INTERIOR": 170.0,
+    "MATINALI_CAPITAL": 155.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "RR": {
+    "MATINALI_INTERIOR": 170.0,
+    "MATINALI_CAPITAL": 150.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "SC": {
+    "MATINALI_INTERIOR": 40.0,
+    "MATINALI_CAPITAL": 35.0,
+    "RM_INTERIOR": 220.0,
+    "RM_CAPITAL": 220.0
+  },
+  "SP": {
+    "MATINALI_INTERIOR": 100.0,
+    "MATINALI_CAPITAL": 75.0,
+    "RM_INTERIOR": 220.0,
+    "RM_CAPITAL": 220.0
+  },
+  "SE": {
+    "MATINALI_INTERIOR": 170.0,
+    "MATINALI_CAPITAL": 140.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  },
+  "TO": {
+    "MATINALI_INTERIOR": 190.0,
+    "MATINALI_CAPITAL": 150.0,
+    "RM_INTERIOR": null,
+    "RM_CAPITAL": null
+  }
+}
