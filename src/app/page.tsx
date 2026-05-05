@@ -6091,44 +6091,13 @@ function CardTrocaCode({ card, phaseName, getFieldValue, onReload }: CardTrocaCo
 
           {/* Bloco "Campos desta fase — Aguardando" — só aparece nessa fase */}
           {card.status === "aguardando" && (
-            <div className="mb-4 p-4 bg-white border border-gray-200 rounded-md">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-800">Campos desta fase — Aguardando</h4>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Processo: Troca de Código de Imóvel · {codigoAntigo}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
-                  onClick={() => alert("Salvar — sem função ainda")}
-                >
-                  Salvar
-                </button>
-              </div>
-              <div className="space-y-2 mb-3">
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input type="checkbox" className="h-4 w-4" />
-                  Alterado no Pipedrive
-                </label>
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input type="checkbox" className="h-4 w-4" />
-                  Alterado nas OTAs?
-                </label>
-                <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input type="checkbox" className="h-4 w-4" />
-                  Alterado no Pipefy - CS Prop
-                </label>
-              </div>
-              <button
-                type="button"
-                className="px-3 py-1.5 text-xs bg-gray-100 border border-gray-300 text-gray-700 rounded hover:bg-gray-200"
-                onClick={() => alert("Enviar — sem função ainda")}
-              >
-                enviar
-              </button>
-            </div>
+            <AguardandoBlock
+              cardId={card.id}
+              codigoAntigo={codigoAntigo}
+              codigoNovo={codigoNovo}
+              statusFlags={card.statusFlags || {}}
+              onReload={onReload}
+            />
           )}
 
           {/* Resultado do Preview Pipefy */}
@@ -6390,6 +6359,161 @@ function CardTrocaCode({ card, phaseName, getFieldValue, onReload }: CardTrocaCo
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+// Bloco "Campos desta fase — Aguardando":
+// 3 checkboxes (Pipedrive, OTAs, Pipefy CS Prop) com Salvar; botao Enviar
+// dispara o mesmo template Slack do botao da fase em_andamento (sem mover card).
+function AguardandoBlock({
+  cardId,
+  codigoAntigo,
+  codigoNovo,
+  statusFlags,
+  onReload,
+}: {
+  cardId: string;
+  codigoAntigo: string;
+  codigoNovo: string;
+  statusFlags: any;
+  onReload?: () => void;
+}) {
+  const [pipedrive, setPipedrive] = useState<boolean>(!!statusFlags.alteradoPipedrive);
+  const [otas, setOtas] = useState<boolean>(!!statusFlags.alteradoOtas);
+  const [csProp, setCsProp] = useState<boolean>(!!statusFlags.alteradoPipefyCsProp);
+  const [salvando, setSalvando] = useState(false);
+  const [enviando, setEnviando] = useState(false);
+  const [feedback, setFeedback] = useState<{ tipo: "ok" | "erro"; texto: string } | null>(null);
+
+  const dirty =
+    pipedrive !== !!statusFlags.alteradoPipedrive ||
+    otas !== !!statusFlags.alteradoOtas ||
+    csProp !== !!statusFlags.alteradoPipefyCsProp;
+
+  const salvar = async () => {
+    setSalvando(true);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/suporte-aguardando-campos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          cardSuporteId: cardId,
+          flags: {
+            alteradoPipedrive: pipedrive,
+            alteradoOtas: otas,
+            alteradoPipefyCsProp: csProp,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setFeedback({ tipo: "ok", texto: "Salvo no suporte-ops." });
+        if (onReload) onReload();
+      } else {
+        setFeedback({ tipo: "erro", texto: data.error || "Erro ao salvar" });
+      }
+    } catch (err: any) {
+      setFeedback({ tipo: "erro", texto: err?.message || "Erro de conexão" });
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const enviar = async () => {
+    setEnviando(true);
+    setFeedback(null);
+    try {
+      const res = await fetch("/api/suporte-enviar-troca", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cardSuporteId: cardId, codigoAntigo, codigoNovo }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        const slackOk = data?.slack?.status === "ok";
+        setFeedback({
+          tipo: slackOk ? "ok" : "erro",
+          texto: slackOk
+            ? "Comentário enviado e Slack notificado."
+            : `Comentário criado, mas Slack falhou: ${data?.slack?.erro || "erro"}`,
+        });
+        if (onReload) onReload();
+      } else {
+        setFeedback({ tipo: "erro", texto: data.error || "Erro ao enviar" });
+      }
+    } catch (err: any) {
+      setFeedback({ tipo: "erro", texto: err?.message || "Erro de conexão" });
+    } finally {
+      setEnviando(false);
+    }
+  };
+
+  return (
+    <div className="mb-4 p-4 bg-white border border-gray-200 rounded-md">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h4 className="text-sm font-semibold text-gray-800">Campos desta fase — Aguardando</h4>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Processo: Troca de Código de Imóvel · {codigoAntigo}
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={salvando || !dirty}
+          className="px-3 py-1.5 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={salvar}
+        >
+          {salvando ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+      <div className="space-y-2 mb-3">
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={pipedrive}
+            onChange={(e) => setPipedrive(e.target.checked)}
+          />
+          Alterado no Pipedrive
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={otas}
+            onChange={(e) => setOtas(e.target.checked)}
+          />
+          Alterado nas OTAs?
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={csProp}
+            onChange={(e) => setCsProp(e.target.checked)}
+          />
+          Alterado no Pipefy - CS Prop
+        </label>
+      </div>
+      <button
+        type="button"
+        disabled={enviando}
+        className="px-3 py-1.5 text-xs bg-gray-100 border border-gray-300 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        onClick={enviar}
+      >
+        {enviando ? "Enviando..." : "enviar"}
+      </button>
+      {feedback && (
+        <p
+          className={`text-xs mt-2 ${
+            feedback.tipo === "ok" ? "text-green-700" : "text-red-600"
+          }`}
+        >
+          {feedback.texto}
+        </p>
       )}
     </div>
   );
