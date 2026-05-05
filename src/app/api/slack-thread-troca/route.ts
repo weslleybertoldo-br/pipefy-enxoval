@@ -13,6 +13,7 @@ interface SlackUser {
 
 interface SlackReaction {
   name: string;
+  emoji: string; // unicode (✅ pra white_check_mark)
   users: SlackUser[];
 }
 
@@ -62,6 +63,87 @@ function brTimeFromTs(ts: string): { time: string; iso: string } {
   return { time: `${hh}:${mm}`, iso: d.toISOString() };
 }
 
+// Slack name → unicode (so :white_check_mark: vira ✅ na UI).
+// Lista enxuta com os mais comuns que aparecem no canal #suporte-operação.
+const EMOJI_MAP: Record<string, string> = {
+  white_check_mark: "✅",
+  heavy_check_mark: "✔️",
+  ballot_box_with_check: "☑️",
+  x: "❌",
+  heavy_multiplication_x: "✖️",
+  warning: "⚠️",
+  no_entry: "⛔",
+  no_entry_sign: "🚫",
+  thumbsup: "👍",
+  "+1": "👍",
+  thumbsdown: "👎",
+  "-1": "👎",
+  eyes: "👀",
+  raised_hands: "🙌",
+  pray: "🙏",
+  clap: "👏",
+  ok_hand: "👌",
+  rocket: "🚀",
+  fire: "🔥",
+  tada: "🎉",
+  bell: "🔔",
+  speech_balloon: "💬",
+  arrows_counterclockwise: "🔄",
+  hourglass_flowing_sand: "⏳",
+  hourglass: "⌛",
+  large_orange_circle: "🟠",
+  large_yellow_circle: "🟡",
+  large_green_circle: "🟢",
+  large_red_circle: "🔴",
+  large_blue_circle: "🔵",
+  question: "❓",
+  exclamation: "❗",
+  bulb: "💡",
+  hammer_and_wrench: "🛠️",
+  computer: "💻",
+  email: "📧",
+  telephone: "📞",
+  calendar: "📅",
+  spiral_calendar_pad: "🗓️",
+  pushpin: "📌",
+  memo: "📝",
+  link: "🔗",
+  mag: "🔍",
+  mag_right: "🔎",
+  white_circle: "⚪",
+  black_circle: "⚫",
+  new: "🆕",
+};
+
+function emojiFor(name: string): string {
+  return EMOJI_MAP[name] || `:${name}:`;
+}
+
+// Resolve <@USERID>, :emoji:, *bold*, _italic_ pra texto legivel.
+async function cleanSlackText(text: string): Promise<string> {
+  if (!text) return "";
+  let out = text;
+
+  // 1) Mentions <@USERID> → @Nome (resolve via users.info, com cache)
+  const mentionRe = /<@([A-Z0-9]+)>/g;
+  const mentionMatches = Array.from(out.matchAll(mentionRe));
+  for (const m of mentionMatches) {
+    const uid = m[1];
+    const u = await resolveUser(uid);
+    out = out.replace(m[0], `@${u.name}`);
+  }
+
+  // 2) Emojis :nome: → unicode
+  out = out.replace(/:([a-z0-9_+-]+):/gi, (_, name) => emojiFor(name));
+
+  // 3) *bold* → bold (strip asteriscos), _italic_ → italic (strip underscores)
+  // Tira so quando flank por palavra/inicio/fim — evita destruir asterisco em URLs/codigo.
+  out = out.replace(/(^|[\s(])\*([^*\n]+)\*(?=[\s).,;!?:]|$)/g, "$1$2");
+  out = out.replace(/(^|[\s(])_([^_\n]+)_(?=[\s).,;!?:]|$)/g, "$1$2");
+
+  return out;
+}
+
 export async function GET(request: NextRequest) {
   const authToken = request.cookies.get("auth_token")?.value;
   if (!requireAuth(authToken)) {
@@ -107,7 +189,7 @@ export async function GET(request: NextRequest) {
 
     for (let i = 0; i < rawMsgs.length; i++) {
       const m = rawMsgs[i];
-      const text = m.text || "";
+      const rawText = m.text || "";
       const { time, iso } = brTimeFromTs(m.ts);
 
       // Resolver author (m.user OU m.username pra bot/app)
@@ -120,30 +202,34 @@ export async function GET(request: NextRequest) {
         user = { id: m.bot_id, name: "Bot" };
       }
 
-      // Resolver users em reactions
+      // Resolver users em reactions + emoji unicode
       const reactions: SlackReaction[] = [];
       for (const r of m.reactions || []) {
         const users = await Promise.all(
           (r.users || []).map((uid: string) => resolveUser(uid))
         );
-        reactions.push({ name: r.name, users });
+        reactions.push({ name: r.name, emoji: emojiFor(r.name), users });
       }
 
-      // Heuristicas de classificacao
-      const lower = text.toLowerCase();
+      // Limpa texto: <@USER> → @Nome, :emoji: → unicode, *bold*/_italic_ stripped
+      const text = await cleanSlackText(rawText);
+
+      // Heuristicas usam o rawText (antes do cleanup) pra nao depender da
+      // tradução de emojis.
+      const lower = rawText.toLowerCase();
       const isRoot = i === 0;
       const isStatusChange =
-        text.includes(":arrows_counterclockwise:") ||
-        text.includes(":hourglass_flowing_sand:") ||
-        text.includes(":white_check_mark:") ||
+        rawText.includes(":arrows_counterclockwise:") ||
+        rawText.includes(":hourglass_flowing_sand:") ||
+        rawText.includes(":white_check_mark:") ||
         /Em Andamento|Aguardando|Concluído|Concluido|Arquivado/i.test(
-          text.split("\n")[0] || ""
+          rawText.split("\n")[0] || ""
         );
       const isTemplateEnviar =
         lower.includes("troca de código está em andamento") ||
         lower.includes("troca de codigo esta em andamento") ||
         (codigoAntigo &&
-          text.includes(codigoAntigo) &&
+          rawText.includes(codigoAntigo) &&
           lower.includes("status do imóvel"));
 
       msgs.push({

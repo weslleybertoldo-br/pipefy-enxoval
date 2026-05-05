@@ -6535,6 +6535,7 @@ interface SlackUserSimple {
 }
 interface SlackReactionSimple {
   name: string;
+  emoji: string;
   users: SlackUserSimple[];
 }
 interface SlackMsgSimple {
@@ -6643,7 +6644,7 @@ function SlackValidacaoBlock({
                       className="px-1.5 py-0.5 bg-white border border-blue-200 rounded inline-flex items-center gap-1"
                       title={r.users.map((u) => u.name).join(", ")}
                     >
-                      <span>:{r.name}:</span>
+                      <span className="text-base leading-none">{r.emoji}</span>
                       <span className="text-gray-700">
                         {r.users.map((u) => u.name).join(", ")}
                       </span>
@@ -6694,7 +6695,7 @@ function SlackValidacaoBlock({
                             className="text-[10px] px-1 bg-gray-100 rounded"
                             title={r.users.map((u) => u.name).join(", ")}
                           >
-                            :{r.name}: {r.users.length}
+                            {r.emoji} {r.users.length}
                           </span>
                         ))}
                       </div>
