@@ -69,6 +69,8 @@ export async function GET(request: NextRequest) {
         descricao: card.descricao,
         created_at: card.created_at,
         updated_at: card.updated_at,
+        slack_ts: card.slack_ts,
+        slack_channel: card.slack_channel,
         // Campos no formato que o componente CardTrocaCode espera (`fields[]` com {name,value})
         fields: [
           { name: "Código Antigo", value: campos.codigoAntigo },

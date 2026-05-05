@@ -6091,13 +6091,20 @@ function CardTrocaCode({ card, phaseName, getFieldValue, onReload }: CardTrocaCo
 
           {/* Bloco "Campos desta fase — Aguardando" — só aparece nessa fase */}
           {card.status === "aguardando" && (
-            <AguardandoBlock
-              cardId={card.id}
-              codigoAntigo={codigoAntigo}
-              codigoNovo={codigoNovo}
-              statusFlags={card.statusFlags || {}}
-              onReload={onReload}
-            />
+            <>
+              <AguardandoBlock
+                cardId={card.id}
+                codigoAntigo={codigoAntigo}
+                codigoNovo={codigoNovo}
+                statusFlags={card.statusFlags || {}}
+                onReload={onReload}
+              />
+              <SlackValidacaoBlock
+                slackChannel={card.slack_channel || ""}
+                slackTs={card.slack_ts || ""}
+                codigoAntigo={codigoAntigo}
+              />
+            </>
           )}
 
           {/* Resultado do Preview Pipefy */}
@@ -6514,6 +6521,190 @@ function AguardandoBlock({
         >
           {feedback.texto}
         </p>
+      )}
+    </div>
+  );
+}
+
+// Validacao Slack: le `conversations.replies` da thread do card e mostra
+// reactions na mensagem do botao "enviar" (template) + replies depois do
+// status "Aguardando". Util pra ver quem ja viu/respondeu.
+interface SlackUserSimple {
+  id: string;
+  name: string;
+}
+interface SlackReactionSimple {
+  name: string;
+  users: SlackUserSimple[];
+}
+interface SlackMsgSimple {
+  ts: string;
+  time: string;
+  text: string;
+  user: SlackUserSimple | null;
+  reactions: SlackReactionSimple[];
+  isTemplateEnviar: boolean;
+  isStatusChange: boolean;
+}
+interface SlackThreadData {
+  totalMessages: number;
+  lastActivityTime: string | null;
+  templateMessage: SlackMsgSimple | null;
+  repliesAfterAguardando: SlackMsgSimple[];
+}
+
+function SlackValidacaoBlock({
+  slackChannel,
+  slackTs,
+  codigoAntigo,
+}: {
+  slackChannel: string;
+  slackTs: string;
+  codigoAntigo: string;
+}) {
+  const [data, setData] = useState<SlackThreadData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+
+  const fetchThread = async () => {
+    if (!slackChannel || !slackTs) {
+      setErro("Card sem slack_channel/slack_ts — não foi postado no Slack.");
+      return;
+    }
+    setLoading(true);
+    setErro(null);
+    try {
+      const params = new URLSearchParams({
+        channel: slackChannel,
+        ts: slackTs,
+        codigoAntigo,
+      });
+      const res = await fetch(`/api/slack-thread-troca?${params}`);
+      const d = await res.json();
+      if (d.success) {
+        setData(d);
+      } else {
+        setErro(d.error || "Erro ao buscar thread");
+      }
+    } catch (err: any) {
+      setErro(err?.message || "Erro de conexão");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchThread();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slackChannel, slackTs]);
+
+  return (
+    <div className="mb-4 p-4 bg-white border border-gray-200 rounded-md">
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <h4 className="text-sm font-semibold text-gray-800">Validação Slack</h4>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Quem reagiu/respondeu na thread depois que entrou em Aguardando.
+          </p>
+        </div>
+        <button
+          type="button"
+          disabled={loading}
+          className="px-3 py-1.5 text-xs bg-gray-100 border border-gray-300 text-gray-700 rounded hover:bg-gray-200 disabled:opacity-50"
+          onClick={fetchThread}
+        >
+          {loading ? "Carregando..." : "↻ Atualizar"}
+        </button>
+      </div>
+
+      {erro && <p className="text-xs text-red-600">{erro}</p>}
+
+      {!erro && !data && !loading && (
+        <p className="text-xs text-gray-500">Sem dados ainda.</p>
+      )}
+
+      {data && (
+        <div className="space-y-3 text-sm">
+          <div className="text-xs text-gray-500">
+            Thread: {data.totalMessages} mensagens
+            {data.lastActivityTime && ` · Última atividade ${data.lastActivityTime}`}
+          </div>
+
+          {data.templateMessage ? (
+            <div className="p-2 bg-blue-50 border border-blue-100 rounded">
+              <div className="text-xs font-medium text-blue-900">
+                📌 Mensagem &quot;enviar&quot; ({data.templateMessage.time})
+              </div>
+              {data.templateMessage.reactions.length > 0 ? (
+                <div className="mt-1 flex flex-wrap gap-2 text-xs">
+                  {data.templateMessage.reactions.map((r) => (
+                    <span
+                      key={r.name}
+                      className="px-1.5 py-0.5 bg-white border border-blue-200 rounded inline-flex items-center gap-1"
+                      title={r.users.map((u) => u.name).join(", ")}
+                    >
+                      <span>:{r.name}:</span>
+                      <span className="text-gray-700">
+                        {r.users.map((u) => u.name).join(", ")}
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-1 text-xs text-gray-500 italic">
+                  Sem reactions ainda
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-100 p-2 rounded">
+              Mensagem do botão &quot;enviar&quot; não encontrada na thread (texto pode ter
+              mudado). Verifique direto no Slack.
+            </div>
+          )}
+
+          <div>
+            <div className="text-xs font-medium text-gray-700 mb-1">
+              💬 Replies depois do &quot;Aguardando&quot;:{" "}
+              {data.repliesAfterAguardando.length}
+            </div>
+            {data.repliesAfterAguardando.length === 0 ? (
+              <p className="text-xs text-gray-500 italic">
+                Nenhuma resposta na thread após entrar em Aguardando.
+              </p>
+            ) : (
+              <ul className="space-y-1.5">
+                {data.repliesAfterAguardando.map((m) => (
+                  <li
+                    key={m.ts}
+                    className="text-xs border-l-2 border-gray-200 pl-2"
+                  >
+                    <span className="font-medium text-gray-700">
+                      {m.user?.name || "?"}
+                    </span>
+                    <span className="text-gray-400"> ({m.time})</span>
+                    <div className="text-gray-700 whitespace-pre-wrap mt-0.5">
+                      {m.text.length > 240 ? m.text.slice(0, 240) + "…" : m.text}
+                    </div>
+                    {m.reactions.length > 0 && (
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {m.reactions.map((r) => (
+                          <span
+                            key={r.name}
+                            className="text-[10px] px-1 bg-gray-100 rounded"
+                            title={r.users.map((u) => u.name).join(", ")}
+                          >
+                            :{r.name}: {r.users.length}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
