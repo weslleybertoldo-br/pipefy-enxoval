@@ -143,7 +143,7 @@ export function calcularEnxoval(
       precoUnit: preco,
       total: qtd * preco,
     }))
-    .filter((r) => r.quantidade > 0)
+    .filter((r) => r.quantidade > 0 && r.precoUnit > 0)
     .sort((a, b) => b.quantidade - a.quantidade);
 
   return {
