@@ -85,10 +85,12 @@ export async function GET(req: NextRequest) {
           }
         );
 
-      // Default: o anexo "enxoval Geral.pdf" (caso exista) ou o que tiver "enxoval" no nome
-      const exactGeral = attachments.find((a: { fileName: string }) =>
-        a.fileName.toLowerCase().includes("enxoval geral")
-      );
+      // Default: anexo que contenha "enxoval" E "geral" no nome (em qualquer ordem,
+      // com qualquer separador). Ex.: "VEM0308-enxoval(GERAL).pdf", "Enxoval - Geral.pdf"
+      const exactGeral = attachments.find((a: { fileName: string }) => {
+        const f = a.fileName.toLowerCase();
+        return f.includes("enxoval") && f.includes("geral");
+      });
       const anyEnxoval = attachments.find((a: { fileName: string }) =>
         a.fileName.toLowerCase().includes("enxoval")
       );

@@ -57,7 +57,10 @@ async function uploadPdfBuffer(
   const fullUrl = presignedUrl.split("?")[0];
   const m = fullUrl.match(/\.amazonaws\.com\/(.+)$/);
   if (!m) throw new Error("URL inválida");
-  return m[1];
+  // O Pipefy hoje retorna paths "orgs/{uuid}/uploads/{uuid}/file.pdf",
+  // mas o campo attachment só renderiza corretamente quando é "uploads/{uuid}/file.pdf"
+  // (formato dos registros legados). Sem strip o usuário ve "Permission denied / Repo not found".
+  return m[1].replace(/^orgs\/[^/]+\//, "");
 }
 
 function todayBR(): string {
@@ -112,7 +115,8 @@ async function createTableRecord(
     { id: "capa_edredom_queen_size", v: String(ag["CAPA EDREDOM QUEEN"] ?? 0) },
     { id: "capa_edredom_king_size", v: String(ag["CAPA EDREDOM KING"] ?? 0) },
     { id: "valida_o_da_marca_do_enxoval", v: "0" },
-    { id: "comprovante_de_compra_do_propriet_rio", v: filePath },
+    // attachment com is_multiple=True precisa de array; mandar como array sempre.
+    { id: "comprovante_de_compra_do_propriet_rio", v: [filePath] as string[] },
   ];
 
   const fieldsStr = fields
@@ -156,6 +160,9 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       code?: string;
       vistoriaCardId?: string;
+      // Modo "anexo": usar este PDF preexistente em vez de gerar um novo.
+      attachmentPath?: string;
+      attachmentUrl?: string;
     };
     const code = body.code?.trim();
     if (!code) {
@@ -194,15 +201,31 @@ export async function POST(request: NextRequest) {
       vistoriaCardId = vistorias[0].id;
     }
 
-    // 3. Snapshot consolidado + cálculo
+    // 3. Snapshot consolidado + cálculo (sempre do PIPE 3)
     const snapshot = await deriveEnxovalSnapshot(code, vistoriaCardId);
 
-    // 4. Gera PDF
-    const pdf = await gerarEnxovalPdf(snapshot);
+    // 4. PDF: ou anexa o que veio (modo "anexo"), ou gera do zero (modo "vistoria")
+    let pdfBuffer: Buffer;
+    let fileName: string;
+    if (body.attachmentUrl) {
+      const r = await fetch(body.attachmentUrl);
+      if (!r.ok) {
+        return NextResponse.json(
+          { error: `Falha ao baixar PDF anexado: HTTP ${r.status}` },
+          { status: 502 }
+        );
+      }
+      pdfBuffer = Buffer.from(await r.arrayBuffer());
+      fileName =
+        body.attachmentPath?.split("/").pop() ||
+        `${code}-enxoval.pdf`;
+    } else {
+      pdfBuffer = await gerarEnxovalPdf(snapshot);
+      fileName = `${code}-enxoval.pdf`;
+    }
 
     // 5. Upload S3 Pipefy
-    const fileName = `${code}-enxoval.pdf`;
-    const filePath = await uploadPdfBuffer(pdf, fileName);
+    const filePath = await uploadPdfBuffer(pdfBuffer, fileName);
 
     // 6. Cria registro na tabela (com PDF) e conecta ao card Fase 5
     const recordId = await createTableRecord(snapshot, filePath, fase5.id);

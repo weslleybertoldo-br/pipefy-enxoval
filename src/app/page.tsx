@@ -337,13 +337,21 @@ function TabProcessamento() {
     }
   };
 
-  const generateEnxoval = async (code: string, vistoriaCardId?: string) => {
+  const generateEnxoval = async (
+    code: string,
+    opts: { vistoriaCardId?: string; attachment?: PdfAttachment } = {}
+  ) => {
     setProcessingCard(code);
     try {
       const res = await fetch("/api/generate-enxoval", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, vistoriaCardId }),
+        body: JSON.stringify({
+          code,
+          vistoriaCardId: opts.vistoriaCardId,
+          attachmentPath: opts.attachment?.path,
+          attachmentUrl: opts.attachment?.url,
+        }),
       });
       const data = await res.json();
       if (res.status === 409 && data.error === "MULTIPLE_VISTORIAS") {
@@ -351,32 +359,6 @@ function TabProcessamento() {
         setVistoriaPicker({ code, cards: data.cards as VistoriaCardOpt[] });
         return;
       }
-      if (data.success) {
-        setCardStatuses((prev) => ({ ...prev, [code]: { status: "success", message: `Registro #${data.recordId} criado` } }));
-        setCards((prev) => prev.map((c) => c.title === code ? { ...c, hasRecord: true, recordId: data.recordId } : c));
-      } else {
-        setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: data.error || "Erro" } }));
-      }
-    } catch {
-      setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: "Erro de conexão" } }));
-    } finally {
-      setProcessingCard(null);
-    }
-  };
-
-  const processFromAnexo = async (code: string, attachment: PdfAttachment | undefined) => {
-    if (!attachment) {
-      setCardStatuses((prev) => ({ ...prev, [code]: { status: "error", message: "Escolha o PDF anexado" } }));
-      return;
-    }
-    setProcessingCard(code);
-    try {
-      const res = await fetch("/api/process-card", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code, attachmentPath: attachment.path, attachmentUrl: attachment.url }),
-      });
-      const data = await res.json();
       if (data.success) {
         setCardStatuses((prev) => ({ ...prev, [code]: { status: "success", message: `Registro #${data.recordId} criado` } }));
         setCards((prev) => prev.map((c) => c.title === code ? { ...c, hasRecord: true, recordId: data.recordId } : c));
@@ -404,7 +386,11 @@ function TabProcessamento() {
     } else {
       const path = rowAttachment[c.title];
       const att = c.attachments.find((a) => a.path === path);
-      processFromAnexo(c.title, att);
+      if (!att) {
+        setCardStatuses((prev) => ({ ...prev, [c.title]: { status: "error", message: "Escolha o PDF anexado" } }));
+        return;
+      }
+      generateEnxoval(c.title, { attachment: att });
     }
   };
 
@@ -456,11 +442,11 @@ function TabProcessamento() {
       if (mode === "anexo") {
         const path = rowAttachment[card.title];
         const att = card.attachments.find((a) => a.path === path);
-        await processFromAnexo(card.title, att);
+        if (att) await generateEnxoval(card.title, { attachment: att });
+        else setCardStatuses((prev) => ({ ...prev, [card.title]: { status: "error", message: "Escolha o PDF anexado" } }));
       } else if (mode === "vistoria") {
         await generateEnxoval(card.title);
       } else {
-        // sem modo escolhido: pula
         setCardStatuses((prev) => ({
           ...prev,
           [card.title]: { status: "error", message: "Escolha um modo (anexo/vistoria) antes" },
