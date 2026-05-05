@@ -197,8 +197,10 @@ export async function getSuporteCard(cardId: string): Promise<SuporteCardRaw | n
   return Array.isArray(arr) && arr[0] ? arr[0] : null;
 }
 
-// User Weslley no Supabase suporte-ops (descoberto via JWT que o user colou)
-export const SUPORTE_USER_WESLLEY = "3b09cea1-b3af-48ad-9e95-b9cecc961a94";
+// User Weslley no Supabase suporte-ops (id valido em `usuarios`, descoberto
+// via autor_id dos comentarios reais — o id antigo "3b09cea1-..." nao existia
+// na tabela e quebrava INSERT em `comentarios` com FK 23503 silencioso).
+export const SUPORTE_USER_WESLLEY = "8ca20d1b-8631-471d-87f0-9c6dfb9f38b6";
 
 // Lê definição do processo (incluindo botao_mensagem dos campos_gestao_json)
 export async function getProcesso(id: string): Promise<any | null> {
