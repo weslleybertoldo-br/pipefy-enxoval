@@ -5181,8 +5181,6 @@ function CardTrocaCode({ card, phaseName, getFieldValue, onReload }: CardTrocaCo
   const solicitante =
     getFieldValue(fields, "Quem Solicitou") || getFieldValue(fields, "Solicitante") || "";
   const motivo = getFieldValue(fields, "Motivo da troca") || "";
-  const idAntigo = getFieldValue(fields, "Id do imóvel antigo") || "";
-  const idNovo = getFieldValue(fields, "Id do imóvel novo") || "";
   const statusImovel = getFieldValue(fields, "Status do Imóvel") || "";
   const lastComment = card.lastComment;
 
@@ -5707,7 +5705,7 @@ function CardTrocaCode({ card, phaseName, getFieldValue, onReload }: CardTrocaCo
       {expanded && (
         <div className="border-t border-gray-200 p-4 bg-gray-50">
           {/* Info básica */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-sm">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4 text-sm">
             <div>
               <span className="text-gray-500">Código Antigo:</span>
               <span className="ml-2 font-medium">{codigoAntigo}</span>
@@ -5717,12 +5715,18 @@ function CardTrocaCode({ card, phaseName, getFieldValue, onReload }: CardTrocaCo
               <span className="ml-2 font-medium">{codigoNovo}</span>
             </div>
             <div>
-              <span className="text-gray-500">ID Antigo:</span>
-              <span className="ml-2 font-medium">{idAntigo}</span>
-            </div>
-            <div>
-              <span className="text-gray-500">ID Novo:</span>
-              <span className="ml-2 font-medium">{idNovo || "—"}</span>
+              <span className="text-gray-500">Status do Imóvel:</span>
+              <span
+                className={`ml-2 font-medium ${
+                  statusImovel === "Ativo"
+                    ? "text-green-700"
+                    : statusImovel === "Implantação"
+                    ? "text-amber-700"
+                    : "text-gray-400"
+                }`}
+              >
+                {statusImovel || "—"}
+              </span>
             </div>
           </div>
 
